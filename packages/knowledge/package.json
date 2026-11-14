@@ -1,0 +1,29 @@
+{
+  "name": "@dsh-bridge/knowledge",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Permission-aware knowledge search for a Bridge v1 business system: documents indexed with per-chunk visibility (roles / users), searched with the asker's own rights (BM25F over character bigrams, from @dsh-bridge/help), results with business-screen sources. Optional capability GET /bridge/v1/knowledge/search on server-kit's router",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./conformance": "./src/conformance.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/help": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  },
+  "devDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  }
+}

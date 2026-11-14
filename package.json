@@ -1,0 +1,19 @@
+{
+  "name": "biz-ai-agent",
+  "private": true,
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "description": "Exploring a general AI agent framework on top of the Biz Assistant Framework (@dsh-bridge/*): the knowledge layer first",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "plugins/*",
+    "examples/*"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "npm test --workspaces --if-present"
+  }
+}

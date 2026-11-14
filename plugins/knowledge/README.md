@@ -1,0 +1,41 @@
+# @dsh-bridge/plugin-knowledge (bridge-knowledge)
+
+The DSH side of the knowledge layer. The business system's permission-aware search
+([`@dsh-bridge/knowledge`](../../packages/knowledge)) becomes an AI employee tool, `<namespace>_knowledge_search`.
+
+- **Run as the employee who asked.** The plugin is a **bridge-tools tool module**, so bridge-tools wraps it in its delegation gate
+  (IM sender or web assistant → that employee's delegation → the business system). The business system decides, on every call, what
+  this employee may read. The plugin keeps **no index and no document text**.
+- **Answers must cite.** Results are numbered `[n]`, each with its source screen URL exactly as the business system returned it.
+  The tool output tells the model to cite every statement and to end with `Sources:`. `checkCitations(answer, sources)` judges an
+  answer (evals, tests); `ensureCitations` repairs one that cites nothing. `ledger.recent(sessionId)` keeps the sources of a
+  conversation for 10 minutes, in memory, for a reply guard.
+- **No choosing whose rights.** Arguments such as `role`, `userId`, `documentId` or `url` are refused. `found=false` tells the model
+  to say so, not to guess, and never hints that other documents exist.
+
+```yaml
+# the product profile's cordis.patch.yml
+- id: bridge-tools
+  name: '@dsh-bridge/plugin-tools'
+  config:
+    toolModules:
+      - module: '@dsh-bridge/plugin-knowledge'
+        application: leave-requests
+```
+
+The business manifest declares the tool, which is what lets delegations call the endpoint, role by role:
+
+```yaml
+tools:
+  - name: leave_knowledge_search
+    http: GET /bridge/v1/knowledge/search
+    access: read
+    roles: [admin, manager, staff]
+    pii: none
+```
+
+Add `knowledgeRules('<namespace>_knowledge_search')` (English) or `knowledgeRules(name, KNOWLEDGE_RULES_JA)` to the AI employee's
+persona.
+
+The plugin has not yet run inside a live DSH home. The pilot's `test/plugin.test.mjs` drives it through dsh-core's `defineTool`,
+`guardTool`, `createToolRequester` and `createBusinessApi` against the running pilot, with real delegations.

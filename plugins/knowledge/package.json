@@ -1,0 +1,26 @@
+{
+  "name": "@dsh-bridge/plugin-knowledge",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Biz Assistant Framework plugin bridge-knowledge: the business system's permission-aware knowledge search as an AI employee tool (a bridge-tools tool module). Answers must cite the returned sources; the plugin keeps no index",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./citations": "./src/citations.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/plugin-tools": "^0.1.0"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0"
+  }
+}
