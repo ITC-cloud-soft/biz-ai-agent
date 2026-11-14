@@ -6,7 +6,7 @@
 
 | 项 | 内容 | 判据 |
 |---|---|---|
-| 仓库 | `C:\work\deepseek-im\biz-ai-agent`（git init，**没有建 GitHub 仓库、没有 push**）。设计文档从 framework 移来：framework 提交 `ad942f0`（`git rm` 并从 `publish/exclude.txt` 删去那一行），已 push 到 assistanted-it main | — |
+| 仓库 | `C:\work\deepseek-im\biz-ai-agent` → 私有仓库 [ITC-cloud-soft/biz-ai-agent](https://github.com/ITC-cloud-soft/biz-ai-agent)（main，2026-11-14 建立）。设计文档从 framework 移来：framework 提交 `ad942f0`（`git rm` 并从 `publish/exclude.txt` 删去那一行），已 push 到 assistanted-it main | — |
 | 第 1 周：接口 | `GET /bridge/v1/knowledge/search` 作为 Bridge v1 的可选能力：规则、可见范围模型、OpenAPI 片段、一致性检查 K-01…K-08（`@dsh-bridge/knowledge/conformance`） | 试点通过 K-01…K-07（所有角色都有工具时 K-08 跳过）；工具只给管理职时 K-01…K-08 全部通过 |
 | 第 2 周：业务一侧 | `packages/knowledge`：文档 → 分块，可见范围按块（roles / users，节只能收窄），索引前查个人信息（本地形状检查 + 业务系统的 `piiScan`），**先按权限过滤再算统计量**的 BM25F（复用 help 的 normalize / 字符 bigram / 去掉提问词；拉丁文字按词、数字单独成词），来源 = 业务画面的链接。用 server-kit 的 `router.add` + `kit.readToolPolicy` 挂路由，**framework 没有改动** | 单元测试 9 个 |
 | 第 2 周：DSH 一侧 | `plugins/knowledge`（`bridge-knowledge`）：bridge-tools 的 tool module，以提问的员工本人的委托运行；结果编号 `[n]` 带来源 URL，要求回答带引用；`checkCitations` / `ensureCitations`；不存索引，也不存正文（ledger 只在内存里存 10 分钟的来源） | 单元测试 3 个 |
@@ -50,5 +50,5 @@
 ## 需要你决定的
 
 1. embedding 的模型（同上，推荐：先 BM25F，再接 Azure OpenAI）。
-2. 要不要给 biz-ai-agent 建 GitHub 仓库、push 到哪里（现在只是本地仓库）。
+2. ~~GitHub 仓库~~：已建私有仓库 ITC-cloud-soft/biz-ai-agent（2026-11-14）。是否公开（像 biz-ai 那样做快照）以后再定。
 3. 这两个包最后是并入 framework（`packages/knowledge`、`plugins/knowledge`，加上上面的上游改动），还是保持在这里单独发布 `@dsh-bridge/knowledge`、`@dsh-bridge/plugin-knowledge`。我推荐并入 framework：路由、manifest 的键、一致性检查本来就属于 Bridge v1。
