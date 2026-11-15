@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.mjs",
     "./conformance": "./src/conformance.mjs",
+    "./evals": "./src/evals.mjs",
     "./package.json": "./package.json"
   },
   "engines": {
@@ -18,7 +19,8 @@
     "test": "node --test --test-isolation=none test/*.test.mjs"
   },
   "dependencies": {
-    "@dsh-bridge/help": "^0.1.0"
+    "@dsh-bridge/help": "^0.1.0",
+    "@dsh-bridge/protocol": "^0.1.1"
   },
   "peerDependencies": {
     "@dsh-bridge/server-kit": "^0.1.1"

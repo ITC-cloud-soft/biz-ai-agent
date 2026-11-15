@@ -17,7 +17,7 @@ import {
   addDays, createBridgeApp, createMemoryStore, DATE_RE, DUMMY_PASSWORD_HASH, fail, hashPassword, header, listen, newToken, POLICY,
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
-import { buildKnowledgeIndex, canSee, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
+import { bridgePiiScreen, buildKnowledgeIndex, canSee, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
 export const MANIFEST_FILE = fileURLToPath(new URL('../bridge.manifest.yaml', import.meta.url))
 export const KNOWLEDGE_DIR = fileURLToPath(new URL('../knowledge/', import.meta.url))
@@ -30,13 +30,14 @@ const LOGIN_FAILURES = 5 // per login id per 10 minutes
 const MANAGERS = ['admin', 'manager']
 
 /**
- * createLeaveApp({ serviceToken, bffSecret, now?, log?, manifest?, webBase?, knowledgeDir? })
+ * createLeaveApp({ serviceToken, bffSecret, now?, log?, manifest?, webBase?, knowledgeDir?, knowledgeOptions? })
  *   -> { handler, kit, router, store, data, createUser, knowledge, rebuildKnowledge, ... }
  * manifest: { file } (default bridge.manifest.yaml) or { manifest } (tests); webBase: the business web's URL in sources ('' = paths)
+ * knowledgeOptions: passed to createKnowledgeService (embedder, rerank, minCoverage …; none = BM25F, the default)
  */
 export async function createLeaveApp({
   serviceToken, bffSecret, orgId = 'example-org', now = () => new Date(), log = () => {},
-  manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR,
+  manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR, knowledgeOptions = {},
 }) {
   const store = createMemoryStore({ now })
   const data = { users: new Map(), sessions: new Map(), leave: new Map(), approvals: new Map() }
@@ -319,18 +320,20 @@ export async function createLeaveApp({
 
   // ── knowledge: the company documents, searched with the asker's own rights ─────────────────────────────────────────
   // Indexed at start (and again by rebuildKnowledge). Every chunk passes the same personal-data check as long-term memory
-  // (hooks.piiScan: names of the roster) before it enters the index. The AI reaches it only through a delegation, and only
+  // before it enters the index: bridgePiiScreen = POST /bridge/v1/pii-scan (protocol shapes + hooks.piiScan, names of the roster).
+  // The AI reaches it only through a delegation, and only
   // for the roles of the manifest tool on GET /bridge/v1/knowledge/search.
   const baseDocuments = await readKnowledgeDir(knowledgeDir)
   const buildIndex = (documents, options = {}) => buildKnowledgeIndex(documents, {
-    roles: kit.declaredRoles, routes: kit.manifest.web?.routes ?? null, screen: hooks.piiScan, ...options,
+    roles: kit.declaredRoles, routes: kit.manifest.web?.routes ?? null, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }), ...options,
   })
-  const knowledge = createKnowledgeService(await buildIndex(baseDocuments), { webBase })
+  const knowledge = createKnowledgeService(await buildIndex(baseDocuments), { webBase, ...knowledgeOptions })
+  await knowledge.ready()
   registerKnowledge(bridge, knowledge)
   /** Rebuilds the index (documents added or changed; e.g. a document for one employee: visibility { users: [id] }). */
   async function rebuildKnowledge(extraDocuments = [], options = {}) {
     const index = await buildIndex([...baseDocuments, ...extraDocuments], options)
-    knowledge.setIndex(index)
+    await knowledge.setIndex(index)
     return index
   }
 

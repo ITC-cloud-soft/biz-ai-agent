@@ -29,13 +29,16 @@ async function questions() {
   return [...out]
 }
 
-test('the index: 4 fictional documents; the restricted sections keep only their roles', () => {
+test('the index: 6 fictional documents (en, ja, zh); the restricted sections keep only their roles', () => {
   const index = env.srv.app.knowledge.index()
-  assert.deepEqual(index.documents.map((d) => d.id).sort(), ['admin-runbook', 'kyuka-faq', 'leave-policy', 'manager-handbook'])
+  assert.deepEqual(index.documents.map((d) => d.id).sort(), ['admin-runbook', 'kyuka-faq', 'leave-policy', 'manager-handbook', 'qingjia-zhinan', 'tokubetsu-kyuka'])
   const roles = (id) => [...index.chunks.find((c) => c.id === id).visibility.roles].sort()
   assert.deepEqual(roles('leave-policy:5:0'), ['admin', 'manager'], 'Approval rules for managers')
   assert.deepEqual(roles('kyuka-faq:3:0'), ['admin', 'manager'], '管理職の承認上限')
   assert.deepEqual(roles('admin-runbook:1:0'), ['admin'])
+  assert.deepEqual(roles('qingjia-zhinan:6:0'), ['admin', 'manager'], '经理的审批规则')
+  assert.deepEqual(roles('tokubetsu-kyuka:4:0'), ['admin', 'manager'], '特別休暇の承認')
+  assert.deepEqual(roles('qingjia-zhinan:1:0'), ['admin', 'manager', 'staff'])
   assert.deepEqual(index.rejected, [])
 })
 
@@ -171,7 +174,7 @@ test('the build fails closed: unknown role, a section wider than its document, a
   await fails({ ...base, id: 'x3', link: '/admin/secret', visibility: { roles: ['manager'] } }, /not a screen of the business web/)
   await fails({ ...base, id: 'x4', link: '/handbook/x4', visibility: {} }, /never visible to everyone by default/)
   await fails({ ...base, id: 'x5', link: 'https://evil.example/x', visibility: { roles: ['manager'] } }, /link must be a screen path/)
-  assert.equal(env.srv.app.knowledge.index().documents.length, 4, 'a failed build leaves the index as it was')
+  assert.equal(env.srv.app.knowledge.index().documents.length, 6, 'a failed build leaves the index as it was')
 })
 
 test('the route: 401 without credentials, 403 for the service alone, 400 for a bad question; no hint of hidden chunks', async () => {

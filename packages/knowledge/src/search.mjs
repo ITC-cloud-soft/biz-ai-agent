@@ -7,15 +7,16 @@
 //  - PERMISSIONS FIRST: the chunks the asker may not read (canSee) are removed BEFORE any statistic is computed — document
 //    frequencies, the average length and the number of chunks come from the asker's own visible chunks only. A hidden chunk
 //    therefore changes neither the results nor their scores (no side channel), and is never returned
-//  - found = coverage of the question's own terms ≥ minCoverage (idf-weighted) and score ≥ minScore
+//  - found = coverage of the question's CONTENT terms ≥ minCoverage (idf-weighted; queryTerms) and score ≥ minScore
 //  - at most perDocument chunks of one document; the source of a result is its document's screen link (+ #anchor)
 import { DEFAULT_FILLERS, expandQuery, normalize, terms } from '@dsh-bridge/help/search'
 import { canSee } from './visibility.mjs'
+import { DEFAULT_MIN_SIMILARITY, cosine, rrf } from './hybrid.mjs'
 
 export const QUERY_MAX_CHARS = 200
 export const DEFAULT_LIMIT = 3
 export const MAX_LIMIT = 5
-export const DEFAULT_MIN_COVERAGE = 0.5
+export const DEFAULT_MIN_COVERAGE = 0.25
 export const DEFAULT_MIN_SCORE = 1
 export const DEFAULT_PER_DOCUMENT = 2
 export const SNIPPET_MAX_CHARS = 600
@@ -32,7 +33,9 @@ export const KNOWLEDGE_FILLERS = Object.freeze([
 export const STOP_WORDS = Object.freeze(new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'could', 'do', 'does', 'for', 'from', 'get', 'have', 'how', 'i', 'if', 'in', 'is', 'it',
   'me', 'my', 'of', 'on', 'or', 'our', 'should', 'tell', 'the', 'there', 'this', 'to', 'we', 'what', 'when', 'where', 'which', 'who', 'why',
-  'will', 'with', 'you', 'your', 'about', 'please', 'any', 'many', 'much', 'need', 'know', 'want', 'way', 'there', 'than', 'into',
+  'will', 'with', 'you', 'your', 'about', 'please', 'any', 'many', 'much', 'need', 'know', 'want', 'way', 'than', 'into',
+  'was', 'were', 'has', 'had', 'been', 'being', 'would', 'did', 'don', 'doesn', 'didn', 'isn', 'aren', 'wasn', 'won', 'whether', 'still', 'also',
+  'just', 'some', 'they', 'them', 'their', 'its', 'very', 'too', 'more', 'most', 'then', 'here', 'these', 'those', 'such', 'happen', 'happens',
 ]))
 
 /** Whole words of Latin-script text (3+ letters, lower case, a light plural / -ing / -ed stem), as `w:<word>` terms. */
@@ -72,12 +75,41 @@ const counts = (list) => {
   return m
 }
 
-/** The terms of a question: its own (fillers removed), and the extra ones from synonym groups. */
+/**
+ * Chinese question words (query side only). Kept to words and particles that never carry the subject of a question; single
+ * characters that also start content words (有, 是, 在, 会, 要, 能) are NOT here. Tune with the evals.
+ */
+export const ZH_FILLERS = Object.freeze([
+  '什么时候', '可不可以', '能不能', '怎么样', '为什么', '什么', '怎么', '怎样', '如何', '哪里', '哪儿', '多少', '多久', '是否', '可以', '能否', '需要', '应该',
+  '请问', '我的', '我们', '一下', '吗', '呢', '吧', '了', '的', '么', '谁', '也', '还',
+].sort((a, b) => b.length - a.length))
+
+/**
+ * The content runs of a question: Japanese / Chinese text with the fillers removed and split at HIRAGANA runs (particles,
+ * okurigana: the original script, before help's katakana folding), runs of one character dropped (verb stems like 休 / 取).
+ * Katakana words and kanji / hanzi runs stay. Latin letters and digits are left to the word / number terms.
+ */
+export function contentRuns(question, fillers = [...KNOWLEDGE_FILLERS, ...ZH_FILLERS]) {
+  let s = String(question ?? '').normalize('NFKC').toLowerCase().replace(/[a-z0-9]+/g, ' ')
+  for (const f of fillers) s = s.split(String(f).normalize('NFKC').toLowerCase()).join(' ')
+  return s.split(/[\p{Script=Hiragana}\s]+/u).map(normalize).filter((run) => run.length >= 2)
+}
+
+/**
+ * The terms of a question:
+ *  - own: its own terms (fillers removed) — they score
+ *  - content: the terms that must be matched for "found" (coverage): content-run bigrams, words without stop words, numbers.
+ *    Falls back to own when a question has no content run (all hiragana, …)
+ *  - all: own plus the extra terms of synonym groups
+ */
 export function queryTerms(question, { synonyms = [], fillers = KNOWLEDGE_FILLERS } = {}) {
   const { parts, extra } = expandQuery(question, synonyms, fillers)
-  const own = new Set([...parts.flatMap(scriptBigrams), ...wordTerms(question, { stop: STOP_WORDS }), ...numberTerms(question)])
-  const all = new Set([...own, ...extra.flatMap(termsOf)])
-  return { own, all }
+  const words = wordTerms(question, { stop: STOP_WORDS })
+  const numbers = numberTerms(question)
+  const own = new Set([...parts.flatMap(scriptBigrams), ...words, ...numbers])
+  const content = new Set([...contentRuns(question, [...fillers, ...ZH_FILLERS]).flatMap(scriptBigrams), ...words, ...numbers])
+  const all = new Set([...own, ...content, ...extra.flatMap(termsOf)])
+  return { own, content: content.size ? content : own, all }
 }
 
 /**
@@ -102,7 +134,7 @@ export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLE
     // permissions first: everything below sees only what this asker may read
     const visible = docs.filter((d) => canSee(d.chunk.visibility, asker))
     if (!visible.length) return []
-    const { own, all } = queryTerms(question, { synonyms, fillers })
+    const { content, all } = queryTerms(question, { synonyms, fillers })
     if (!all.size) return []
     const n = visible.length
     const avgLen = visible.reduce((a, d) => a + d.len, 0) / n || 1
@@ -113,7 +145,7 @@ export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLE
       df.set(t, k)
     }
     const idf = (t) => Math.log(1 + (n - (df.get(t) ?? 0) + 0.5) / ((df.get(t) ?? 0) + 0.5))
-    const ownIdf = [...own].reduce((a, t) => a + idf(t), 0) || 1
+    const contentIdf = [...content].reduce((a, t) => a + idf(t), 0) || 1
     const out = []
     for (const d of visible) {
       let score = 0
@@ -122,10 +154,10 @@ export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLE
         let w = 0
         for (const name of Object.keys(FIELD_WEIGHTS)) w += FIELD_WEIGHTS[name] * (d.tf[name].get(t) ?? 0)
         if (!w) continue
-        if (own.has(t)) matched += idf(t)
+        if (content.has(t)) matched += idf(t)
         score += idf(t) * (w * (K1 + 1)) / (w + K1 * (1 - B + B * (d.len / avgLen)))
       }
-      if (score > 0) out.push({ chunk: d.chunk, score, coverage: Math.min(1, matched / ownIdf) })
+      if (score > 0) out.push({ chunk: d.chunk, score, coverage: Math.min(1, matched / contentIdf) })
     }
     return out.sort((a, b) => b.score - a.score || a.chunk.id.localeCompare(b.chunk.id))
   }
@@ -133,6 +165,7 @@ export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLE
   return {
     rank,
     chunk: (id) => byId.get(id) ?? null,
+    visible: (asker) => docs.filter((d) => canSee(d.chunk.visibility, asker)).map((d) => d.chunk),
     visibleCount: (asker) => docs.filter((d) => canSee(d.chunk.visibility, asker)).length,
   }
 }
@@ -157,23 +190,34 @@ export function sourceOf(chunk, webBase = '') {
 }
 
 /**
- * Search for one asker.
- * @param {object} searcher        createKnowledgeSearcher(index)
- * @param {string} question        cut to QUERY_MAX_CHARS
- * @param {object} o
- * @param {{id, role}|null} o.asker   the employee asking (their own role and id; a delegation's employee)
- * @returns {{ found: boolean, results: object[] }}
+ * The chunks that answer a question for one asker, best first: [{ chunk, score }]. Permission-filtered (the searcher ranks only
+ * the asker's visible chunks), thresholds applied, not yet cut to a limit.
+ *  - lexical (default): BM25F, kept when score ≥ minScore and coverage ≥ minCoverage
+ *  - hybrid (o.vector = { query, vectors, minSimilarity? }): the lexical list and the visible chunks with cosine ≥ minSimilarity,
+ *    fused with RRF (score = RRF × 100). Only the asker's visible chunks are ever compared.
  */
-export function searchKnowledge(searcher, question, {
-  asker = null, limit = DEFAULT_LIMIT, webBase = '', minCoverage = DEFAULT_MIN_COVERAGE, minScore = DEFAULT_MIN_SCORE, perDocument = DEFAULT_PER_DOCUMENT,
+export function candidatesFor(searcher, question, {
+  asker = null, minCoverage = DEFAULT_MIN_COVERAGE, minScore = DEFAULT_MIN_SCORE, vector = null,
 } = {}) {
   const text = String(question ?? '').slice(0, QUERY_MAX_CHARS)
+  const lexical = searcher.rank(text, asker).filter((r) => r.score >= minScore && r.coverage >= minCoverage)
+  if (!vector?.query || !vector?.vectors) return lexical.map((r) => ({ chunk: r.chunk, score: r.score }))
+  const minSimilarity = vector.minSimilarity ?? DEFAULT_MIN_SIMILARITY
+  const semantic = searcher.visible(asker)
+    .map((chunk) => ({ chunk, sim: cosine(vector.query, vector.vectors.get(chunk.id)) }))
+    .filter((x) => x.sim !== null && x.sim >= minSimilarity)
+    .sort((a, b) => b.sim - a.sim || a.chunk.id.localeCompare(b.chunk.id))
+  const chunkOf = new Map([...lexical, ...semantic].map((x) => [x.chunk.id, x.chunk]))
+  return rrf([lexical.map((r) => r.chunk.id), semantic.map((x) => x.chunk.id)]).map(({ id, score }) => ({ chunk: chunkOf.get(id), score: score * 100 }))
+}
+
+/** Candidates → the answer's results: at most limit (1–5), at most perDocument per document, with snippet and source. */
+export function resultsOf(candidates, { limit = DEFAULT_LIMIT, webBase = '', perDocument = DEFAULT_PER_DOCUMENT } = {}) {
   const n = Math.min(MAX_LIMIT, Math.max(1, Number.parseInt(limit, 10) || DEFAULT_LIMIT))
   const perDoc = new Map()
   const results = []
-  for (const r of searcher.rank(text, asker)) {
+  for (const r of candidates) {
     if (results.length >= n) break
-    if (r.score < minScore || r.coverage < minCoverage) continue
     const k = perDoc.get(r.chunk.documentId) ?? 0
     if (k >= perDocument) continue
     perDoc.set(r.chunk.documentId, k + 1)
@@ -188,4 +232,18 @@ export function searchKnowledge(searcher, question, {
     })
   }
   return { found: results.length > 0, results }
+}
+
+/**
+ * Search for one asker (lexical; the service adds the optional vector side and reranker).
+ * @param {object} searcher        createKnowledgeSearcher(index)
+ * @param {string} question        cut to QUERY_MAX_CHARS
+ * @param {object} o
+ * @param {{id, role}|null} o.asker   the employee asking (their own role and id; a delegation's employee)
+ * @returns {{ found: boolean, results: object[] }}
+ */
+export function searchKnowledge(searcher, question, {
+  asker = null, limit = DEFAULT_LIMIT, webBase = '', minCoverage = DEFAULT_MIN_COVERAGE, minScore = DEFAULT_MIN_SCORE, perDocument = DEFAULT_PER_DOCUMENT, vector = null,
+} = {}) {
+  return resultsOf(candidatesFor(searcher, question, { asker, minCoverage, minScore, vector }), { limit, webBase, perDocument })
 }
