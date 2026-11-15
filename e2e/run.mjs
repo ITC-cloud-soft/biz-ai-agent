@@ -145,10 +145,11 @@ function runInstall(src) {
   return out
 }
 
-// The framework's dsh-im fork implements setAnswerFilter (plugin-src/host/care-extensions.mjs) but its `dshIm` service object
-// (plugin-src/host/index.mjs ctx.provide('dshIm', …)) does not pass it on, so NO answer filter is ever installed on a real DSH —
-// neither bridge-identity's link guard nor the citation guard. --patch-dsh-im adds the one missing line to the copy installed in
-// THIS isolated home (the file is replaced, never written through a pnpm hardlink); the framework checkout is not touched.
+// Before framework d8b3538 the dsh-im fork's `dshIm` service object (plugin-src/host/index.mjs ctx.provide('dshIm', …)) did not
+// pass setAnswerFilter on, so NO answer filter was installed on a real DSH — neither bridge-identity's link guard nor the citation
+// guard (found by this e2e). The [upstream] step checks it. --patch-dsh-im is only for an OLDER framework checkout: it adds the
+// missing line to the copy installed in THIS isolated home (the file is replaced, never written through a pnpm hardlink); with
+// d8b3538 or later it does nothing.
 const PATCH_DSH_IM = process.argv.includes('--patch-dsh-im')
 const DSH_IM_SERVICE_END = /setConversationRouter:([A-Za-z_$][\w$]*)\.setConversationRouter\}/
 function dshImExposesAnswerFilter() {

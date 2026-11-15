@@ -34,7 +34,7 @@ conformance suite, tests, evals and traces.
 npm install
 npm test
 cd examples/leave-requests-knowledge && npm run evals    # the retrieval evals as a Markdown table
-npm run e2e -- --patch-dsh-im   # the pilot on a REAL DSH (pinned CLI from ../framework/.dsh-cli, mock model and LINE; no database)
+npm run e2e     # the pilot on a REAL DSH (pinned CLI from ../framework/.dsh-cli, mock model and LINE; no database; framework d8b3538 or later)
 ```
 
 The packages come from npm (`@dsh-bridge/protocol` and `server-kit` 0.1.1, `help` / `dsh-core` / `plugin-tools` 0.1.0). Nothing

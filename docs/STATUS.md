@@ -56,7 +56,7 @@
 
 ## 真实 DSH 上的 e2e（2026-11-15）
 
-`npm run e2e -- --patch-dsh-im`（`e2e/run.mjs`）：试点（内存存储，**不需要 Docker / PostgreSQL**）+ framework 的 profile 模板 + 本仓库的插件，
+`npm run e2e`（`e2e/run.mjs`）：试点（内存存储，**不需要 Docker / PostgreSQL**）+ framework 的 profile 模板 + 本仓库的插件，
 在固定版本的 DSH CLI（`framework/.dsh-cli/0.2.2-rc.1`）、隔离的 home、mock 模型和 mock LINE 上跑。复用 framework 自己的 e2e 部件（packages/testing、gateway、install.mjs）。
 
 | 场景 | 结果 |
@@ -69,12 +69,12 @@
 | g1 staff 在网页上申请休假 → 审批卡片通过 bridge-events → bridge-approvals 到达经理的 LINE；经理问「为什么到我这里」→ `leave_graph_why` → 4 条理由 | PASS |
 | g2 其他 staff 问同一个审批 → 找不到（和不存在的 ID 一样） | PASS |
 
-**跑真实 DSH 时发现了 framework 的一个 bug（重要）**：framework fork 的 dsh-im 实现了 `setAnswerFilter`（`vendor/dsh-im/plugin-src/host/care-extensions.mjs`），
+**跑真实 DSH 时发现了 framework 的一个 bug（重要，已修）**：framework fork 的 dsh-im 实现了 `setAnswerFilter`（`vendor/dsh-im/plugin-src/host/care-extensions.mjs`），
 但对外提供的 `dshIm` 服务对象（`plugin-src/host/index.mjs` 的 `ctx.provide('dshIm', …)`）**没有把它传出去**。结果是在真正的 DSH 上
 **任何回答过滤器都装不上**：不只本仓库的引用检查，**bridge-identity 的 link guard 也从来没有生效过**（它找不到函数时只记 info 日志，然后放行）。
 不加 `--patch-dsh-im` 时 e2e 的 `[upstream]` 和 k1 都是 FAIL，回答里的 `https://evil.example/…` 原样发到了 LINE。
 `--patch-dsh-im` 只在隔离 home 里给安装好的副本加一行（`setAnswerFilter: care.setAnswerFilter`），framework 本身没有改；加上之后 10 / 10。
-正式的修复要在 framework 里做（plugin-src 加一行，重新构建 lib，加一个测试），会影响用这个 profile 的产品（care 等）。
+**已在 framework 修复：`d8b3538`**（另一个 session 做的：plugin-src 加一行、重新构建 lib、加了回归测试和 framework e2e 的 link guard 场景）。之后不加 `--patch-dsh-im` 也是 10 / 10（`[upstream]` 的 `exposedByTheFramework: true`）。用这个 profile 的产品（care 等）要重新安装 profile 才能拿到修复。
 
 ## 第 2 周遗留的问题
 
@@ -102,5 +102,5 @@
 1. ~~embedding 的模型~~：**已定（2026-11-15）：先只用 BM25F。** 以后要接 Azure OpenAI 等时，接口已经备好，只需要配置。
 2. **evals 的标准答案**：两套题都是 AI 起草的，「什么算答对」需要文档负责人确认，最好再出一套没参与调整的检验题。
 3. 这些包最后是**并入 framework**，还是在这里单独发布。推荐并入：路由、manifest 的键、一致性检查本来就属于 Bridge v1。
-4. ~~在真正的 DSH 上跑 e2e~~：已跑（10 / 10，需要上面 dsh-im 的一行修复）。**是否在 framework 里修 dsh-im 的 `setAnswerFilter`**（推荐尽快修：link guard 现在实际上没有生效）。
+4. ~~在真正的 DSH 上跑 e2e~~：已跑，10 / 10；发现的 dsh-im bug 已在 framework `d8b3538` 修复。care 等产品重新安装 profile / 部署的时机由你决定。
 5. 是否把「通用 AI agent 框架」写进官网和 README（计划 §8.3 说等第 5 周有事实后再定，现在有了）。

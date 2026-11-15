@@ -52,6 +52,6 @@ It is installed through the package's **bundle** (`cordis.patch.yml`, `- insert:
 product profile's `package.json` (`dependencies`) and to `dsh.profile.bundles` after `@dsh-bridge/plugin-identity`. A plain
 `- id: … name: …` entry in the profile's `cordis.patch.yml` is NOT enough (that form only configures an entry a bundle inserted).
 
-**Needs the dsh-im fix**: the framework's dsh-im fork implements `setAnswerFilter` but its `dshIm` service object does not pass it on
-(`vendor/dsh-im/plugin-src/host/index.mjs`), so on a real DSH no answer filter is installed — neither this guard nor
-bridge-identity's link guard. `e2e/run.mjs --patch-dsh-im` proves the one-line fix in an isolated home.
+**Needs framework d8b3538 or later**: before it, the dsh-im fork's `dshIm` service object did not pass `setAnswerFilter` on, so on
+a real DSH no answer filter was installed — neither this guard nor bridge-identity's link guard (found by this repository's
+`e2e/run.mjs`; fixed upstream on 2026-11-15).
