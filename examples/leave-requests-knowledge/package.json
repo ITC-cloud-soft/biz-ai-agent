@@ -12,14 +12,16 @@
     "start": "node src/server.mjs",
     "validate": "bridge-validate manifest bridge.manifest.yaml --strict",
     "evals": "node evals/run.mjs",
-    "test": "node --test --test-concurrency=1 test/app.test.mjs test/conformance.test.mjs test/knowledge.test.mjs test/plugin.test.mjs test/evals.test.mjs"
+    "test": "node --test --test-concurrency=1 test/app.test.mjs test/conformance.test.mjs test/knowledge.test.mjs test/plugin.test.mjs test/evals.test.mjs test/graph.test.mjs"
   },
   "dependencies": {
+    "@dsh-bridge/graph": "0.0.1",
     "@dsh-bridge/knowledge": "0.0.1",
     "@dsh-bridge/protocol": "^0.1.1",
     "@dsh-bridge/server-kit": "^0.1.1"
   },
   "devDependencies": {
+    "@dsh-bridge/plugin-graph": "0.0.1",
     "@dsh-bridge/plugin-knowledge": "0.0.1"
   }
 }

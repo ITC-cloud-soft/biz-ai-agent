@@ -17,6 +17,7 @@ import {
   addDays, createBridgeApp, createMemoryStore, DATE_RE, DUMMY_PASSWORD_HASH, fail, hashPassword, header, listen, newToken, POLICY,
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
+import { registerGraph } from '@dsh-bridge/graph'
 import { bridgePiiScreen, buildKnowledgeIndex, canSee, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
 export const MANIFEST_FILE = fileURLToPath(new URL('../bridge.manifest.yaml', import.meta.url))
@@ -336,6 +337,38 @@ export async function createLeaveApp({
     await knowledge.setIndex(index)
     return index
   }
+
+  // ── graph: the direct relations of one object, IDs and types only (GET /bridge/v1/graph/neighbors) ─────────────────────
+  // The same rules as the screens: staff see their own leave requests and the approvals of their own requests; managers see
+  // all. An object the asker may not see answers 404 like one that does not exist.
+  const graphHooks = {
+    canRead: async ({ entity, id }, asker) => {
+      if (entity === 'leave_request') {
+        const l = data.leave.get(id)
+        return Boolean(l && (asker.role !== 'staff' || l.requesterUserId === asker.id))
+      }
+      if (entity === 'approval') {
+        const a = data.approvals.get(id)
+        return Boolean(a && (MANAGERS.includes(asker.role) || a.requestedBy === asker.id))
+      }
+      return false
+    },
+    neighbors: async ({ entity, id }) => {
+      if (entity === 'leave_request') {
+        const l = data.leave.get(id)
+        const a = [...data.approvals.values()].find((x) => x.subjectType === 'leave_request' && x.subjectId === id)
+        return [{ relation: 'requested_by', entity: 'employee', id: l.requesterUserId }, ...(a ? [{ relation: 'approval', entity: 'approval', id: a.id }] : [])]
+      }
+      const a = data.approvals.get(id)
+      return [
+        { relation: 'subject', entity: a.subjectType, id: a.subjectId },
+        { relation: 'requested_by', entity: 'employee', id: a.requestedBy },
+        { relation: 'required_role', entity: 'role', id: a.requiredRole },
+        ...(a.decidedBy ? [{ relation: 'decided_by', entity: 'employee', id: a.decidedBy }] : []),
+      ]
+    },
+  }
+  registerGraph(bridge, graphHooks)
 
   // The handbook screen the sources link to: the sections this employee may read, nothing else (404 for a document that does
   // not exist AND for one the employee may not read: the screen does not tell them apart). People only, like every screen.

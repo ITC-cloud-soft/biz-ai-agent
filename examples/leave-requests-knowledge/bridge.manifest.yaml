@@ -104,6 +104,13 @@ tools:
     roles: [admin, manager, staff]
     pii: none
     input: { type: object, required: [question], additionalProperties: false, properties: { question: { type: string, maxLength: 200 }, limit: { type: integer, minimum: 1, maximum: 5 } } }
+  - name: leave_graph_neighbors
+    description: The direct relations of one leave request or approval the employee may see (IDs and types only, e.g. its requester, its subject, the role that must decide) — for "why did this reach me?".
+    http: GET /bridge/v1/graph/neighbors
+    access: read
+    roles: [admin, manager, staff]
+    pii: none
+    input: { type: object, required: [entity, id], additionalProperties: false, properties: { entity: { enum: [leave_request, approval] }, id: { type: string, maxLength: 128 } } }
   - name: leave_propose_new_dates
     description: Proposes new dates for a pending leave request (a manager accepts or rejects the proposal; the AI changes nothing).
     http: POST /bridge/v1/proposals
@@ -152,4 +159,5 @@ reports:
 
 glossary:
   unanswered: A leave request still pending 2 days after it was made.
+  graph: The relations of one object (IDs and types) combined with the rules of this manifest, to explain why a notification or approval reached someone.
   knowledge: The company documents (knowledge/*.md) the AI searches with the asker's own rights; every answer cites its handbook screen.

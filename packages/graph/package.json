@@ -1,0 +1,27 @@
+{
+  "name": "@dsh-bridge/graph",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "The semantic graph of a Bridge v1 business system: its skeleton generated from the manifest (entities, roles, events, tools, playbooks; no model), and the optional capability GET /bridge/v1/graph/neighbors (IDs and types only, filtered by the asker's rights) on server-kit's router",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./pure": "./src/pure.mjs",
+    "./conformance": "./src/conformance.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  },
+  "devDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  }
+}

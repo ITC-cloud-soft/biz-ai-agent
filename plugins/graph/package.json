@@ -1,0 +1,25 @@
+{
+  "name": "@dsh-bridge/plugin-graph",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Biz Assistant Framework plugin bridge-graph: \"why did this reach me?\" as an AI employee tool (a bridge-tools tool module): the manifest skeleton plus the object's neighbors from the business system, run with the employee's own delegation",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/graph": "0.0.1"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/plugin-tools": "^0.1.0"
+  }
+}
