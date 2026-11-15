@@ -20,11 +20,11 @@ optional Bridge v1 capability, `GET /bridge/v1/knowledge/search` (see [docs/KNOW
   `GET /bridge/v1/knowledge/search` for the employee's role. The service alone gets 403.
 
 ```js
-import { buildKnowledgeIndex, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
+import { bridgePiiScreen, buildKnowledgeIndex, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
 const bridge = await createBridgeApp({ /* … */ hooks })
 const index = await buildKnowledgeIndex(await readKnowledgeDir('knowledge'), {
-  roles: bridge.kit.declaredRoles, routes: bridge.kit.manifest.web?.routes, screen: hooks.piiScan,
+  roles: bridge.kit.declaredRoles, routes: bridge.kit.manifest.web?.routes, screen: bridgePiiScreen({ hooks, ctx: () => bridge.kit.ctx() }),
 })
 const knowledge = createKnowledgeService(index, { webBase: 'https://leave.example.com' })
 registerKnowledge(bridge, knowledge)
@@ -54,3 +54,20 @@ Conformance (`@dsh-bridge/knowledge/conformance`): `runKnowledgeChecks({ baseUrl
 over HTTP. See the pilot's `test/knowledge.test.mjs`.
 
 Tests: `npm test` (no server).
+
+## Week 3 additions
+
+- **The /pii-scan screen.** `bridgePiiScreen({ hooks, ctx })` is the same check as server-kit's `POST /bridge/v1/pii-scan`
+  (protocol shapes with the prose kinds skipped, plus `hooks.piiScan`). A failing hook fails the build: nothing is indexed.
+- **"Found" uses content terms.** Coverage is computed over the question's content: Japanese hiragana runs (particles,
+  okurigana), Chinese question words (`ZH_FILLERS`) and English stop words are left out; the default minimum is 0.25 (tuned on
+  the pilot's evals and said so in docs/STATUS.md).
+- **Optional embedder.** `createKnowledgeService(index, { embedder })` with any `{ id, embed(texts) }` fuses BM25F and cosine
+  similarity by RRF (`minSimilarity`, default 0.8). The vector side compares only the asker's visible chunks. `httpEmbedder({ url,
+  model?, headers? })` speaks the OpenAI-compatible `/embeddings` API (OpenAI, Azure OpenAI deployments, local servers). No model
+  is chosen here. An embedder that fails falls back to BM25F (`onError` is told). `setIndex` then resolves once the new chunks
+  are embedded (vectors are cached by text).
+- **Optional reranker.** `rerank(question, candidates)` may reorder or drop the asker's permitted candidates (at most 20), never
+  add one.
+- **Evals.** `runKnowledgeEvals(service, suite)` / `formatEvalReport(report)` (also `@dsh-bridge/knowledge/evals`): hit@k per
+  language, "nothing found" cases, and a leak check of every result against its chunk's visibility.

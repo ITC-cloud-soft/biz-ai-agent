@@ -58,8 +58,15 @@ The answer to an asker who may not read the matching chunks is the same as the a
 
 ## Personal data
 
-No chunk enters the index before passing the local shape check (e-mail, phone, long number) **and** the business system's own check
-(`hooks.piiScan`, the same check bridge-memory uses). By default the build fails, naming chunk IDs and kinds but never the text.
+No chunk enters the index before passing the local shape check (e-mail, phone, long number) **and** `bridgePiiScreen`, the same
+check as `POST /bridge/v1/pii-scan` (the protocol's shapes plus the business system's own `hooks.piiScan`, the check bridge-memory
+uses). By default the build fails, naming chunk IDs and kinds but never the text. A failing hook fails the build.
+
+## Optional semantic retrieval (week 3)
+
+An embedder chosen by the system owner (`{ id, embed(texts) }`; `httpEmbedder` for OpenAI-compatible endpoints) adds a vector
+ranking that is fused with BM25F by RRF. It compares only the asker's visible chunks, so the rule above holds unchanged; the answer
+keeps the same shape (`score` is then the RRF score × 100). Without an embedder, nothing changes.
 
 ## OpenAPI fragment
 

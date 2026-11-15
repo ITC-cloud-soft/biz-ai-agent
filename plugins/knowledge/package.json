@@ -9,6 +9,7 @@
   "exports": {
     ".": "./src/index.js",
     "./citations": "./src/citations.js",
+    "./guard": "./src/guard.js",
     "./package.json": "./package.json"
   },
   "engines": {
@@ -18,6 +19,7 @@
     "test": "node --test --test-isolation=none test/*.test.mjs"
   },
   "peerDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0",
     "@dsh-bridge/plugin-tools": "^0.1.0"
   },
   "devDependencies": {

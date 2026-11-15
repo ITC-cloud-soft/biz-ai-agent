@@ -39,3 +39,16 @@ persona.
 
 The plugin has not yet run inside a live DSH home. The pilot's `test/plugin.test.mjs` drives it through dsh-core's `defineTool`,
 `guardTool`, `createToolRequester` and `createBusinessApi` against the running pilot, with real delegations.
+
+## The citation guard (`@dsh-bridge/plugin-knowledge/guard`)
+
+A DSH plugin (cordis, `inject: ['dshIm']`) that installs an answer filter with `ctx.dshIm.setAnswerFilter`. dsh-im runs every
+registered filter in registration order, each on the previous one's output, so the guard runs **next to** bridge-identity's
+link guard (list the guard first, so the link guard sees the final text). When the knowledge tool returned sources in this turn
+of the conversation, an answer that does not cite them is repaired with `ensureCitations`; the sources are then forgotten, so a
+later answer that used no knowledge is never touched.
+
+```yaml
+- id: bridge-knowledge-guard
+  name: '@dsh-bridge/plugin-knowledge/guard'
+```
