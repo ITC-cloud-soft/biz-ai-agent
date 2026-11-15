@@ -14,7 +14,7 @@ the asker's own rights.
 
 ```sh
 npm install                      # at the biz-ai-agent root
-npm test -w @biz-ai-agent/example-leave-requests-knowledge   # 72 tests: business rules, conformance 52 / 52, knowledge, plugin end to end
+npm test -w @biz-ai-agent/example-leave-requests-knowledge   # 79 tests: business rules, conformance 52 / 52, knowledge, plugin and graph end to end, evals
 npm start -w @biz-ai-agent/example-leave-requests-knowledge  # http://127.0.0.1:19750 (LEAVE_WEB_URL: the web base in sources)
 ```
 

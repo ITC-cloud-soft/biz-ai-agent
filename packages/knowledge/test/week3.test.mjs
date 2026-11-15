@@ -167,3 +167,28 @@ test('evals: hit@k, "nothing found" cases, leaks, the report', async () => {
   assert.match(md, /- ja-2 \(staff\) "出張の精算" — expected travel-policy#limits, got travel-policy#seisan/)
   await assert.rejects(runKnowledgeEvals(svc, { askers: {}, cases: [{ id: 'x', q: 'y', asker: 'nobody', expect: [] }] }), /unknown asker nobody/)
 })
+
+test('evals: forbid — an asker who may not read the answer may still get the public section, never the forbidden one', async () => {
+  const index = await buildKnowledgeIndex([parseKnowledgeMarkdown(MD)], { roles: ROLES })
+  const svc = createKnowledgeService(index)
+  const suite = {
+    askers: { staff, manager },
+    cases: [
+      { id: 'f-1', lang: 'en', asker: 'staff', q: 'business trip hotel booking', expect: [], forbid: ['travel-policy#limits'] },
+      { id: 'f-2', lang: 'en', asker: 'manager', q: 'hotel limit per night', expect: [], forbid: ['travel-policy#limits'] },
+      { id: 'f-3', lang: 'en', asker: 'staff', q: 'book trains ahead', expect: ['travel-policy#booking'], forbid: ['travel-policy#seisan'] },
+    ],
+  }
+  const r = await runKnowledgeEvals(svc, suite)
+  assert.deepEqual(r.cases.map((c) => [c.id, c.pass]), [['f-1', true], ['f-2', false], ['f-3', true]])
+  assert.match(formatEvalReport(r), /f-2 \(manager\) "hotel limit per night" — expected not travel-policy#limits, got .* — FORBIDDEN travel-policy#limits/)
+})
+
+test('language options: fillers / stopWords reach the search; a synonym counts as the documents\' word for "found"', async () => {
+  const index = await buildKnowledgeIndex([parseKnowledgeMarkdown(MD)], { roles: ROLES })
+  assert.equal((await createKnowledgeService(index).search('lodging cap each night', { asker: manager })).found, false)
+  const tuned = createKnowledgeService(index, { synonyms: [['hotel', 'lodging'], ['limits', 'cap']] })
+  assert.equal((await tuned.search('lodging cap each night', { asker: manager })).results[0].id, 'travel-policy:2:0')
+  const stop = createKnowledgeService(index, { stopWords: new Set(['hotel']) })
+  assert.ok((await stop.search('hotel booking trains', { asker: staff })).found)
+})

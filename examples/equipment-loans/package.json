@@ -1,0 +1,28 @@
+{
+  "name": "@biz-ai-agent/example-equipment-loans",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Equipment loans of a fictional company (memory store, one file, conformance 52 / 52), built with the agent-builder skill: lending rules searched with each employee's own rights, and why a loan or approval reached someone",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "validate": "bridge-validate manifest bridge.manifest.yaml --strict",
+    "evals": "node evals/run.mjs",
+    "test": "node --test --test-concurrency=1 test/app.test.mjs test/conformance.test.mjs test/knowledge.test.mjs test/plugin.test.mjs test/evals.test.mjs test/graph.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/graph": "0.0.1",
+    "@dsh-bridge/knowledge": "0.0.1",
+    "@dsh-bridge/protocol": "^0.1.1",
+    "@dsh-bridge/server-kit": "^0.1.1"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0",
+    "@dsh-bridge/plugin-graph": "0.0.1",
+    "@dsh-bridge/plugin-knowledge": "0.0.1"
+  }
+}

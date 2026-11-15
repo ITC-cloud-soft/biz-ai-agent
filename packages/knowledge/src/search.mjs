@@ -80,7 +80,8 @@ const counts = (list) => {
  * characters that also start content words (有, 是, 在, 会, 要, 能) are NOT here. Tune with the evals.
  */
 export const ZH_FILLERS = Object.freeze([
-  '什么时候', '可不可以', '能不能', '怎么样', '为什么', '什么', '怎么', '怎样', '如何', '哪里', '哪儿', '多少', '多久', '是否', '可以', '能否', '需要', '应该',
+  '什么时候', '可不可以', '怎么知道', '能不能', '有没有', '怎么办', '怎么样', '为什么', '什么', '怎么', '怎样', '如何', '哪里', '哪儿', '哪些', '多少', '多久',
+  '是否', '可以', '能否', '需要', '应该',
   '请问', '我的', '我们', '一下', '吗', '呢', '吧', '了', '的', '么', '谁', '也', '还',
 ].sort((a, b) => b.length - a.length))
 
@@ -99,15 +100,26 @@ export function contentRuns(question, fillers = [...KNOWLEDGE_FILLERS, ...ZH_FIL
  * The terms of a question:
  *  - own: its own terms (fillers removed) — they score
  *  - content: the terms that must be matched for "found" (coverage): content-run bigrams, words without stop words, numbers.
- *    Falls back to own when a question has no content run (all hiragana, …)
- *  - all: own plus the extra terms of synonym groups
+ *    A word of a synonym group found in the question counts as the group's FIRST word (the documents' word): its own terms
+ *    leave the content and the first word's come in. Falls back to own when a question has no content (all hiragana, …)
+ *  - all: own plus the synonym terms
+ * Options (also on createKnowledgeSearcher / createKnowledgeService): synonyms [[documentWord, other…]…], fillers (Japanese /
+ * general question words, added to ZH_FILLERS), stopWords (a Set of English words left out of the content).
  */
-export function queryTerms(question, { synonyms = [], fillers = KNOWLEDGE_FILLERS } = {}) {
+export function queryTerms(question, { synonyms = [], fillers = KNOWLEDGE_FILLERS, stopWords = STOP_WORDS } = {}) {
   const { parts, extra } = expandQuery(question, synonyms, fillers)
-  const words = wordTerms(question, { stop: STOP_WORDS })
+  const words = wordTerms(question, { stop: stopWords })
   const numbers = numberTerms(question)
   const own = new Set([...parts.flatMap(scriptBigrams), ...words, ...numbers])
   const content = new Set([...contentRuns(question, [...fillers, ...ZH_FILLERS]).flatMap(scriptBigrams), ...words, ...numbers])
+  const joined = normalize(question)
+  for (const group of synonyms) {
+    const [first, ...others] = group.map(String)
+    const hit = others.find((w) => normalize(w).length >= 2 && joined.includes(normalize(w)))
+    if (!hit || joined.includes(normalize(first))) continue
+    for (const t of termsOf(hit)) content.delete(t)
+    for (const t of termsOf(first)) content.add(t)
+  }
   const all = new Set([...own, ...content, ...extra.flatMap(termsOf)])
   return { own, content: content.size ? content : own, all }
 }
@@ -116,7 +128,7 @@ export function queryTerms(question, { synonyms = [], fillers = KNOWLEDGE_FILLER
  * The searcher of an index (buildKnowledgeIndex).
  * @returns {{ rank(question, asker) -> [{ chunk, score, coverage }], chunk(id), visibleCount(asker) }}
  */
-export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLEDGE_FILLERS } = {}) {
+export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLEDGE_FILLERS, stopWords = STOP_WORDS } = {}) {
   const docs = index.chunks.map((c) => {
     const fields = { title: c.title, keywords: c.keywords.join(' '), heading: c.heading ?? '', body: c.text }
     const tf = {}
@@ -134,7 +146,7 @@ export function createKnowledgeSearcher(index, { synonyms = [], fillers = KNOWLE
     // permissions first: everything below sees only what this asker may read
     const visible = docs.filter((d) => canSee(d.chunk.visibility, asker))
     if (!visible.length) return []
-    const { content, all } = queryTerms(question, { synonyms, fillers })
+    const { content, all } = queryTerms(question, { synonyms, fillers, stopWords })
     if (!all.size) return []
     const n = visible.length
     const avgLen = visible.reduce((a, d) => a + d.len, 0) / n || 1

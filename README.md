@@ -17,24 +17,29 @@ things stand is in [`docs/STATUS.md`](docs/STATUS.md).
 An agent is first an IT system: no drag-and-drop flow editor. Flows are code, written with coding agents, guarded by the manifest, the
 conformance suite, tests, evals and traces.
 
-## What is here (MVP, weeks 1–2)
+## What is here (MVP, weeks 1–5)
 
 | path | what |
 |---|---|
-| [`packages/knowledge`](packages/knowledge) | `@dsh-bridge/knowledge`, the business side. It indexes documents with per-chunk visibility (roles / employees) and searches with the asker's rights (BM25F over the character bigrams of `@dsh-bridge/help`, plus words for Latin text). It serves `GET /bridge/v1/knowledge/search` on server-kit's router and ships the knowledge conformance checks K-01…K-08. |
-| [`plugins/knowledge`](plugins/knowledge) | `@dsh-bridge/plugin-knowledge` (`bridge-knowledge`), the DSH side. It is a bridge-tools tool module: the search becomes the AI employee's tool, run as the asking employee. Answers must cite `[n]` with the source screens. The plugin keeps no index. |
-| [`examples/leave-requests-knowledge`](examples/leave-requests-knowledge) | The pilot: a copy of `framework/examples/leave-requests` with four fictional documents and a handbook screen. Its tests prove that a role never retrieves a chunk it may not see, also through a delegation. |
-| [`docs/KNOWLEDGE_API.md`](docs/KNOWLEDGE_API.md) | The capability: route, rules, OpenAPI fragment, conformance checks, and the framework changes better made upstream. |
+| [`packages/knowledge`](packages/knowledge) | `@dsh-bridge/knowledge`, the business side of the knowledge layer: documents with per-chunk visibility (roles / employees), the /pii-scan screen before indexing, search with the asker's rights (BM25F; an optional embedder fused by RRF and an optional reranker, both on the asker's visible chunks only), `GET /bridge/v1/knowledge/search`, conformance K-01…K-08, and the evals runner. |
+| [`plugins/knowledge`](plugins/knowledge) | `@dsh-bridge/plugin-knowledge` (`bridge-knowledge`): the search as the AI employee's tool (a bridge-tools tool module, run as the asking employee; answers cite `[n]` with the source screens), and `/guard`, the citation guard as a dsh-im answer filter next to the link guard. No index on the AI side. |
+| [`packages/graph`](packages/graph) | `@dsh-bridge/graph`: the semantic graph's skeleton generated from the manifest (no model), `GET /bridge/v1/graph/neighbors` (IDs and types only, the asker's rights), `explainReach` ("why did this reach me?"), conformance G-01…G-07. |
+| [`plugins/graph`](plugins/graph) | `@dsh-bridge/plugin-graph` (`bridge-graph`): `<namespace>_graph_why`, run with the employee's own delegation. |
+| [`skills/agent-builder`](skills/agent-builder) | The `agent-builder` skill (English): an IT system first (Bridge v1, 52 / 52), then knowledge, graph, evals and the plugin configuration. |
+| [`examples/leave-requests-knowledge`](examples/leave-requests-knowledge) | The pilot (a copy of `framework/examples/leave-requests`): six fictional documents in English, Japanese and Chinese, the handbook screen, the graph hooks, 60 eval questions. |
+| [`examples/equipment-loans`](examples/equipment-loans) | A new example built from scratch by a coding agent that followed only the skill (week 5). |
+| [`docs/KNOWLEDGE_API.md`](docs/KNOWLEDGE_API.md), [`docs/GRAPH_API.md`](docs/GRAPH_API.md) | The two capabilities: routes, rules, conformance checks, and the framework changes better made upstream. |
 
 ```sh
 npm install
-npm test        # knowledge 9 · plugin 3 · pilot 72 (business rules, Bridge v1 conformance 52 / 52, knowledge, plugin end to end)
+npm test
+cd examples/leave-requests-knowledge && npm run evals    # the retrieval evals as a Markdown table
 ```
 
 The packages come from npm (`@dsh-bridge/protocol` and `server-kit` 0.1.1, `help` / `dsh-core` / `plugin-tools` 0.1.0). Nothing
-here changes the framework. The two new packages are `private` and have not been published.
+here changes the framework. The new packages are `private` and have not been published.
 
-All data in the documents and tests is fictional. Embeddings are not used yet (BM25F only). The choice of model, Azure OpenAI or a
-local one, is still open.
+All data in the documents, tests and evals is fictional. No embedding model is chosen (BM25F by default; the embedder interface
+takes any OpenAI-compatible endpoint once the owner picks one).
 
 Licence: Apache-2.0 (like the framework).

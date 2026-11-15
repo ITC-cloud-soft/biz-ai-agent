@@ -27,15 +27,21 @@ What you produce:
 | evals | `evals/knowledge.evals.json`: fixed questions, askers, expected sources | written BEFORE tuning, run on every change, a floor test |
 | AI plane | bridge-tools `toolModules`: `@dsh-bridge/plugin-knowledge`, `@dsh-bridge/plugin-graph` | listed in the README (a real DSH run is a separate step) |
 
-**The reference implementation is `examples/leave-requests-knowledge` in this repository** (one-file app, every part above, 79
-tests). Read its `src/app.mjs`, `bridge.manifest.yaml`, `knowledge/`, `evals/` and `test/` before you write anything; copy and
-adapt rather than invent. Interfaces: `docs/KNOWLEDGE_API.md`, `docs/GRAPH_API.md`. Framework rules: the framework repository's
+**The reference implementations are in this repository**: `examples/leave-requests-knowledge` (one-file app, every part above)
+and `examples/equipment-loans` (built from scratch with this skill; a time-based event, a catalog entity, three languages). Read
+`src/app.mjs`, `bridge.manifest.yaml`, `knowledge/`, `evals/` and `test/` of one of them before you write anything; copy and
+adapt rather than invent. Interfaces: `docs/KNOWLEDGE_API.md`, `docs/GRAPH_API.md`. Framework rules: the framework repository
+(private `ITC-cloud-soft/assistanted-it`, public snapshot `ITC-cloud-soft/biz-ai`; ask where the local checkout is) —
 `docs/GUIDELINE.en.md` and its skill `docs/skill/biz-assistant-integration` (cited below as *integration skill*).
+
+Words used below: **`<ns>`** is the application's namespace — the prefix of every manifest tool name (`leave_...`, `loan_...`)
+and the `namespace` of the application in bridge-tools; the plugins name their tools `<ns>_knowledge_search` and
+`<ns>_graph_why`.
 
 ## 0. Ask first — and write down what you did not ask
 
-These are decisions for people, not for you. Write the options and your recommendation in the plan (`templates/agent-plan.md`)
-and wait. When nobody can be asked (an unattended run), take the recommended default, mark it **"to confirm"**, and go on.
+These are decisions for people, not for you. Write the options and your recommendation in the plan (copy
+`templates/agent-plan.md` to `examples/<system-id>/AGENT_PLAN.md`) and wait. When nobody can be asked (an unattended run), take the recommended default, mark it **"to confirm"**, and go on.
 
 1. **Who the agent works for and what it may do**: which roles talk to it; what it reads (each tool and its roles); what it may
    propose; who decides each proposal and approval. Default: read + propose for every role, writes by people only.
@@ -59,7 +65,14 @@ and wait. When nobody can be asked (an unattended run), take the recommended def
      `reports.compute` (counts, scoped by role), `piiScan` (names in the roster).
   4. AI reads use `kit.readToolPolicy('<METHOD> <path>', roles)`; every write is `{ allow: ['user'] }` (people only).
   5. Rename everything (cookie name, token prefixes, labels). No real names, addresses, phone numbers or e-mails anywhere —
-     fictional data only, in documents and tests too.
+     fictional data only, in documents and tests too. In the copied tests rename as well: the factory name and the
+     `globalThis.__<app>` handle in `conformance.test.mjs` / `fixtures.mjs`, the test service token and BFF secret, the
+     application id and `<ns>` in the plugin and graph tests, and every hard-coded chunk id, document count, case count and eval
+     floor in the knowledge and evals tests.
+  6. A time-based event ("waiting too long", "overdue"): the conformance fixtures must make it happen without waiting. Either
+     give the scan a parameter (the pilot's `minDays`) or move the object's dates back on the running instance from the
+     fixtures (`examples/equipment-loans/test/fixtures.mjs`); time passes directly on the instance, never through the API.
+  7. Declare `@dsh-bridge/dsh-core` as a devDependency (the plugin and graph tests import it).
 
 ## 2. Write the ontology (manifest)
 
@@ -110,17 +123,31 @@ Start from the reference manifest. For each part, keep the reference's style:
 - `neighbors({ entity, id }, asker)` = the object's direct relations: `{ relation, entity, id }` with `entity` a manifest entity,
   `employee` (an ID, never a name) or `role`. Typical: `subject`, `requested_by`, `required_role`, `decided_by`, `assigned_to`.
   The route re-checks every entity neighbor with `canRead`; you still return only what exists.
-- Use the relation names `requested_by` / `author` / `assigned_to` / `required_role`: `explainReach` turns them into reasons.
+- Use exactly the relation names `requested_by` (or `author`) / `assigned_to` / `required_role`, **even when the business word
+  differs** (a borrower is `requested_by`): `explainReach` turns only these into the reasons "You made it", "It is assigned to
+  you", "It waits for a decision by your role", and into the audience-rule reason for the requester. Other relations (`subject`,
+  `item`, `decided_by` ...) are walked for their events but give no reason of their own.
+- The reason kinds an e2e can expect (`packages/graph/src/explain.mjs`): `required_role`, `author`, `assignee`,
+  `event_audience`, `related_event` (an event about a neighbor), `audience_rule`, `playbook`, and `none` when no rule sends it.
 
 ## 5. Write the evals — before tuning
 
 - `evals/knowledge.evals.json` (copy the reference's shape): `askers` (fictional ids and roles) and `cases`
-  `{ id, lang, asker, q, expect: ['<doc>#<anchor>'] | [] }`. **At least 20 per language you serve**, written the way employees
-  ask (not copied headings), including: questions for each restricted section asked by a role that may read it; the same asked
-  by a role that may not (`expect: []`); 1–2 out-of-scope questions per language (`expect: []`).
+  `{ id, lang, asker, q, expect: ['<doc>#<anchor>'] | [], forbid?: [...] }`. **At least 20 per language you serve**, written the
+  way employees ask (not copied headings), including:
+  - questions for each restricted section, asked by a role that may read it (`expect: ['<doc>#<restricted>']`);
+  - the same asked by a role that may not: `expect: [], forbid: ['<doc>#<restricted>']`. It passes when the restricted section
+    is not returned, even if a public section on the same topic is (that is a right answer, not a failure). Use plain
+    `expect: []` only when NO section the asker may read is relevant;
+  - 1–2 out-of-scope questions per language (`expect: []`).
 - `evals/run.mjs` (copy) prints the report: `npm run evals`. Record the FIRST run's numbers before you change anything.
-- Legitimate tuning: document keywords and headings (owners' wording), synonym groups, filler / stop word lists for a language.
-  Not legitimate: editing a case so it passes, or tuning a threshold on the eval set without saying so in the report.
+- **One options object.** Export the knowledge options (synonyms, fillers, stopWords, embedder ...) from `src/app.mjs` and use
+  the same object in the app and in `evals/run.mjs`; otherwise the evals measure a configuration that does not run.
+- Legitimate tuning: document keywords and headings (owners' wording); `synonyms` (`[[documentsWord, otherWord, ...], ...]`: the
+  other word then counts as the documents' word, so it can turn "nothing found" into found); `fillers` (question words of a
+  language) and `stopWords` (a Set of English words) through `createKnowledgeService`. A question word missing for a whole
+  language (not just your documents) belongs in `packages/knowledge`: report it. Not legitimate: editing a case so it passes,
+  or tuning a threshold on the eval set without saying so in the report.
 - Done: every language ≥ 80 % hit@3, **0 leaks** (a leak fails the case and the test). `test/evals.test.mjs` (copy) asserts the
   measured floor so a later change cannot lower it silently.
 
@@ -132,10 +159,10 @@ Run each and report the command with a summary of its output. Write "not verifie
 |---|---|
 | manifest | `npx bridge-validate manifest bridge.manifest.yaml --strict` → `ok` |
 | conformance | `test/conformance.test.mjs` + `test/fixtures.mjs` adapted → `# conformance: 52 / 52 checks passed` |
-| business rules | `test/app.test.mjs` adapted: requests, approvals (not the requester), the waiting scan, proposals, reports |
+| business rules | `test/app.test.mjs` adapted: requests, approvals (not the requester), the waiting scan, proposals, reports. **Conformance does not prove your business rules**: letting the requester decide their own approval still passes 52 / 52; only these tests catch it. Break each rule once on purpose and see a test fail |
 | knowledge permission property | every role × web and delegation × every generated question: each result readable by the asker |
 | no side channel | an employee's results and scores equal those from an index that never had the hidden sections |
-| K-01…K-08, G-01…G-07 | `runKnowledgeChecks`, `runGraphChecks` (the second run with the tool for managers only, so K-08 / G-07 run) |
+| K-01…K-08, G-01…G-07 | `runKnowledgeChecks`, `runGraphChecks` (the second run with the tool for managers only, so K-08 / G-07 run). The knowledge probe works **per document**: the denied askers must not get ANY chunk of it, so pick a document they may not read at all (a managers-only handbook, an admin runbook); a document with public sections cannot be the probe. If every document has public sections, add a small fully restricted one |
 | why e2e | the bridge-graph tool through dsh-core `guardTool` with real delegations: the decider, the requester, another employee (`found: false`) |
 | plugin e2e | the bridge-knowledge tool the same way; delegation × role refused with 403 |
 | evals | `npm run evals` meets the floor; `test/evals.test.mjs` passes |

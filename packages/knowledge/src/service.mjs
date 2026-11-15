@@ -5,10 +5,12 @@ import { embedChunks, embedQuery } from './hybrid.mjs'
 export const RERANK_POOL = 20
 
 /**
- * createKnowledgeService(index, { webBase?, synonyms?, minCoverage?, minScore?, perDocument?, embedder?, minSimilarity?, rerank?, onError? })
+ * createKnowledgeService(index, { webBase?, synonyms?, fillers?, stopWords?, minCoverage?, minScore?, perDocument?, embedder?, minSimilarity?, rerank?, onError? })
  *   -> { search(question, { asker, limit }), setIndex(index) -> Promise, ready() -> Promise, index(), mode() }
  *
  * webBase: the business web's URL ('' → source paths only).
+ * synonyms / fillers / stopWords: the language tuning of the system (see queryTerms); share ONE options object between the app
+ *   and evals/run.mjs, so the evals measure what runs.
  * setIndex swaps the index after a rebuild (documents or visibility changed): searches never see a half-built index. With an
  *   embedder the swap happens once the new chunks are embedded (await the promise); without one it is immediate.
  * embedder (optional, see hybrid.mjs): { id, embed(texts) }. No embedder = BM25F only. When embedding fails (the index or a
@@ -18,10 +20,11 @@ export const RERANK_POOL = 20
  *   permitted candidates (at most RERANK_POOL) and may reorder or drop them, never add: anything else it returns is ignored.
  */
 export function createKnowledgeService(index, {
-  webBase = '', synonyms = [], minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null,
+  webBase = '', synonyms = [], fillers, stopWords, minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null,
 } = {}) {
   const cache = embedder ? new Map() : null
-  const lexical = (idx) => ({ index: idx, searcher: createKnowledgeSearcher(idx, { synonyms }), vectors: null })
+  const searchOptions = { synonyms, ...(fillers ? { fillers } : {}), ...(stopWords ? { stopWords } : {}) }
+  const lexical = (idx) => ({ index: idx, searcher: createKnowledgeSearcher(idx, searchOptions), vectors: null })
   async function prepare(idx) {
     const p = lexical(idx)
     try {
