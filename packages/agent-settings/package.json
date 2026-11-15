@@ -1,0 +1,29 @@
+{
+  "name": "@dsh-bridge/agent-settings",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "The settings of biz-ai-agent for a Bridge v1 business system (a server-kit add-on): models (base / embedding, keys as environment variable names or sealed), knowledge documents and the search method (BM25F / RAG with a vector store / a semantic knowledge graph as JSON), SNS approvals and reports through the framework; one settings screen (ja / en / zh)",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/help": "^0.1.0",
+    "@dsh-bridge/knowledge": "0.0.1"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  },
+  "devDependencies": {
+    "@dsh-bridge/server-kit": "^0.1.1"
+  }
+}

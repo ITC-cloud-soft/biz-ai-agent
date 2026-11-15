@@ -12,13 +12,17 @@
 // the company documents in knowledge/*.md, indexed with per-section visibility, searched with the asker's own rights at
 // GET /bridge/v1/knowledge/search, and the handbook screen /handbook/:docId the sources link to (the same visibility).
 import { randomUUID } from 'node:crypto'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   addDays, createBridgeApp, createMemoryStore, DATE_RE, DUMMY_PASSWORD_HASH, fail, hashPassword, header, listen, newToken, POLICY,
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
+import { createAgentSettings } from '@dsh-bridge/agent-settings'
 import { registerGraph } from '@dsh-bridge/graph'
-import { bridgePiiScreen, buildKnowledgeIndex, canSee, createKnowledgeService, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
+import { bridgePiiScreen, buildKnowledgeIndex, canSee, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
 export const MANIFEST_FILE = fileURLToPath(new URL('../bridge.manifest.yaml', import.meta.url))
 export const KNOWLEDGE_DIR = fileURLToPath(new URL('../knowledge/', import.meta.url))
@@ -35,10 +39,13 @@ const MANAGERS = ['admin', 'manager']
  *   -> { handler, kit, router, store, data, createUser, knowledge, rebuildKnowledge, ... }
  * manifest: { file } (default bridge.manifest.yaml) or { manifest } (tests); webBase: the business web's URL in sources ('' = paths)
  * knowledgeOptions: passed to createKnowledgeService (embedder, rerank, minCoverage …; none = BM25F, the default)
+ * dataDir: the settings plugin's data (settings, uploaded documents, vector store, knowledge graph); default a new temp directory
+ *   (like the memory store: nothing kept). agentEnv: where the plugin reads API keys and AGENT_SETTINGS_KEY (default process.env)
  */
 export async function createLeaveApp({
   serviceToken, bffSecret, orgId = 'example-org', now = () => new Date(), log = () => {},
   manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR, knowledgeOptions = {},
+  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch,
 }) {
   const store = createMemoryStore({ now })
   const data = { users: new Map(), sessions: new Map(), leave: new Map(), approvals: new Map() }
@@ -214,6 +221,12 @@ export async function createLeaveApp({
     },
   }
 
+  // biz-ai-agent settings (@dsh-bridge/agent-settings): the approvals of uploaded documents and the knowledge.updated report go
+  // first, everything else to this system's own hooks
+  const agent = createAgentSettings({ dataDir: dataDir ?? mkdtempSync(join(tmpdir(), 'leave-agent-')), env: agentEnv, fetch: agentFetch, now, log })
+  hooks.approvals = agent.approvals(hooks.approvals)
+  hooks.recipientsFor = agent.recipientsFor(hooks.recipientsFor)
+
   const bridge = await createBridgeApp({
     manifest, store, serviceToken, bffSecret, orgId, service: 'leave-requests', version: '0.1.0', hooks, now, log,
     roles: { reportReaders: MANAGERS, reportRunners: ['admin'], proposalReviewers: MANAGERS, admins: ['admin'] },
@@ -328,8 +341,9 @@ export async function createLeaveApp({
   const buildIndex = (documents, options = {}) => buildKnowledgeIndex(documents, {
     roles: kit.declaredRoles, routes: kit.manifest.web?.routes ?? null, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }), ...options,
   })
-  const knowledge = createKnowledgeService(await buildIndex(baseDocuments), { webBase, ...knowledgeOptions })
-  await knowledge.ready()
+  // the settings plugin builds the knowledge service (BM25F / RAG / knowledge graph, by its settings) and serves /agent-settings
+  await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }) })
+  const knowledge = agent.knowledge
   registerKnowledge(bridge, knowledge)
   /** Rebuilds the index (documents added or changed; e.g. a document for one employee: visibility { users: [id] }). */
   async function rebuildKnowledge(extraDocuments = [], options = {}) {
@@ -393,7 +407,7 @@ export async function createLeaveApp({
     return null
   }, { patterns: { docId: '[a-z0-9][a-z0-9-]{0,62}' } })
 
-  return { ...bridge, kit, router, store, data, createUser, requestLeave, scanUnanswered, knowledge, rebuildKnowledge }
+  return { ...bridge, kit, router, store, data, createUser, requestLeave, scanUnanswered, knowledge, rebuildKnowledge, agent }
 }
 
 /** A running instance (server.mjs, the tests). */

@@ -207,20 +207,27 @@ export function sourceOf(chunk, webBase = '') {
  *  - lexical (default): BM25F, kept when score ≥ minScore and coverage ≥ minCoverage
  *  - hybrid (o.vector = { query, vectors, minSimilarity? }): the lexical list and the visible chunks with cosine ≥ minSimilarity,
  *    fused with RRF (score = RRF × 100). Only the asker's visible chunks are ever compared.
+ *  - o.more: further ranked lists [{ chunk }] (the knowledge graph), fused the same way; only visible chunks are kept
  */
 export function candidatesFor(searcher, question, {
-  asker = null, minCoverage = DEFAULT_MIN_COVERAGE, minScore = DEFAULT_MIN_SCORE, vector = null,
+  asker = null, minCoverage = DEFAULT_MIN_COVERAGE, minScore = DEFAULT_MIN_SCORE, vector = null, more = [],
 } = {}) {
   const text = String(question ?? '').slice(0, QUERY_MAX_CHARS)
   const lexical = searcher.rank(text, asker).filter((r) => r.score >= minScore && r.coverage >= minCoverage)
-  if (!vector?.query || !vector?.vectors) return lexical.map((r) => ({ chunk: r.chunk, score: r.score }))
-  const minSimilarity = vector.minSimilarity ?? DEFAULT_MIN_SIMILARITY
-  const semantic = searcher.visible(asker)
-    .map((chunk) => ({ chunk, sim: cosine(vector.query, vector.vectors.get(chunk.id)) }))
-    .filter((x) => x.sim !== null && x.sim >= minSimilarity)
-    .sort((a, b) => b.sim - a.sim || a.chunk.id.localeCompare(b.chunk.id))
-  const chunkOf = new Map([...lexical, ...semantic].map((x) => [x.chunk.id, x.chunk]))
-  return rrf([lexical.map((r) => r.chunk.id), semantic.map((x) => x.chunk.id)]).map(({ id, score }) => ({ chunk: chunkOf.get(id), score: score * 100 }))
+  const lists = [lexical]
+  if (vector?.query && vector?.vectors) {
+    const minSimilarity = vector.minSimilarity ?? DEFAULT_MIN_SIMILARITY
+    lists.push(searcher.visible(asker)
+      .map((chunk) => ({ chunk, sim: cosine(vector.query, vector.vectors.get(chunk.id)) }))
+      .filter((x) => x.sim !== null && x.sim >= minSimilarity)
+      .sort((a, b) => b.sim - a.sim || a.chunk.id.localeCompare(b.chunk.id)))
+  }
+  // more: further ranked lists of the asker's visible chunks (the knowledge graph: kgRank); anything not visible is dropped here too
+  const visibleIds = more.length ? new Set(searcher.visible(asker).map((c) => c.id)) : null
+  for (const list of more) lists.push((Array.isArray(list) ? list : []).filter((x) => x?.chunk && visibleIds.has(x.chunk.id)))
+  if (lists.length === 1) return lexical.map((r) => ({ chunk: r.chunk, score: r.score }))
+  const chunkOf = new Map(lists.flat().map((x) => [x.chunk.id, x.chunk]))
+  return rrf(lists.map((l) => l.map((x) => x.chunk.id))).map(({ id, score }) => ({ chunk: chunkOf.get(id), score: score * 100 }))
 }
 
 /** Candidates → the answer's results: at most limit (1–5), at most perDocument per document, with snippet and source. */

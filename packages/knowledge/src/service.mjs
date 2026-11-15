@@ -1,6 +1,7 @@
 // The knowledge service of a business system: an index and its searcher, for the route (routes.mjs) or the system's own code.
 import { candidatesFor, createKnowledgeSearcher, resultsOf } from './search.mjs'
 import { embedChunks, embedQuery } from './hybrid.mjs'
+import { checkKnowledgeGraph, kgRank } from './kg.mjs'
 
 export const RERANK_POOL = 20
 
@@ -16,13 +17,18 @@ export const RERANK_POOL = 20
  * embedder (optional, see hybrid.mjs): { id, embed(texts) }. No embedder = BM25F only. When embedding fails (the index or a
  *   question), the search falls back to BM25F for it (onError is told; the answer's shape does not change). A new index is
  *   swapped in even then: its visibility is what counts.
+ * vectorCache (optional): a Map the vectors are cached in (keyed by embedder id + text): load it from a vector store before and save
+ *   it after (await ready()), so unchanged chunks are never embedded again.
+ * graph (optional): a knowledge graph (kg.mjs: names, types, chunk IDs); its ranking (kgRank, permissions first) is fused with
+ *   BM25F (and the vectors) by RRF.
  * rerank (optional): async (question, candidates[{ chunk, score }]) -> candidates in a new order. It sees only the asker's
  *   permitted candidates (at most RERANK_POOL) and may reorder or drop them, never add: anything else it returns is ignored.
  */
 export function createKnowledgeService(index, {
-  webBase = '', synonyms = [], fillers, stopWords, minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null,
+  webBase = '', synonyms = [], fillers, stopWords, minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null, vectorCache = null, graph = null,
 } = {}) {
-  const cache = embedder ? new Map() : null
+  const cache = embedder ? (vectorCache ?? new Map()) : null
+  const kg = graph ? checkKnowledgeGraph(graph) : null
   const searchOptions = { synonyms, ...(fillers ? { fillers } : {}), ...(stopWords ? { stopWords } : {}) }
   const lexical = (idx) => ({ index: idx, searcher: createKnowledgeSearcher(idx, searchOptions), vectors: null })
   async function prepare(idx) {
@@ -51,7 +57,8 @@ export function createKnowledgeService(index, {
     async search(question, { asker, limit } = {}) {
       await pending
       const { searcher } = current
-      let list = candidatesFor(searcher, question, { asker, minCoverage, minScore, vector: await vectorFor(question) })
+      const more = kg ? [kgRank(kg, searcher, String(question ?? '').slice(0, 200), asker)] : []
+      let list = candidatesFor(searcher, question, { asker, minCoverage, minScore, vector: await vectorFor(question), more })
       if (typeof rerank === 'function' && list.length > 1) {
         const pool = list.slice(0, RERANK_POOL)
         const allowed = new Map(pool.map((x) => [x.chunk.id, x]))
@@ -77,6 +84,6 @@ export function createKnowledgeService(index, {
     },
     ready: () => pending,
     index: () => current.index,
-    mode: () => (embedder ? 'hybrid' : 'lexical'),
+    mode: () => [embedder ? 'hybrid' : 'lexical', kg ? 'graph' : null].filter(Boolean).join('+'),
   }
 }
