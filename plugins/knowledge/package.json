@@ -12,6 +12,11 @@
     "./guard": "./src/guard.js",
     "./package.json": "./package.json"
   },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "engines": {
     "node": ">=22.19"
   },

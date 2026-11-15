@@ -1,0 +1,6 @@
+# The bundle of @dsh-bridge/plugin-knowledge: list the package in the product profile's package.json dsh.profile.bundles
+# (after @dsh-bridge/plugin-identity) and this inserts the citation guard. The knowledge TOOL is a bridge-tools toolModules
+# entry, not a plugin (see README.md).
+- insert:
+    - id: bridge-knowledge-guard
+      name: '@dsh-bridge/plugin-knowledge/guard'

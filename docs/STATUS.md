@@ -1,4 +1,4 @@
-# 状态（2026-11-15）：MVP 5 周的内容已完成
+# 状态（2026-11-15）：MVP 5 周的内容已完成，真实 DSH 上的 e2e 已跑
 
 计划见 [`GENERAL_AGENT_FRAMEWORK.md`](GENERAL_AGENT_FRAMEWORK.md)：§5 设计，§7 按周的路线图。接口见 [`KNOWLEDGE_API.md`](KNOWLEDGE_API.md)、[`GRAPH_API.md`](GRAPH_API.md)。
 仓库：私有 [ITC-cloud-soft/biz-ai-agent](https://github.com/ITC-cloud-soft/biz-ai-agent)（main）。**framework 没有改动**，新包都是 `private`，没有发布到 npm。
@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 193 个全部通过（knowledge 18、plugin-knowledge 5、graph 5、plugin-graph 2、试点 79、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。
+测试：全仓库 193 个全部通过（knowledge 18、plugin-knowledge 5、graph 5、plugin-graph 2、试点 79、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：10 / 10**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -54,13 +54,35 @@
   - 包：`createKnowledgeService` 加了 `fillers`、`stopWords` 选项；同义词现在也算「内容词」（能把「没找到」变成找到）；中文提问词补了 哪些 / 有没有 / 怎么知道 / 怎么办；evals 加了 `forbid`。
   - skill：定义了 `<ns>`；知识的一致性检查 probe 要用「整份都看不到」的文档；关系名必须用 `requested_by` 等（即使业务上叫「借用人」）；复制测试时要改名的清单；时间类事件在一致性 fixture 里怎么处理；**一致性 52/52 证明不了业务规则**（让借用人自己审批照样 52/52，只有业务测试抓得到）；app 和 evals 必须共用同一个选项对象。
 
+## 真实 DSH 上的 e2e（2026-11-15）
+
+`npm run e2e -- --patch-dsh-im`（`e2e/run.mjs`）：试点（内存存储，**不需要 Docker / PostgreSQL**）+ framework 的 profile 模板 + 本仓库的插件，
+在固定版本的 DSH CLI（`framework/.dsh-cli/0.2.2-rc.1`）、隔离的 home、mock 模型和 mock LINE 上跑。复用 framework 自己的 e2e 部件（packages/testing、gateway、install.mjs）。
+
+| 场景 | 结果 |
+|---|---|
+| 安装：bridge-knowledge 作为 profile 的 file: 依赖 + bundle（插入 guard），bridge-graph 作为 toolModules | PASS |
+| 3 名员工用自己的连携码连携 LINE | PASS |
+| k1 staff 在 LINE 上问规则 → `leave_knowledge_search`（本人的委托）→ 回答末尾由 guard 补上「Sources:」和手册画面的 URL，link guard 删掉了外部链接 | PASS |
+| k2 staff 问只给管理职的规则 → found=false，工具结果和回答里都没有那一节 | PASS |
+| k3 经理问同一个问题 → 得到那条规则和来源 | PASS |
+| g1 staff 在网页上申请休假 → 审批卡片通过 bridge-events → bridge-approvals 到达经理的 LINE；经理问「为什么到我这里」→ `leave_graph_why` → 4 条理由 | PASS |
+| g2 其他 staff 问同一个审批 → 找不到（和不存在的 ID 一样） | PASS |
+
+**跑真实 DSH 时发现了 framework 的一个 bug（重要）**：framework fork 的 dsh-im 实现了 `setAnswerFilter`（`vendor/dsh-im/plugin-src/host/care-extensions.mjs`），
+但对外提供的 `dshIm` 服务对象（`plugin-src/host/index.mjs` 的 `ctx.provide('dshIm', …)`）**没有把它传出去**。结果是在真正的 DSH 上
+**任何回答过滤器都装不上**：不只本仓库的引用检查，**bridge-identity 的 link guard 也从来没有生效过**（它找不到函数时只记 info 日志，然后放行）。
+不加 `--patch-dsh-im` 时 e2e 的 `[upstream]` 和 k1 都是 FAIL，回答里的 `https://evil.example/…` 原样发到了 LINE。
+`--patch-dsh-im` 只在隔离 home 里给安装好的副本加一行（`setAnswerFilter: care.setAnswerFilter`），framework 本身没有改；加上之后 10 / 10。
+正式的修复要在 framework 里做（plugin-src 加一行，重新构建 lib，加一个测试），会影响用这个 profile 的产品（care 等）。
+
 ## 第 2 周遗留的问题
 
 - **引用检查已接上**：确认了 dsh-im 的 `setAnswerFilter` 会保留多个过滤器、按注册顺序串联（vendor/dsh-im `im-extensions.mjs`），所以加了 `@dsh-bridge/plugin-knowledge/guard`（cordis 插件），和 link guard 并行，不会覆盖它。只在本轮调用过知识工具时才检查，用完就清掉。
 
 ## 没做的、要知道的限制
 
-- **没有在真正的 DSH 上跑过。** 所有 e2e 都是业务系统走 HTTP + 真实委托 + dsh-core 的 `defineTool` / `guardTool` / `createToolRequester`，gate 是测试用的（真正的是 bridge-tools 的 `createDelegationGate`）。真正的 DSH e2e（framework 的 `pnpm e2e` 方式）需要 PostgreSQL 和 DSH CLI，而 Docker 现在还没起来。
+- **真实 DSH 的 e2e 只覆盖了试点**（equipment-loans 还没接进 e2e），用的是 mock 模型：真实模型会不会按工具的规则带引用、会不会乱调工具，没有测。
 - **索引在内存里**，变更后整体重建；文档只有 Markdown（附件、connectors、扫描件 OCR 还没接）。
 - **没有公开的知识**（未连携的发信者用的 `knowledge/public`）。
 - embedding 只测了接口和权限（用一个确定性的假 embedder），**真实模型的质量没测**（模型还没定）。
@@ -77,8 +99,8 @@
 
 ## 需要你决定的
 
-1. **embedding 的模型**（推荐：先 BM25F，再接 Azure OpenAI 日本东部）。接口已经备好，定了之后只需要配置。
+1. ~~embedding 的模型~~：**已定（2026-11-15）：先只用 BM25F。** 以后要接 Azure OpenAI 等时，接口已经备好，只需要配置。
 2. **evals 的标准答案**：两套题都是 AI 起草的，「什么算答对」需要文档负责人确认，最好再出一套没参与调整的检验题。
 3. 这些包最后是**并入 framework**，还是在这里单独发布。推荐并入：路由、manifest 的键、一致性检查本来就属于 Bridge v1。
-4. 下一步是否在真正的 DSH 上跑 e2e（要先把 Docker / PostgreSQL 起来）。
+4. ~~在真正的 DSH 上跑 e2e~~：已跑（10 / 10，需要上面 dsh-im 的一行修复）。**是否在 framework 里修 dsh-im 的 `setAnswerFilter`**（推荐尽快修：link guard 现在实际上没有生效）。
 5. 是否把「通用 AI agent 框架」写进官网和 README（计划 §8.3 说等第 5 周有事实后再定，现在有了）。

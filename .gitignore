@@ -3,3 +3,5 @@ node_modules/
 .env
 .env.*
 *.tgz
+.dsh-home-e2e/
+e2e/.work/

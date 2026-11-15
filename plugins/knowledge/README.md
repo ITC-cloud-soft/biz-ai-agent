@@ -48,7 +48,10 @@ link guard (list the guard first, so the link guard sees the final text). When t
 of the conversation, an answer that does not cite them is repaired with `ensureCitations`; the sources are then forgotten, so a
 later answer that used no knowledge is never touched.
 
-```yaml
-- id: bridge-knowledge-guard
-  name: '@dsh-bridge/plugin-knowledge/guard'
-```
+It is installed through the package's **bundle** (`cordis.patch.yml`, `- insert: bridge-knowledge-guard`): add the package to the
+product profile's `package.json` (`dependencies`) and to `dsh.profile.bundles` after `@dsh-bridge/plugin-identity`. A plain
+`- id: … name: …` entry in the profile's `cordis.patch.yml` is NOT enough (that form only configures an entry a bundle inserted).
+
+**Needs the dsh-im fix**: the framework's dsh-im fork implements `setAnswerFilter` but its `dshIm` service object does not pass it on
+(`vendor/dsh-im/plugin-src/host/index.mjs`), so on a real DSH no answer filter is installed — neither this guard nor
+bridge-identity's link guard. `e2e/run.mjs --patch-dsh-im` proves the one-line fix in an isolated home.
