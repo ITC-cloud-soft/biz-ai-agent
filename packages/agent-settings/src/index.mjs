@@ -205,7 +205,8 @@ export function createAgentSettings({
     })
     return docs.get(meta.id)
   }
-  const docJson = (d) => ({ ...d, link: d.status === 'published' ? `${linkPrefix}${d.id}` : null })
+  /** A document as the list shows it to one viewer: canDecide = this viewer may approve it now (never the uploader). */
+  const docJson = (d, viewer = null) => ({ ...d, link: d.status === 'published' ? `${linkPrefix}${d.id}` : null, canDecide: Boolean(viewer && d.status === 'pending' && d.approval?.status === 'pending' && mayDecide(approvalOf(d), viewer)) })
 
   // ── register: the knowledge service (first build), the routes, the screen ───────────────────────────────────────────────
   async function register(bridge, { baseDocuments = [], buildIndex, webBase = '', knowledgeOptions = {}, screen = null } = {}) {
@@ -251,8 +252,11 @@ export function createAgentSettings({
       res.end(dshOverlay(settings.llm.base))
       return null
     })
-    router.add('GET', '/api/agent/documents', ADMIN, async () => ({ status: 200, body: { ok: true, documents: docs.list().map(docJson) } }))
-    router.add('POST', '/api/agent/documents', ADMIN, async ({ principal, body }) => ({ status: 201, body: { ok: true, document: docJson(await upload(principal.user, body ?? {})) } }))
+    router.add('GET', '/api/agent/documents', ADMIN, async ({ principal }) => {
+      const viewer = await kit.hooks.employees.get(principal.user.id)
+      return { status: 200, body: { ok: true, documents: docs.list().map((d) => docJson(d, viewer)) } }
+    })
+    router.add('POST', '/api/agent/documents', ADMIN, async ({ principal, body }) => ({ status: 201, body: { ok: true, document: docJson(await upload(principal.user, body ?? {}), principal.user) } }))
     router.add('POST', '/api/agent/documents/:docId/decision', PEOPLE, async ({ principal, params, body }) => {
       const b = body ?? {}
       strictKeys(b, ['action'])

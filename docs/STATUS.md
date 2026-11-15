@@ -1,4 +1,4 @@
-# 状态（2026-11-15）：MVP 5 周的内容已完成，真实 DSH 上的 e2e 已跑
+# 状态（2026-11-15）：MVP 5 周的内容已完成，真实 DSH 上的 e2e 已跑，设置插件 v0.1 已完成
 
 计划见 [`GENERAL_AGENT_FRAMEWORK.md`](GENERAL_AGENT_FRAMEWORK.md)：§5 设计，§7 按周的路线图。接口见 [`KNOWLEDGE_API.md`](KNOWLEDGE_API.md)、[`GRAPH_API.md`](GRAPH_API.md)。
 仓库：私有 [ITC-cloud-soft/biz-ai-agent](https://github.com/ITC-cloud-soft/biz-ai-agent)（main）。**framework 没有改动**，新包都是 `private`，没有发布到 npm。
@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 193 个全部通过（knowledge 18、plugin-knowledge 5、graph 5、plugin-graph 2、试点 79、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：10 / 10**（见下）。
+测试：全仓库 208 个全部通过（knowledge 20、agent-settings 6、plugin-knowledge 5、graph 5、plugin-graph 2、试点 86、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -53,6 +53,27 @@
 - **它发现的 skill 和包的问题，已经修了**：
   - 包：`createKnowledgeService` 加了 `fillers`、`stopWords` 选项；同义词现在也算「内容词」（能把「没找到」变成找到）；中文提问词补了 哪些 / 有没有 / 怎么知道 / 怎么办；evals 加了 `forbid`。
   - skill：定义了 `<ns>`；知识的一致性检查 probe 要用「整份都看不到」的文档；关系名必须用 `requested_by` 等（即使业务上叫「借用人」）；复制测试时要改名的清单；时间类事件在一致性 fixture 里怎么处理；**一致性 52/52 证明不了业务规则**（让借用人自己审批照样 52/52，只有业务测试抓得到）；app 和 evals 必须共用同一个选项对象。
+
+## 设置插件 `@dsh-bridge/agent-settings` v0.1（2026-11-15）
+
+设计见 [`AGENT_SETTINGS.md`](AGENT_SETTINGS.md)。挂在业务系统上的插件，画面是 `/agent-settings`（只给管理员，日 / 英 / 中三种语言），AI（委托）碰不到任何一个设置接口。
+
+| 标签页 | 内容 |
+|---|---|
+| 模型 | 基础模型（用于抽取知识图谱）、embedding 模型（用于 RAG）：OpenAI 兼容 / Azure OpenAI。API key 推荐只填**环境变量名**；也可以在画面上保存，但要先设置主密钥 `AGENT_SETTINGS_KEY`，保存时用 AES-256-GCM 加密；key 只能写入，读不出来。有连接测试，只回错误码，不回显对方的正文。另外能生成 DSH 用的 overlay（AI 员工的对话模型；里面只写变量名） |
+| 知识 | 检索方式：**BM25F**（默认）/ **RAG**（向量存在向量库）/ **语义知识图谱**（基础模型按块抽取实体和关系，存成 JSON 文件，文件里只有名字、类型和块 ID，没有正文）。文档上传：Markdown / 文本，选可以阅读的角色，填关键词；状态、撤下、重建 |
+| SNS | 发布文档要不要审批（审批卡片走 framework 发到 SNS，上传的人自己不能批）、审批人角色、收报告的角色（事件 `knowledge.updated`，只有数字）、报告时机、本人的连携码 |
+
+验证了什么：
+- **试点的 HTTP 测试（7 个）**：只有管理员能用，委托一律拒绝；key 不出现在 API、日志、文件里；上传 → 审批 → 发布 → 只有能看的角色检索得到 → 报告；含个人信息的文档被拒，正文不保存；RAG 下没改过的块不会重新做 embedding；知识图谱下没改过的块不会再发给模型；两种方式都过了权限性质测试；模型出错时退回 BM25F，状态和报告里都写明。
+- **变异检查**：故意让图谱检索忽略可见范围，有 3 个测试失败。
+- **真实 DSH 的 e2e（新增 3 项，共 13 / 13）**：
+  - admin 上传文档，审批卡片（【承認のお願い】）到了 admin2 的 LINE，没有发给上传者；
+  - admin2 在 LINE 上点「承認」，文档发布，【ご報告】（只有数字）只发给了管理员；
+  - staff 在 LINE 上提问时，新文档作为来源出现。
+- **画面**：在内置浏览器里看过三个标签页；375 px 宽时没有横向滚动。顺带修了一个问题：上传者自己的文档不再显示「批准 / 驳回」按钮。
+
+**向量数据库**：MVP（第 1–5 周）**没有向量数据库**，向量只存在内存里。v0.1 用**文件型向量库**（数据目录里的 `vectors.json`，用「模型 + 正文的 SHA-256」作键，不存正文），单进程。它是一个接口，以后可以换成 pgvector 等。
 
 ## 真实 DSH 上的 e2e（2026-11-15）
 
@@ -104,3 +125,6 @@
 3. 这些包最后是**并入 framework**，还是在这里单独发布。推荐并入：路由、manifest 的键、一致性检查本来就属于 Bridge v1。
 4. ~~在真正的 DSH 上跑 e2e~~：已跑，10 / 10；发现的 dsh-im bug 已在 framework `d8b3538` 修复。care 等产品重新安装 profile / 部署的时机由你决定。
 5. 是否把「通用 AI agent 框架」写进官网和 README（计划 §8.3 说等第 5 周有事实后再定，现在有了）。
+6. **正式环境的向量数据库**：v0.1 是文件型（单进程）。推荐 **PostgreSQL + pgvector**（server-kit 已有 PostgreSQL store，可以和业务数据放在同一个库里）；其他候选：TiDB Vector（官网 biz-ai-web 在用 TiDB）、Qdrant。
+7. **把文档发给外部模型**：RAG 和知识图谱都会把文档正文（已经过个人信息检查）发给所选的模型。用哪个服务、哪个区域（比如 Azure OpenAI 日本东部），需要按公司的数据规则决定。
+8. **API key 的保存方式**：只用环境变量名（推荐），还是也允许在画面上保存（需要配置主密钥 `AGENT_SETTINGS_KEY` 并做好保管）。

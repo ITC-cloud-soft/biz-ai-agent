@@ -198,7 +198,7 @@ async function loadDocs() {
     const badge = Object.assign(document.createElement('span'), { className: 'badge ' + d.status, textContent: ST[d.status] + (d.kinds ? ' (' + d.kinds.join(', ') + ')' : '') }); cell(badge);
     const actions = cell('');
     const btn = (label, cls, fn) => { const b = Object.assign(document.createElement('button'), { textContent: label, className: cls }); b.onclick = async () => { try { await fn(); await refresh(); } catch (e) { alert(T.failed + ': ' + e.message); } }; actions.append(b, ' '); };
-    if (d.status === 'pending') { btn(T.approve, '', () => api('POST', '/api/agent/documents/' + d.id + '/decision', { action: 'approve' })); btn(T.reject, 'ghost', () => api('POST', '/api/agent/documents/' + d.id + '/decision', { action: 'reject' })); }
+    if (d.canDecide) { btn(T.approve, '', () => api('POST', '/api/agent/documents/' + d.id + '/decision', { action: 'approve' })); btn(T.reject, 'ghost', () => api('POST', '/api/agent/documents/' + d.id + '/decision', { action: 'reject' })); }
     if (d.status === 'published' || d.status === 'pending') btn(T.withdraw, 'danger', () => api('DELETE', '/api/agent/documents/' + d.id));
     return tr;
   }));

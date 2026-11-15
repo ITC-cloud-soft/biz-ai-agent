@@ -145,6 +145,8 @@ test('a document: upload → approval card for the OTHER administrators (framewo
   assert.match(JSON.stringify(await env.srv.app.kit.hooks.approvals.card(a)), /Knowledge document/)
   assert.ok(!(await search(env.people.manager, 'remote work two days')).results.some((r) => r.documentId === doc.id), 'not searchable before the approval')
   assert.equal((await env.call('POST', `/api/agent/documents/${doc.id}/decision`, { headers: admin(), body: { action: 'approve' } })).status, 403)
+  const listed = async (who) => (await env.call('GET', '/api/agent/documents', { headers: env.people[who].web })).body.documents.find((d) => d.id === doc.id)
+  assert.deepEqual([(await listed('admin')).canDecide, (await listed('admin2')).canDecide], [false, true], 'the screen offers the buttons to admin2 only')
   assert.equal((await env.call('POST', `/api/agent/documents/${doc.id}/decision`, { headers: env.people.manager.web, body: { action: 'approve' } })).status, 403)
   const ok = await env.call('POST', `/api/agent/documents/${doc.id}/decision`, { headers: env.people.admin2.web, body: { action: 'approve' } })
   assert.equal(ok.status, 200)

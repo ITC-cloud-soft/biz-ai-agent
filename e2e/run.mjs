@@ -15,6 +15,9 @@
 //   k1  staff: a rule question → leave_knowledge_search with the staff member's delegation → LINE answer with the citation guard's
 //       "Sources:" (the handbook screen) and the link guard's removal of a foreign link
 //   k2  staff: a managers-only rule → found=false (nothing restricted in the tool result); k3 the manager: the restricted rule
+//   s1  the settings plugin: an administrator uploads a document → the approval card reaches the OTHER administrator on LINE →
+//       they press 承認 there → published → the knowledge.updated report reaches the administrators on LINE;
+//       s2 staff then get the new document as a source
 //   g1  a leave request on the web → the approval card reaches the manager on LINE; "why did this reach me?" →
 //       leave_graph_why with the manager's delegation → the manifest's reasons; g2 another staff member → not found
 // Ports (BIZ_AI_E2E_PORTS="app=19751,dsh=3251,llm=3252,line=3253,gateway=3254"); the framework e2e's and demo ports are refused.
@@ -65,7 +68,7 @@ const SECRETS = {
   lineToken: `e2eMockLineToken${randomBytes(24).toString('base64url')}`,
 }
 const LINE_BOT_USER = randomLineUserId()
-const LINE_USERS = { manager: randomLineUserId(), staff1: randomLineUserId(), staff2: randomLineUserId() }
+const LINE_USERS = { admin: randomLineUserId(), admin2: randomLineUserId(), manager: randomLineUserId(), staff1: randomLineUserId(), staff2: randomLineUserId() }
 const redactAll = redactor(Object.values(SECRETS))
 const slash = (p) => p.replace(/\\/g, '/')
 const day = (n) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
@@ -229,6 +232,12 @@ function llmScript({ body, userText, toolResults, findTool }) {
     return flow('leave_knowledge_search', { question: 'Can I carry over unused leave days?' },
       (c) => (/found=false/.test(c) ? 'The documents have nothing on that.' : `Up to 5 unused days carry over and must be used by 31 March. More at ${FOREIGN}`))
   }
+  if (/lockers/i.test(userText)) {
+    return flow('leave_knowledge_search', { question: 'Where are the lockers?' }, (c) => (/found=false/.test(c) ? 'The documents have nothing on that.' : `The lockers are on the second floor [1].
+
+Sources:
+[1] ${/## \[1\] (.+)/.exec(c)?.[1] ?? ''} — ${/url: (\S+)/.exec(c)?.[1] ?? ''}`))
+  }
   if (/blackout/i.test(userText)) {
     return flow('leave_knowledge_search', { question: 'year-end blackout: how many people of one team may be on leave' },
       (c) => {
@@ -261,10 +270,11 @@ async function main() {
   const DSH = pickDshBin({ framework: FRAMEWORK, log: console.log }).bin
 
   console.log('— setup')
-  const srv = await startServer({ port: PORTS.app, serviceToken: SECRETS.service, bffSecret: SECRETS.bff, webBase: WEB })
+  rmSync(join(WORK, 'agent-data'), { recursive: true, force: true })
+  const srv = await startServer({ port: PORTS.app, serviceToken: SECRETS.service, bffSecret: SECRETS.bff, webBase: WEB, dataDir: join(WORK, 'agent-data'), agentEnv: {} })
   cleanups.push(() => srv.stop())
   const people = {}
-  for (const [loginId, role] of [['manager', 'manager'], ['staff1', 'staff'], ['staff2', 'staff'], ['admin', 'admin']]) {
+  for (const [loginId, role] of [['manager', 'manager'], ['staff1', 'staff'], ['staff2', 'staff'], ['admin', 'admin'], ['admin2', 'admin']]) {
     const u = await srv.app.createUser({ loginId, password: SECRETS.password, role, displayName: `E2E ${loginId}` })
     const res = await fetch(`${WEB}/api/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ loginId, password: SECRETS.password }) })
     people[loginId] = { id: u.id, cookie: res.headers.get('set-cookie').split(';')[0] }
@@ -333,12 +343,12 @@ async function main() {
 
   // link the three employees' LINE accounts (each one on their own login: link code → 「連携 123456」)
   const linked = {}
-  for (const who of ['manager', 'staff1', 'staff2']) {
+  for (const who of ['admin', 'admin2', 'manager', 'staff1', 'staff2']) {
     const code = (await call('POST', '/bridge/v1/me/link-codes', { cookie: people[who].cookie })).data?.code
     const r = await say(who, `連携 ${code}`, /連携/, { timeoutMs: 30_000 })
     linked[who] = r.text
   }
-  record('setup', 'manager, staff1, staff2 linked their LINE accounts with their own link codes', Object.values(linked).every((t) => /連携が完了/.test(t ?? '')), linked)
+  record('setup', 'admin, admin2, manager, staff1, staff2 linked their LINE accounts with their own link codes', Object.values(linked).every((t) => /連携が完了/.test(t ?? '')), linked)
 
   // k1: a rule question as staff1
   {
@@ -358,6 +368,32 @@ async function main() {
     record('k3', 'the manager asks the same → the restricted rule with its source on the handbook screen',
       m.toolResult.includes(`${WEB}/handbook/leave-policy#approval-rules`) && (m.text ?? '').includes(`${WEB}/handbook/leave-policy#approval-rules`),
       { reply: m.text, toolResultExcerpt: m.toolResult.slice(0, 300) })
+  }
+  // s1 / s2: the settings plugin — a document approved on SNS, the report on SNS, then used by the AI
+  {
+    const at = Date.now()
+    const up = await call('POST', '/api/agent/documents', { cookie: people.admin.cookie, body: { title: 'Office lockers', roles: ['admin', 'manager', 'staff'], keywords: ['locker', 'key'], text: '## Lockers {#lockers}\nLockers are on the second floor. The facilities desk hands out the keys.' } })
+    const docId = up.data?.document?.id
+    const card = await line.waitForMessage((e) => e.kind === 'push' && e.to === LINE_USERS.admin2 && e.messages.some((x) => x.type === 'flex') && /Knowledge document/.test(messageText(e)), { since: at, timeoutMs: 90_000 })
+    const flex = card ? flexSummary(card.messages.find((x) => x.type === 'flex')) : null
+    const approve = flex?.buttons.find((b) => b.type === 'postback' && /approve/.test(b.data ?? ''))
+    const toUploader = line.log.filter((e) => e.at >= at && e.to === LINE_USERS.admin && /Knowledge document/.test(messageText(e))).length
+    record('s1', 'admin uploads a document on the settings screen → approval.requested → the approval card reaches admin2 on LINE (never the uploader)',
+      up.status === 201 && up.data.document.status === 'pending' && Boolean(approve) && toUploader === 0, { upload: up.status, card: card ? messageText(card).slice(0, 300) : null, toUploader })
+    let published = null
+    let report = null
+    if (approve) {
+      const pressedAt = Date.now()
+      await webhook.postback(LINE_USERS.admin2, approve.data)
+      published = await waitFor(async () => ((await call('GET', '/api/agent/documents', { cookie: people.admin.cookie })).data?.documents ?? []).find((d) => d.id === docId && d.status === 'published') ?? null, { timeoutMs: 30_000, stepMs: 500, label: 'published' }).catch(() => null)
+      report = await line.waitForMessage((e) => e.kind === 'push' && e.to === LINE_USERS.admin && /knowledge was rebuilt/i.test(messageText(e)), { since: pressedAt, timeoutMs: 60_000 })
+    }
+    const reportToStaff = line.log.filter((e) => e.at >= at && [LINE_USERS.staff1, LINE_USERS.staff2, LINE_USERS.manager].includes(e.to) && /knowledge was rebuilt/i.test(messageText(e))).length
+    record('s1', 'admin2 presses 承認 on LINE → the document is published → the knowledge.updated report (counts only) reaches the administrators on LINE, nobody else',
+      Boolean(published && report) && reportToStaff === 0, { published: Boolean(published), report: report ? messageText(report).slice(0, 300) : null, reportToStaff })
+    const r = await say('staff1', 'Where are the lockers?', /lockers|nothing/i)
+    record('s2', 'staff1 asks on LINE → the newly approved document is the source (its handbook screen)',
+      r.toolResult.includes(`${WEB}/handbook/${docId}#lockers`) && (r.text ?? '').includes(`${WEB}/handbook/${docId}#lockers`), { reply: r.text, toolResultExcerpt: r.toolResult.slice(0, 300) })
   }
   // g1 / g2: an approval reaches the manager; why?
   {
