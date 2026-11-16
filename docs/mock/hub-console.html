@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Hub 管理控制台（mock）</title>
+<!--
+  Agent Hub 管理控制台的 HTML mock（docs/MULTI_AGENT_PLATFORM.md v0.2）。
+  外观沿用 packages/agent-settings/web/app.css（web-kit 的 --dbw-* 令牌 + as-* 组件）。
+  单文件、无依赖、可直接用浏览器打开。数据全部虚构；按钮只改变本页内的状态，不连任何服务。
+-->
+<style>
+:where(:root) {
+  --dbw-font: "Inter", system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --dbw-font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+  --dbw-text: #0f172a; --dbw-text-2: #475569; --dbw-text-3: #64748b;
+  --dbw-bg: #f4f6fa; --dbw-surface: #ffffff; --dbw-surface-2: #f1f4f9; --dbw-surface-3: #e2e8f0;
+  --dbw-border: #e3e8ef; --dbw-border-strong: #cbd5e1;
+  --dbw-primary: #4f46e5; --dbw-primary-hover: #4338ca; --dbw-primary-soft: #eef2ff; --dbw-primary-soft-text: #3730a3; --dbw-on-primary: #fff;
+  --dbw-success: #15803d; --dbw-success-soft: #ecfdf3; --dbw-warning: #b45309; --dbw-warning-soft: #fff7e6;
+  --dbw-danger: #c2410c; --dbw-danger-soft: #fff1ec; --dbw-info: #2563eb; --dbw-info-soft: #eff5ff;
+  --dbw-radius: 10px; --dbw-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 1px rgb(15 23 42 / 0.03);
+  --as-radius-lg: 14px; --as-side: 248px; --as-ring: 0 0 0 3px rgb(79 70 229 / 0.18);
+}
+[data-dbw-theme="dark"] {
+  --dbw-text: #e6e9f0; --dbw-text-2: #b5bdcc; --dbw-text-3: #8b95a7;
+  --dbw-bg: #0b0f17; --dbw-surface: #121826; --dbw-surface-2: #182033; --dbw-surface-3: #243049;
+  --dbw-border: #222b3d; --dbw-border-strong: #33405a;
+  --dbw-primary: #8b8cf8; --dbw-primary-hover: #a5a6fb; --dbw-primary-soft: #1d2142; --dbw-primary-soft-text: #c7c8ff; --dbw-on-primary: #0b0f17;
+  --dbw-success: #4ade80; --dbw-success-soft: #0d2a1b; --dbw-warning: #fbbf24; --dbw-warning-soft: #2b2110;
+  --dbw-danger: #fb923c; --dbw-danger-soft: #2d1710; --dbw-info: #7aa7ff; --dbw-info-soft: #14203a;
+  --as-ring: 0 0 0 3px rgb(139 140 248 / 0.28);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--dbw-bg); }
+body { padding-top: 34px; font-family: var(--dbw-font); font-size: 14px; line-height: 1.55; color: var(--dbw-text); -webkit-font-smoothing: antialiased; }
+
+/* ── the settings app's shell and parts (packages/agent-settings/web/app.css) ── */
+.as-app { display: grid; grid-template-columns: var(--as-side) minmax(0, 1fr); min-height: calc(100vh - 34px); }
+.as-side { position: sticky; top: 34px; height: calc(100vh - 34px); display: flex; flex-direction: column; gap: 22px; padding: 22px 14px 16px; background: var(--dbw-surface); border-right: 1px solid var(--dbw-border); }
+.as-brand { display: flex; align-items: center; gap: 11px; padding: 0 8px; }
+.as-brand__mark { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #ec4899 120%); box-shadow: 0 6px 16px -6px rgb(99 102 241 / 0.7); flex: none; }
+.as-brand__text { display: flex; flex-direction: column; min-width: 0; }
+.as-brand__text strong { font-size: 15px; letter-spacing: -0.01em; }
+.as-brand__text span { font-size: 12px; color: var(--dbw-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-nav { display: flex; flex-direction: column; gap: 2px; }
+.as-nav__sec { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--dbw-text-3); padding: 12px 10px 4px; }
+.as-nav__item { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 9px; color: var(--dbw-text-2); text-decoration: none; font-weight: 500; transition: background .12s, color .12s; }
+.as-nav__item:hover { background: var(--dbw-surface-2); color: var(--dbw-text); }
+.as-nav__item[aria-current="page"] { background: var(--dbw-primary-soft); color: var(--dbw-primary-soft-text); }
+.as-nav__item[aria-current="page"] svg { color: var(--dbw-primary); }
+.as-nav__item:focus-visible { outline: none; box-shadow: var(--as-ring); }
+.as-nav__badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; background: var(--dbw-primary); color: var(--dbw-on-primary); }
+.as-nav__dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; }
+.as-side__foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 4px; }
+.as-lang { display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 9px; background: var(--dbw-surface-2); color: var(--dbw-text-3); }
+.as-lang svg { margin: 0 4px 0 6px; flex: none; }
+.as-lang button { flex: 1; font: inherit; font-size: 12px; padding: 5px 6px; border: 0; border-radius: 7px; background: transparent; color: var(--dbw-text-2); cursor: pointer; white-space: nowrap; }
+.as-lang button[aria-pressed="true"] { background: var(--dbw-surface); color: var(--dbw-text); box-shadow: var(--dbw-shadow); font-weight: 600; }
+.as-user { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--dbw-text-2); padding: 0 6px; }
+.as-user__avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--dbw-surface-3); color: var(--dbw-text); font-weight: 700; font-size: 12px; flex: none; }
+.as-user small { display: block; font-size: 11.5px; color: var(--dbw-text-3); }
+
+.as-main { min-width: 0; padding: 34px clamp(16px, 4vw, 48px) 64px; max-width: 1240px; width: 100%; }
+.as-page-head { margin-bottom: 22px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.as-page-head > div:first-child { flex: 1; min-width: 240px; }
+.as-page-head__eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--dbw-primary); }
+.as-page-head__eyebrow a { color: inherit; text-decoration: none; }
+.as-page-head__eyebrow a:hover { text-decoration: underline; }
+.as-page-head h1 { margin: 4px 0 6px; font-size: 26px; line-height: 1.25; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.as-page-head p { margin: 0; max-width: 78ch; color: var(--dbw-text-2); }
+.as-page-head__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.as-pages { display: flex; flex-direction: column; gap: 18px; animation: as-in .18s ease-out; }
+@keyframes as-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.as-card { background: var(--dbw-surface); border: 1px solid var(--dbw-border); border-radius: var(--as-radius-lg); box-shadow: var(--dbw-shadow); min-width: 0; }
+.as-card__head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 0; }
+.as-card__icon { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--dbw-primary-soft); color: var(--dbw-primary); }
+.as-card__titles { flex: 1; min-width: 0; }
+.as-card__titles h2 { margin: 1px 0 2px; font-size: 16px; letter-spacing: -0.01em; }
+.as-card__titles p { margin: 0; color: var(--dbw-text-3); font-size: 13px; max-width: 80ch; }
+.as-card__actions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.as-card__body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+.as-card--flush .as-card__body { padding: 12px 0 4px; }
+
+.as-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font: inherit; font-weight: 600; font-size: 13px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--dbw-border-strong); background: var(--dbw-surface); color: var(--dbw-text); cursor: pointer; white-space: nowrap; text-decoration: none; transition: background .12s, border-color .12s, box-shadow .12s; }
+.as-btn:hover:not(:disabled) { background: var(--dbw-surface-2); }
+.as-btn:focus-visible { outline: none; box-shadow: var(--as-ring); }
+.as-btn:disabled { opacity: .5; cursor: not-allowed; }
+.as-btn--primary { background: var(--dbw-primary); border-color: var(--dbw-primary); color: var(--dbw-on-primary); box-shadow: 0 1px 2px rgb(79 70 229 / .25); }
+.as-btn--primary:hover:not(:disabled) { background: var(--dbw-primary-hover); }
+.as-btn--ghost { border-color: transparent; background: transparent; color: var(--dbw-primary); }
+.as-btn--ghost:hover:not(:disabled) { background: var(--dbw-primary-soft); }
+.as-btn--danger { border-color: transparent; background: transparent; color: var(--dbw-danger); }
+.as-btn--danger:hover:not(:disabled) { background: var(--dbw-danger-soft); }
+.as-btn--sm { padding: 5px 10px; font-size: 12.5px; }
+
+.as-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--dbw-surface-2); color: var(--dbw-text-2); white-space: nowrap; }
+.as-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
+.as-pill--plain::before { display: none; }
+.as-pill--ok { background: var(--dbw-success-soft); color: var(--dbw-success); }
+.as-pill--warn { background: var(--dbw-warning-soft); color: var(--dbw-warning); }
+.as-pill--bad { background: var(--dbw-danger-soft); color: var(--dbw-danger); }
+.as-pill--info { background: var(--dbw-info-soft); color: var(--dbw-info); }
+.as-pill--prim { background: var(--dbw-primary-soft); color: var(--dbw-primary-soft-text); }
+
+.as-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.as-field__label { font-size: 12.5px; font-weight: 600; color: var(--dbw-text-2); }
+.as-field__hint { font-size: 12px; color: var(--dbw-text-3); }
+.as-input { width: 100%; font: inherit; color: var(--dbw-text); background: var(--dbw-surface); border: 1px solid var(--dbw-border-strong); border-radius: 9px; padding: 8px 11px; }
+.as-input:focus { outline: none; border-color: var(--dbw-primary); box-shadow: var(--as-ring); }
+select.as-input { padding-right: 28px; }
+.as-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.as-mono { font-family: var(--dbw-font-mono); font-size: 12.5px; }
+.as-muted { color: var(--dbw-text-3); font-size: 12.5px; }
+
+.as-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--dbw-surface-2); border: 1px solid var(--dbw-border); width: fit-content; max-width: 100%; }
+.as-seg__item { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 13px; border: 0; border-radius: 8px; background: transparent; color: var(--dbw-text-2); cursor: pointer; }
+.as-seg__item[aria-checked="true"] { background: var(--dbw-surface); color: var(--dbw-text); font-weight: 600; box-shadow: 0 1px 2px rgb(15 23 42 / .1); }
+
+.as-alert { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; border-radius: 11px; border: 1px solid transparent; font-size: 13px; }
+.as-alert svg { flex: none; margin-top: 1px; }
+.as-alert > div { flex: 1; min-width: 0; }
+.as-alert--info { background: var(--dbw-info-soft); color: var(--dbw-text-2); border-color: color-mix(in srgb, var(--dbw-info) 22%, transparent); }
+.as-alert--info svg { color: var(--dbw-info); }
+.as-alert--warn { background: var(--dbw-warning-soft); color: var(--dbw-text-2); border-color: color-mix(in srgb, var(--dbw-warning) 25%, transparent); }
+.as-alert--warn svg { color: var(--dbw-warning); }
+.as-alert--bad { background: var(--dbw-danger-soft); color: var(--dbw-text-2); border-color: color-mix(in srgb, var(--dbw-danger) 25%, transparent); }
+.as-alert--bad svg { color: var(--dbw-danger); }
+.as-alert strong { display: block; color: var(--dbw-text); }
+
+.as-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1240px) { .as-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.as-tile { text-align: left; font: inherit; color: inherit; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "icon label" "value value" "sub sub"; align-items: center; column-gap: 10px; row-gap: 4px; padding: 16px 18px; border-radius: var(--as-radius-lg); border: 1px solid var(--dbw-border); background: var(--dbw-surface); box-shadow: var(--dbw-shadow); cursor: pointer; text-decoration: none; transition: border-color .12s, transform .12s, box-shadow .12s; }
+.as-tile:hover { border-color: color-mix(in srgb, var(--dbw-primary) 40%, var(--dbw-border)); transform: translateY(-1px); box-shadow: 0 6px 18px -10px rgb(15 23 42 / .25); }
+.as-tile__icon { grid-area: icon; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--dbw-primary-soft); color: var(--dbw-primary); }
+.as-tile__icon--bad { background: var(--dbw-danger-soft); color: var(--dbw-danger); }
+.as-tile__icon--ok { background: var(--dbw-success-soft); color: var(--dbw-success); }
+.as-tile__icon--warn { background: var(--dbw-warning-soft); color: var(--dbw-warning); }
+.as-tile__label { grid-area: label; font-size: 12.5px; font-weight: 600; color: var(--dbw-text-3); }
+.as-tile__value { grid-area: value; margin-top: 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.as-tile__sub { grid-area: sub; font-size: 12.5px; color: var(--dbw-text-3); }
+
+.as-steps { list-style: none; margin: 0; padding: 0; }
+.as-step { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 14px; padding: 12px 20px; border-top: 1px solid var(--dbw-border); }
+.as-step:first-child { border-top: 0; }
+.as-step__num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--dbw-surface-2); color: var(--dbw-text-2); border: 1px solid var(--dbw-border); }
+.as-step--done .as-step__num { background: var(--dbw-success); color: #fff; border-color: transparent; }
+.as-step--bad .as-step__num { background: var(--dbw-danger); color: #fff; border-color: transparent; }
+.as-step__text { display: flex; flex-direction: column; min-width: 0; }
+.as-step__text span { font-size: 12.5px; color: var(--dbw-text-3); }
+
+.as-table-wrap { overflow-x: auto; }
+.as-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.as-table th { text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--dbw-text-3); padding: 8px 20px; white-space: nowrap; }
+.as-table td { padding: 12px 20px; border-top: 1px solid var(--dbw-border); vertical-align: middle; }
+.as-table tbody tr:hover { background: var(--dbw-surface-2); }
+.as-table tr.is-link { cursor: pointer; }
+.as-doc { display: flex; flex-direction: column; min-width: 0; }
+.as-doc strong { font-weight: 600; }
+.as-doc span { font-size: 12.5px; color: var(--dbw-text-3); }
+.as-row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.as-empty { margin: 0; padding: 22px 20px; color: var(--dbw-text-3); text-align: center; }
+.as-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 24px; margin: 0; }
+.as-status dt { font-size: 11.5px; font-weight: 600; color: var(--dbw-text-3); text-transform: uppercase; letter-spacing: .03em; }
+.as-status dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.as-toasts { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 60; max-width: min(420px, calc(100vw - 40px)); }
+.as-toast { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-radius: 11px; font-size: 13px; font-weight: 600; color: #fff; background: #0f172a; box-shadow: 0 10px 30px -10px rgb(15 23 42 / .5); animation: as-in .18s ease-out; }
+.as-toast svg { color: #4ade80; flex: none; }
+
+/* ── hub additions (same tokens) ── */
+.hub-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 34px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 7px clamp(16px, 4vw, 48px); background: var(--dbw-warning-soft); color: var(--dbw-warning); border-bottom: 1px solid color-mix(in srgb, var(--dbw-warning) 25%, transparent); }
+.hub-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dbw-border); margin: -6px 0 4px; overflow-x: auto; }
+.hub-tab { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; font-weight: 600; font-size: 13.5px; color: var(--dbw-text-3); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.hub-tab:hover { color: var(--dbw-text); }
+.hub-tab[aria-current="page"] { color: var(--dbw-primary); border-bottom-color: var(--dbw-primary); }
+.hub-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.hub-two--wide { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { .hub-two, .hub-two--wide { grid-template-columns: 1fr; } }
+.hub-agent { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hub-agent__mark { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #fff; flex: none; }
+.hub-checks { display: flex; flex-wrap: wrap; gap: 6px; }
+.hub-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--dbw-border); background: var(--dbw-surface-2); color: var(--dbw-text-2); white-space: nowrap; }
+.hub-check--ok svg { color: var(--dbw-success); }
+.hub-check--bad { color: var(--dbw-danger); border-color: color-mix(in srgb, var(--dbw-danger) 35%, var(--dbw-border)); }
+.hub-kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--dbw-border); font-size: 13.5px; }
+.hub-kv:first-child { border-top: 0; }
+.hub-kv span:first-child { color: var(--dbw-text-3); }
+.hub-kv span:last-child { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.hub-yes { color: var(--dbw-success); font-weight: 600; }
+.hub-no { color: var(--dbw-text-3); }
+.hub-bar { height: 8px; border-radius: 99px; background: var(--dbw-surface-3); overflow: hidden; }
+.hub-bar > i { display: block; height: 100%; border-radius: 99px; background: var(--dbw-primary); }
+
+/* logs */
+.hub-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.hub-filters .as-field { width: 170px; }
+.hub-log { font-family: var(--dbw-font-mono); font-size: 12.5px; }
+.hub-log td { padding: 7px 20px; white-space: nowrap; }
+.hub-log td.msg { white-space: normal; min-width: 260px; }
+.hub-lv { font-weight: 700; font-size: 11px; padding: 1px 6px; border-radius: 5px; }
+.hub-lv--info { background: var(--dbw-info-soft); color: var(--dbw-info); }
+.hub-lv--warn { background: var(--dbw-warning-soft); color: var(--dbw-warning); }
+.hub-lv--error { background: var(--dbw-danger-soft); color: var(--dbw-danger); }
+.hub-mask { background: var(--dbw-surface-3); color: var(--dbw-text-3); border-radius: 4px; padding: 0 4px; }
+.hub-trace { list-style: none; margin: 0; padding: 0 20px 16px; }
+.hub-trace li { display: grid; grid-template-columns: 70px 1fr auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--dbw-border); font-size: 13px; }
+.hub-trace li:first-child { border-top: 0; }
+.hub-trace__bar { height: 6px; border-radius: 99px; background: var(--dbw-primary); opacity: .7; }
+
+/* sandbox */
+.hub-chat { display: flex; flex-direction: column; height: 460px; }
+.hub-chat__log { flex: 1; overflow-y: auto; padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; background: var(--dbw-surface-2); border-top: 1px solid var(--dbw-border); border-bottom: 1px solid var(--dbw-border); }
+.hub-chat__log > * { flex-shrink: 0; }
+.hub-msg { max-width: 82%; padding: 9px 12px; border-radius: 12px; font-size: 13.5px; white-space: pre-wrap; }
+.hub-msg--me { align-self: flex-end; background: #06c755; color: #fff; border-bottom-right-radius: 4px; }
+.hub-msg--bot { align-self: flex-start; background: var(--dbw-surface); border: 1px solid var(--dbw-border); border-bottom-left-radius: 4px; }
+.hub-msg__who { display: block; font-size: 11px; opacity: .75; margin-bottom: 2px; }
+.hub-card { align-self: flex-start; width: min(320px, 90%); border-radius: 12px; border: 1px solid var(--dbw-border); background: var(--dbw-surface); overflow: hidden; font-size: 13px; }
+.hub-card__head { padding: 9px 12px; font-weight: 700; background: var(--dbw-primary-soft); color: var(--dbw-primary-soft-text); }
+.hub-card__body { padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+.hub-card__body span:nth-child(odd) { color: var(--dbw-text-3); }
+.hub-card__btns { display: flex; border-top: 1px solid var(--dbw-border); }
+.hub-card__btns button { flex: 1; font: inherit; font-weight: 600; padding: 9px; border: 0; background: transparent; color: var(--dbw-primary); cursor: pointer; }
+.hub-card__btns button + button { border-left: 1px solid var(--dbw-border); }
+.hub-card__btns button:disabled { color: var(--dbw-text-3); cursor: not-allowed; }
+.hub-chat__input { display: flex; gap: 8px; padding: 12px 20px 16px; }
+.hub-sys { align-self: center; font-size: 12px; color: var(--dbw-text-3); background: var(--dbw-surface); border: 1px solid var(--dbw-border); padding: 3px 10px; border-radius: 99px; }
+.hub-users { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* modal */
+.hub-modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / .45); animation: as-in .15s ease-out; }
+.hub-modal .as-card { width: min(520px, 100%); }
+.hub-modal__foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 860px) {
+  .as-app { grid-template-columns: minmax(0, 1fr); }
+  .as-side { min-width: 0; position: sticky; z-index: 10; height: auto; gap: 10px; padding: 12px 16px 8px; border-right: 0; border-bottom: 1px solid var(--dbw-border); }
+  .as-side__foot { margin: 0; padding: 0; position: absolute; top: 14px; right: 16px; }
+  .as-user, .as-nav__sec { display: none; }
+  .as-lang svg { display: none; }
+  .as-lang button { padding: 4px 7px; }
+  .as-nav { flex-direction: row; overflow-x: auto; gap: 4px; margin: 0 -4px; }
+  .as-nav__item { flex: none; padding: 7px 11px; }
+  .as-nav__badge, .as-nav__dot { margin-left: 2px; }
+  .as-main { padding: 22px 16px 48px; }
+  .as-page-head h1 { font-size: 22px; }
+  .as-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .as-step { grid-template-columns: auto 1fr; }
+  .as-step > :nth-child(n+3) { grid-column: 2; justify-self: start; }
+  .as-card__head { flex-wrap: wrap; }
+  .as-card__actions { width: 100%; }
+  .as-table th, .as-table td { padding-left: 14px; padding-right: 14px; }
+  .hub-banner { padding: 0 16px; height: auto; min-height: 34px; font-size: 11.5px; }
+  .as-side { top: 34px; }
+  .hub-filters .as-field { width: calc(50% - 5px); }
+  .hub-chat { height: 420px; }
+  .hub-chat__log, .hub-chat__input { padding-left: 14px; padding-right: 14px; }
+}
+</style>
+</head>
+<body>
+<div class="hub-banner" role="note"><span id="banner-icon"></span>HTML mock：数据全部虚构，按钮只改变本页的状态，不连接任何服务（docs/MULTI_AGENT_PLATFORM.md v0.2）</div>
+<div class="as-app">
+  <aside class="as-side">
+    <div class="as-brand">
+      <div class="as-brand__mark" id="brand-mark"></div>
+      <div class="as-brand__text"><strong>Agent Hub</strong><span>管理控制台</span></div>
+    </div>
+    <nav class="as-nav" id="nav"></nav>
+    <div class="as-side__foot">
+      <div class="as-lang" role="group" aria-label="语言"><span id="lang-icon"></span><button aria-pressed="false">日本語</button><button aria-pressed="false">English</button><button aria-pressed="true">中文</button></div>
+      <div class="as-user"><div class="as-user__avatar">佐</div><div>佐藤 一郎<small>管理者 · 平台管理员</small></div></div>
+    </div>
+  </aside>
+  <main class="as-main" id="main"></main>
+</div>
+<div class="as-toasts" id="toasts" aria-live="polite"></div>
+<div id="modal-root"></div>
+
+<script>
+// ── icons (the settings app's lucide-style set + a few) ──
+const P = {
+  gauge: ['M12 14l3.5-3.5', 'M3.5 18a9 9 0 1 1 17 0'],
+  cpu: ['M9 3v2', 'M15 3v2', 'M9 19v2', 'M15 19v2', 'M3 9h2', 'M3 15h2', 'M19 9h2', 'M19 15h2', 'M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z', 'M9.5 9.5h5v5h-5z'],
+  book: ['M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5', 'M19 17v4H6.5', 'M8 7h7', 'M8 11h5'],
+  chat: ['M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.2A8 8 0 1 1 21 12Z', 'M8.5 12h.01', 'M12 12h.01', 'M15.5 12h.01'],
+  sparkle: ['M12 3l1.8 4.9L19 9.7l-4.6 2.6L12 18l-2.4-5.7L5 9.7l5.2-1.8Z', 'M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8Z'],
+  search: ['M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z', 'M20 20l-4-4'],
+  file: ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z', 'M14 3v5h5', 'M9 13h6', 'M9 17h4'],
+  check: ['M5 12.5l4.5 4.5L19 7.5'],
+  key: ['M15 7a4 4 0 1 0-3.7 5.5L4 20v-3h3v-3h3l1.3-1.3A4 4 0 0 0 15 7Z', 'M16 7.5h.01'],
+  shield: ['M12 3l8 3v6c0 4.5-3.4 8.1-8 9-4.6-.9-8-4.5-8-9V6Z', 'M9 12l2 2 4-4'],
+  bell: ['M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8', 'M10.3 21a1.9 1.9 0 0 0 3.4 0'],
+  link: ['M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1', 'M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1'],
+  refresh: ['M20 11a8 8 0 0 0-14.8-3.8L3 9', 'M3 4v5h5', 'M4 13a8 8 0 0 0 14.8 3.8L21 15', 'M21 20v-5h-5'],
+  alert: ['M12 9v4', 'M12 17h.01', 'M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z'],
+  globe: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M3 12h18', 'M12 3a14 14 0 0 1 0 18', 'M12 3a14 14 0 0 0 0 18'],
+  database: ['M12 8c4.4 0 8-1.3 8-3s-3.6-3-8-3-8 1.3-8 3 3.6 3 8 3Z', 'M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5', 'M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'],
+  arrow: ['M5 12h14', 'M13 6l6 6-6 6'],
+  x: ['M6 6l12 12', 'M18 6 6 18'],
+  play: ['M7 4.5v15l12-7.5Z'],
+  stop: ['M6 6h12v12H6z'],
+  users: ['M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20', 'M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z', 'M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.4', 'M15.5 4.2a3.5 3.5 0 0 1 0 6.6'],
+  box: ['M21 8l-9-5-9 5v8l9 5 9-5Z', 'M3 8l9 5 9-5', 'M12 13v8'],
+  flask: ['M9 3h6', 'M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3', 'M7 15h10'],
+  terminal: ['M4 5h16v14H4z', 'M8 10l3 2-3 2', 'M13 15h3'],
+  grid: ['M4 4h7v7H4z', 'M13 4h7v7h-7z', 'M4 13h7v7H4z', 'M13 13h7v7h-7z'],
+  clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7v5l3 2'],
+  list: ['M9 6h11', 'M9 12h11', 'M9 18h11', 'M4.5 6h.01', 'M4.5 12h.01', 'M4.5 18h.01'],
+  settings: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z'],
+  ext: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
+  send: ['M21 3 10 14', 'M21 3l-7 18-4-7-7-4Z'],
+  plus: ['M12 5v14', 'M5 12h14'],
+  undo: ['M9 14 4 9l5-5', 'M4 9h11a5 5 0 0 1 0 10h-3'],
+}
+const icon = (n, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(P[n] || []).map((d) => `<path d="${d}"/>`).join('')}</svg>`
+document.getElementById('brand-mark').innerHTML = icon('grid', 19)
+document.getElementById('lang-icon').innerHTML = icon('globe', 15)
+document.getElementById('banner-icon').innerHTML = icon('alert', 15)
+
+// theme: follow the system, like the settings app
+const mq = matchMedia('(prefers-color-scheme: dark)')
+const theme = () => document.documentElement.setAttribute('data-dbw-theme', mq.matches ? 'dark' : 'light')
+theme(); mq.addEventListener('change', theme)
+
+// ── fictional data ──
+const ME = { id: 'm1', name: '佐藤 一郎' }
+const COLORS = ['#6366f1', '#0891b2', '#16a34a', '#db2777', '#ea580c', '#7c3aed']
+const agents = [
+  { id: 'expense-claims', name: '报销', desc: '提交和审批报销；回答报销规定', status: 'running', release: 'a1b2c3d', members: 12, managers: ['佐藤 一郎', '田中 美咲'], uptime: '6 天 4 小时', mem: 312, outbox: 0, errors: 0, bots: { LINE: true, Slack: true, Teams: false }, sync: 'ok', color: 0 },
+  { id: 'leave-requests', name: '请假', desc: '请假申请、审批和提醒；回答休假制度', status: 'running', release: '9f8e7d6', members: 38, managers: ['佐藤 一郎'], uptime: '13 天 2 小时', mem: 298, outbox: 3, errors: 1, bots: { LINE: true, Slack: false, Teams: true }, sync: 'ok', color: 1 },
+  { id: 'equipment-loans', name: '设备借用', desc: '借用、归还、逾期提醒', status: 'stopped', release: '4c5d6e7', members: 9, managers: ['佐藤 一郎', '高桥 健'], uptime: '—', mem: 0, outbox: 0, errors: 0, bots: { LINE: false, Slack: true, Teams: false }, sync: 'ok', color: 2 },
+  { id: 'it-helpdesk', name: 'IT 咨询', desc: '账号、设备、网络的常见问题', status: 'failed', release: '7a7b7c7', members: 54, managers: ['佐藤 一郎'], uptime: '—', mem: 0, outbox: 17, errors: 23, bots: { LINE: false, Slack: true, Teams: true }, sync: 'stale', color: 3 },
+  { id: 'onboarding', name: '入职手续', desc: '入职清单、材料提交、问答', status: 'registered', release: null, members: 0, managers: ['佐藤 一郎', '田中 美咲'], uptime: '—', mem: 0, outbox: 0, errors: 0, bots: { LINE: false, Slack: false, Teams: false }, sync: 'ok', color: 4 },
+]
+const releases = {
+  'expense-claims': [
+    { sha: 'b7c8d9e', msg: '审批卡片加上金额的区间', by: '佐藤 一郎', at: '11-16 10:12', status: 'passed', approved: null, checks: { manifest: true, roles: true, conformance: '52/52', tests: '94/94', evals: '0.93', profile: true, scenarios: '6/6' } },
+    { sha: 'a1b2c3d', msg: '报销规定 2026 版', by: '田中 美咲', at: '11-12 16:40', status: 'approved', approved: '佐藤 一郎', live: true, checks: { manifest: true, roles: true, conformance: '52/52', tests: '90/90', evals: '0.91', profile: true, scenarios: '6/6' } },
+    { sha: '1d2e3f4', msg: '第一版', by: '佐藤 一郎', at: '11-08 09:05', status: 'approved', approved: '田中 美咲', checks: { manifest: true, roles: true, conformance: '52/52', tests: '88/88', evals: '0.88', profile: true, scenarios: '5/5' } },
+  ],
+  'onboarding': [
+    { sha: 'e1e2e3e', msg: '入职清单和材料提交', by: '田中 美咲', at: '11-16 09:30', status: 'passed', approved: null, checks: { manifest: true, roles: true, conformance: '52/52', tests: '41/41', evals: '0.86', profile: true, scenarios: '4/4' } },
+  ],
+  'it-helpdesk': [
+    { sha: '8b8c8d8', msg: '网络问题的 playbook', by: '佐藤 一郎', at: '11-15 18:20', status: 'failed', approved: null, checks: { manifest: true, roles: false, conformance: '50/52', tests: '61/63', evals: '0.79', profile: true, scenarios: '3/5' } },
+    { sha: '7a7b7c7', msg: '账号锁定的问答', by: '佐藤 一郎', at: '11-10 11:02', status: 'approved', approved: '高桥 健', live: true, checks: { manifest: true, roles: true, conformance: '52/52', tests: '63/63', evals: '0.84', profile: true, scenarios: '5/5' } },
+  ],
+}
+const members = {
+  'expense-claims': [
+    ['山本 花子', '11-08', { LINE: true, Slack: false }], ['中村 大辅', '11-08', { LINE: true, Slack: true }], ['小林 由美', '11-09', { LINE: false, Slack: true }],
+    ['加藤 翔', '11-09', { LINE: true, Slack: false }], ['吉田 莉子', '11-10', { LINE: false, Slack: false }], ['山田 拓也', '11-12', { LINE: true, Slack: true }],
+  ],
+}
+const accounts = [
+  ['佐藤 一郎', 'manager', true, 'sato', 'active', '5'], ['田中 美咲', 'manager', false, 'tanaka', 'active', '2'], ['高桥 健', 'manager', false, 'takahashi', 'active', '1'],
+  ['山本 花子', 'user', false, 'yamamoto', 'active', '3'], ['中村 大辅', 'user', false, 'nakamura', 'active', '2'], ['小林 由美', 'user', false, 'kobayashi', 'active', '1'],
+  ['加藤 翔', 'user', false, 'kato', 'disabled', '0'], ['吉田 莉子', 'user', false, 'yoshida', 'invited', '1'],
+]
+const audit = [
+  ['11-16 10:14', '佐藤 一郎', '登记版本', 'expense-claims', 'b7c8d9e'],
+  ['11-16 09:31', '田中 美咲', '登记版本', 'onboarding', 'e1e2e3e'],
+  ['11-16 08:02', 'Hub', '状态变为 failed', 'it-helpdesk', '健康检查连续失败 5 次'],
+  ['11-15 17:45', '佐藤 一郎', '停止', 'equipment-loans', ''],
+  ['11-15 15:20', '佐藤 一郎', '移除成员', 'expense-claims', 'acct 7f3…'],
+  ['11-12 16:58', '佐藤 一郎', '批准版本', 'expense-claims', 'a1b2c3d'],
+  ['11-12 17:01', '田中 美咲', '启动', 'expense-claims', 'a1b2c3d'],
+]
+
+// ── helpers ──
+const STATUS = { running: ['ok', '运行中'], stopped: ['plain', '已停止'], failed: ['bad', '故障'], registered: ['info', '未上线'], starting: ['warn', '启动中'], stopping: ['warn', '停止中'] }
+const pill = (s) => `<span class="as-pill as-pill--${STATUS[s][0]}">${STATUS[s][1]}</span>`
+const mark = (a, s = 34) => `<div class="hub-agent__mark" aria-hidden="true" style="background:${COLORS[a.color]};width:${s}px;height:${s}px">${a.name[0]}</div>`
+const find = (id) => agents.find((a) => a.id === id)
+const pendingReleases = () => Object.entries(releases).flatMap(([id, rs]) => rs.filter((r) => r.status === 'passed').map((r) => ({ id, ...r })))
+const card = ({ icon: ic, title, sub = '', actions = '', body = '', flush = false }) => `
+  <section class="as-card${flush ? ' as-card--flush' : ''}">
+    <div class="as-card__head">${ic ? `<div class="as-card__icon">${icon(ic)}</div>` : ''}<div class="as-card__titles"><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div>${actions ? `<div class="as-card__actions">${actions}</div>` : ''}</div>
+    <div class="as-card__body">${body}</div>
+  </section>`
+const tile = (ic, label, value, sub, href, tone = '') => `<a class="as-tile" href="${href}"><span class="as-tile__icon${tone ? ' as-tile__icon--' + tone : ''}">${icon(ic, 16)}</span><span class="as-tile__label">${label}</span><span class="as-tile__value">${value}</span><span class="as-tile__sub">${sub}</span></a>`
+const head = (eyebrow, title, desc, actions = '') => `<div class="as-page-head"><div><div class="as-page-head__eyebrow">${eyebrow}</div><h1>${title}</h1><p>${desc}</p></div>${actions ? `<div class="as-page-head__actions">${actions}</div>` : ''}</div>`
+function toast(text) {
+  const t = document.createElement('div'); t.className = 'as-toast'; t.innerHTML = icon('check', 16) + text
+  document.getElementById('toasts').append(t); setTimeout(() => t.remove(), 2600)
+}
+function modal(html) {
+  const root = document.getElementById('modal-root')
+  root.innerHTML = `<div class="hub-modal" role="dialog" aria-modal="true">${html}</div>`
+  root.querySelector('.hub-modal').addEventListener('click', (e) => { if (e.target.classList.contains('hub-modal') || e.target.closest('[data-close]')) root.innerHTML = '' })
+}
+const closeModal = () => { document.getElementById('modal-root').innerHTML = '' }
+
+// ── nav ──
+function renderNav(route) {
+  const pend = pendingReleases().length
+  const failed = agents.filter((a) => a.status === 'failed').length
+  const item = (href, ic, label, extra = '') => `<a class="as-nav__item" href="${href}" ${route === href || (href !== '#/' && route.startsWith(href + '/')) ? 'aria-current="page"' : ''}>${icon(ic)}${label}${extra}</a>`
+  document.getElementById('nav').innerHTML =
+    item('#/', 'gauge', '概览') +
+    item('#/agents', 'sparkle', 'Agents', failed ? `<span class="as-nav__dot" style="background:var(--dbw-danger)" title="${failed} 个故障"></span>` : '') +
+    item('#/releases', 'box', '版本审批', pend ? `<span class="as-nav__badge">${pend}</span>` : '') +
+    `<div class="as-nav__sec">平台管理员</div>` +
+    item('#/accounts', 'users', '账号') +
+    item('#/audit', 'list', '审计')
+}
+
+// ── pages ──
+function pageOverview() {
+  const running = agents.filter((a) => a.status === 'running').length
+  const failed = agents.filter((a) => a.status === 'failed')
+  const pend = pendingReleases()
+  const mem = agents.reduce((s, a) => s + a.mem, 0)
+  return head('Agent Hub', '概览', '你负责的 agent 的状态，以及需要处理的事情。') + `<div class="as-pages">
+    <div class="as-tiles">
+      ${tile('sparkle', 'Agents', `${running} / ${agents.length}`, '运行中 / 全部', '#/agents', 'ok')}
+      ${tile('alert', '故障', failed.length, failed.map((a) => a.name).join('、') || '没有', '#/agents', failed.length ? 'bad' : '')}
+      ${tile('box', '待批准的版本', pend.length, '需要第二个人批准', '#/releases', pend.length ? 'warn' : '')}
+      ${tile('cpu', '内存（运行中的 cell）', `${(mem / 1024).toFixed(1)} GB`, `${running} 个 cell · 主机 8 GB`, '#/agents')}
+    </div>
+    ${card({ icon: 'bell', title: '需要处理', sub: '故障、积压和等你决定的事。', flush: true, body: `<ol class="as-steps">
+      ${failed.map((a) => `<li class="as-step as-step--bad"><span class="as-step__num">!</span><span class="as-step__text"><strong>${a.name}：健康检查连续失败</strong><span>11-16 08:02 起 · outbox 积压 ${a.outbox} · 成员同步中断</span></span><span class="as-pill as-pill--bad">故障</span><a class="as-btn as-btn--ghost" href="#/agents/${a.id}/logs">${icon('arrow', 15)}看日志</a></li>`).join('')}
+      ${pend.map((r) => `<li class="as-step"><span class="as-step__num">${icon('box', 13)}</span><span class="as-step__text"><strong>${find(r.id).name} · ${r.sha}：${r.msg}</strong><span>${r.by} 登记 · ${r.at} · 检查全部通过</span></span><span class="as-pill as-pill--warn">待批准</span><a class="as-btn as-btn--ghost" href="#/releases">${icon('arrow', 15)}去批准</a></li>`).join('')}
+      <li class="as-step"><span class="as-step__num">${icon('users', 13)}</span><span class="as-step__text"><strong>入职手续：还没有成员</strong><span>有审批的 agent 至少要 2 个成员才能启动</span></span><span class="as-pill as-pill--info">准备中</span><a class="as-btn as-btn--ghost" href="#/agents/onboarding/members">${icon('arrow', 15)}加成员</a></li>
+    </ol>` })}
+    ${agentsTable()}
+  </div>`
+}
+
+function agentsTable() {
+  return card({ icon: 'sparkle', title: 'Agents', sub: '每个 agent 是一个独立的 cell：业务进程 + DSH + 自己的数据库、bot 和密钥。', actions: `<button class="as-btn as-btn--primary" data-act="register">${icon('plus', 16)}登记 agent</button>`, flush: true, body: `
+    <div class="as-table-wrap"><table class="as-table"><thead><tr><th>Agent</th><th>状态</th><th>版本</th><th>成员</th><th>健康</th><th></th></tr></thead><tbody>
+    ${agents.map((a) => `<tr class="is-link" data-go="#/agents/${a.id}">
+      <td><div class="hub-agent">${mark(a)}<div class="as-doc"><strong>${a.name}</strong><span class="as-mono">${a.id}</span></div></div></td>
+      <td>${pill(a.status)}</td>
+      <td class="as-mono">${a.release ?? '<span class="as-muted">—</span>'}</td>
+      <td>${a.members}</td>
+      <td>${a.status === 'running' ? `<span class="as-muted">outbox ${a.outbox} · 错误 ${a.errors}</span>` : a.status === 'failed' ? `<span style="color:var(--dbw-danger);font-weight:600">${a.errors} 个错误</span>` : '<span class="as-muted">—</span>'}</td>
+      <td><div class="as-row-actions">${runButtons(a, true)}</div></td>
+    </tr>`).join('')}
+    </tbody></table></div>` })
+}
+
+function runButtons(a, small = false) {
+  const sm = small ? ' as-btn--sm' : ''
+  if (a.status === 'running') return `<button class="as-btn${sm}" data-act="restart" data-id="${a.id}">${icon('refresh', 14)}重启</button><button class="as-btn as-btn--danger${sm}" data-act="stop" data-id="${a.id}">${icon('stop', 14)}停止</button>`
+  if (a.status === 'stopped' || a.status === 'failed') return `<button class="as-btn as-btn--primary${sm}" data-act="start" data-id="${a.id}">${icon('play', 14)}${a.status === 'failed' ? '重启' : '启动'}</button>`
+  if (a.status === 'registered') return `<button class="as-btn${sm}" disabled title="还没有已批准的版本">${icon('play', 14)}启动</button>`
+  return `<button class="as-btn${sm}" disabled><span>${STATUS[a.status][1]}…</span></button>`
+}
+
+const TABS = [['', '概览', 'gauge'], ['releases', '版本', 'box'], ['members', '成员', 'users'], ['knowledge', '知识', 'book'], ['sns', 'SNS', 'chat'], ['sandbox', '沙箱', 'flask'], ['logs', '日志', 'terminal'], ['settings', '设置', 'settings']]
+function pageAgent(id, tab) {
+  const a = find(id)
+  if (!a) return head('Agents', '找不到这个 agent', '')
+  const body = { '': agentOverview, releases: agentReleases, members: agentMembers, knowledge: agentKnowledge, sns: agentSns, sandbox: agentSandbox, logs: agentLogs, settings: agentSettings }[tab] || agentOverview
+  return `<div class="as-page-head"><div><div class="as-page-head__eyebrow"><a href="#/agents">Agents</a> / ${a.id}</div>
+      <h1>${mark(a, 32)}${a.name} ${pill(a.status)}</h1><p>${a.desc} · <span class="as-mono">https://${a.id}.agents.example.net</span></p></div>
+      <div class="as-page-head__actions">${runButtons(a)}</div></div>
+    <nav class="hub-tabs">${TABS.map(([t, l, ic]) => `<a class="hub-tab" href="#/agents/${a.id}${t ? '/' + t : ''}" ${t === (tab || '') ? 'aria-current="page"' : ''}>${icon(ic, 16)}${l}</a>`).join('')}</nav>
+    <div class="as-pages">${body(a)}</div>`
+}
+
+function agentOverview(a) {
+  const steps = [
+    ['登记', `代码在 biz-ai-agents/agents/${a.id}`, true],
+    ['版本检查通过并已批准', a.release ? `当前 ${a.release}` : '还没有已批准的版本', Boolean(a.release)],
+    ['成员（至少 2 人）', `${a.members} 人`, a.members >= 2],
+    ['组织的 IM bot', Object.entries(a.bots).filter(([, v]) => v).map(([k]) => k).join('、') || '还没有接', Object.values(a.bots).some(Boolean)],
+    ['启动前检查', 'postgres · 环境变量 · check.mjs · 端口和子域名', a.status !== 'registered'],
+  ]
+  return `${a.status === 'failed' ? `<div class="as-alert as-alert--bad">${icon('alert')}<div><strong>健康检查连续失败 5 次（11-16 08:02 起）</strong>业务进程能启动，但数据库连接超时（错误码 db_connect_timeout）。成员同步也中断了：成员变更要等恢复后才生效。<a href="#/agents/${a.id}/logs" style="color:var(--dbw-primary);font-weight:600">看日志 →</a></div></div>` : ''}
+    <div class="as-tiles">
+      ${tile('clock', '运行时长', a.uptime, a.release ? `版本 ${a.release}` : '未上线', `#/agents/${a.id}/releases`)}
+      ${tile('users', '成员', a.members, `管理者 ${a.managers.length} 人`, `#/agents/${a.id}/members`)}
+      ${tile('database', 'outbox 积压', a.outbox, a.outbox > 10 ? '超过阈值 10' : '正常', `#/agents/${a.id}/logs`, a.outbox > 10 ? 'bad' : '')}
+      ${tile('cpu', '内存', a.mem ? `${a.mem} MB` : '—', '业务进程 + DSH', `#/agents/${a.id}/settings`)}
+    </div>
+    ${card({ icon: 'check', title: '上线进度', sub: '启动前检查（§7.2）不通过时不能启动。', flush: true, body: `<ol class="as-steps">${steps.map(([t, s, ok], i) => `<li class="as-step${ok ? ' as-step--done' : ''}"><span class="as-step__num">${ok ? icon('check', 14) : i + 1}</span><span class="as-step__text"><strong>${t}</strong><span>${s}</span></span><span class="as-pill ${ok ? 'as-pill--ok' : 'as-pill--plain'}">${ok ? '完成' : '未完成'}</span></li>`).join('')}</ol>` })}
+    <div class="hub-two">
+      ${card({ icon: 'gauge', title: '运行状态', sub: 'agent 的 /hub-agent/v1/status：只有数字。', body: `<div>
+        ${[['业务进程', a.status === 'running' ? '<span class="hub-yes">正常</span>' : '—'], ['DSH（子进程）', a.status === 'running' ? '<span class="hub-yes">正常</span>' : '—'], ['数据库', a.status === 'failed' ? '<span style="color:var(--dbw-danger);font-weight:600">超时</span>' : a.status === 'running' ? '<span class="hub-yes">正常</span>' : '—'],
+           ['24 小时内的错误', a.errors], ['成员同步', a.sync === 'ok' ? '<span class="hub-yes">version 41 · 12 秒前</span>' : '<span style="color:var(--dbw-warning);font-weight:600">中断（沿用 version 39）</span>'],
+           ['bot 连接', Object.entries(a.bots).map(([k, v]) => `${k} ${v ? '✓' : '–'}`).join(' · ')]].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+      ${card({ icon: 'shield', title: '管理者', sub: '管理者能进设置画面和调试视图，看不到业务内容和对话原文。', body: `<div>${a.managers.map((m) => `<div class="hub-kv"><span>${m}</span><span>${m === ME.name ? '你' : '管理者'}</span></div>`).join('')}</div>
+        <div class="as-alert as-alert--info">${icon('shield')}<div>版本上线需要<strong style="display:inline">另一位管理者或平台管理员</strong>批准，登记的人不能批自己的版本。</div></div>` })}
+    </div>`
+}
+
+function checksHtml(c) {
+  const item = (label, v) => { const ok = v === true || (typeof v === 'string' && (!v.includes('/') || v.split('/')[0] === v.split('/')[1]) && !(label === 'evals' && parseFloat(v) < 0.8)); return `<span class="hub-check ${ok ? 'hub-check--ok' : 'hub-check--bad'}">${ok ? icon('check', 13) : icon('x', 13)}${label}${v === true || v === false ? '' : ' ' + v}</span>` }
+  return `<div class="hub-checks">${item('manifest', c.manifest)}${item('角色映射', c.roles)}${item('一致性', c.conformance)}${item('业务测试', c.tests)}${item('evals', c.evals)}${item('profile', c.profile)}${item('沙箱场景', c.scenarios)}</div>`
+}
+function releaseRows(list, agentId) {
+  return list.map((r) => {
+    const id = agentId || r.id
+    const st = r.status === 'approved' ? (r.live ? '<span class="as-pill as-pill--ok">运行中</span>' : '<span class="as-pill as-pill--plain">已批准</span>') : r.status === 'passed' ? '<span class="as-pill as-pill--warn">待批准</span>' : '<span class="as-pill as-pill--bad">检查未通过</span>'
+    const self = r.by === ME.name
+    const acts = r.status === 'passed' ? `<button class="as-btn as-btn--primary as-btn--sm" data-act="approve" data-id="${id}" data-sha="${r.sha}" ${self ? 'disabled title="登记的人不能批准自己的版本"' : ''}>${icon('check', 14)}批准</button>${self ? '<span class="as-muted">你登记的，需要别人批准</span>' : ''}`
+      : r.status === 'approved' && !r.live ? `<button class="as-btn as-btn--sm" data-act="deploy" data-id="${id}" data-sha="${r.sha}">${icon('undo', 14)}上线这个版本</button>`
+      : r.status === 'failed' ? `<a class="as-btn as-btn--ghost as-btn--sm" href="#/agents/${id}/logs">${icon('terminal', 14)}检查日志</a>` : ''
+    return `<tr><td style="min-width:170px"><div class="as-doc"><strong>${agentId ? '' : find(id).name + ' · '}<span class="as-mono">${r.sha}</span></strong><span>${r.msg}</span></div></td>
+      <td style="white-space:nowrap"><div class="as-doc"><strong style="font-weight:500">${r.by}</strong><span>${r.at}</span></div></td><td>${checksHtml(r.checks)}</td><td style="white-space:nowrap">${st}${r.approved ? `<div class="as-muted">批准：${r.approved}</div>` : ''}</td><td><div class="as-row-actions">${acts}</div></td></tr>`
+  }).join('')
+}
+function agentReleases(a) {
+  const list = releases[a.id] || []
+  return card({ icon: 'box', title: '版本', sub: '版本 = biz-ai-agents 仓库的一个 commit。Hub 在这个 agent 自己的 OS 用户下跑检查，通过后由第二个人批准，才能上线。', actions: `<button class="as-btn as-btn--primary" data-act="register-release" data-id="${a.id}">${icon('plus', 16)}登记版本</button>`, flush: true,
+    body: list.length ? `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>Commit</th><th>登记</th><th>检查</th><th>状态</th><th></th></tr></thead><tbody>${releaseRows(list, a.id)}</tbody></table></div>` : `<p class="as-empty">还没有登记的版本。合并 PR 后，在这里或用 <span class="as-mono">biz-agent register ${a.id} --ref &lt;sha&gt;</span> 登记。</p>` })
+}
+
+function agentMembers(a) {
+  const list = members[a.id] || []
+  const linked = list.filter(([, , s]) => Object.values(s).some(Boolean)).length
+  return `${a.members < 2 ? `<div class="as-alert as-alert--warn">${icon('alert')}<div><strong>成员不足 2 人</strong>这个 agent 有审批。发起人以外没有人能审批，所以成员少于 2 人时不能启动。</div></div>` : ''}
+    <div class="hub-two hub-two--wide">
+    ${card({ icon: 'users', title: `成员（${a.members}）`, sub: '成员之间平等：都能审批（不能批自己发起的）、都收报告、都能看到已发布的全部知识。', actions: `<button class="as-btn as-btn--primary" data-act="invite" data-id="${a.id}">${icon('plus', 16)}加入成员</button>`, flush: true,
+      body: list.length ? `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>使用者</th><th>加入</th><th>SNS 连携</th><th></th></tr></thead><tbody>${list.map(([n, d, s]) => `<tr><td><strong>${n}</strong></td><td class="as-muted">${d}</td><td>${Object.entries(s).map(([k, v]) => `<span class="${v ? 'hub-yes' : 'hub-no'}">${k} ${v ? '✓' : '–'}</span>`).join(' &nbsp; ')}</td><td><div class="as-row-actions"><button class="as-btn as-btn--danger as-btn--sm" data-act="remove" data-name="${n}">移除</button></div></td></tr>`).join('')}</tbody></table></div><p class="as-muted" style="padding:10px 20px 6px;margin:0">只显示前 6 人（mock）。连携状态来自 agent 的 link-status（只有是 / 否）。</p>` : '<p class="as-empty">还没有成员。</p>' })}
+    <div class="as-pages">
+    ${card({ icon: 'link', title: 'SNS 连携率', body: `<div class="hub-kv"><span>已连携至少一个 SNS</span><span>${linked} / ${list.length}</span></div><div class="hub-bar"><i style="width:${list.length ? (linked / list.length) * 100 : 0}%"></i></div><p class="as-muted" style="margin:0">连携只能本人做：使用者在「我的 agent」里点「连携」，到这个 agent 的 /me/sns 发行连携码，再发给 bot。</p>` })}
+    ${card({ icon: 'shield', title: '移除成员时', body: `<div>${['会话立即作废', 'SNS 连携解除（sns_identity.unlinked）', '他发起的未决审批撤回，通知其他成员', '他做过的决定保留（历史）', '重新加入 = 新成员，要重新连携'].map((t) => `<div class="hub-kv"><span>${t}</span><span>${icon('check', 15)}</span></div>`).join('')}</div>` })}
+    </div></div>`
+}
+
+function agentKnowledge(a) {
+  const tiles = a.id === 'expense-claims' ? ['7', '1', '30', '11-16 14:58'] : ['5', '0', '22', '11-14 10:20']
+  return `<div class="as-tiles">
+      ${tile('file', '文档', tiles[0], `已发布 ${tiles[0] - tiles[1]} · 待审批 ${tiles[1]}`, '#')}
+      ${tile('database', '索引', tiles[2], `${tiles[2]} 个区块`, '#')}
+      ${tile('search', '检索方式', 'BM25F', '默认 · 不需要模型', '#')}
+      ${tile('refresh', '最近重建', tiles[3], '成功', '#')}
+    </div>
+    <div class="hub-two">
+    ${card({ icon: 'book', title: '这个 agent 的知识', sub: '知识按 agent 分开存放：自己的数据目录和自己的数据库。上传、编辑、可见范围都在 agent 自己的设置画面里做。', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开知识设置</button>`,
+      body: `<div>${[['基础知识（版本里的 knowledge/*.md）', '6 份'], ['基础知识的哈希（当前版本）', '<span class="as-mono">sha256:4be1…9c0a</span>'], ['上一个版本的哈希', '<span class="as-mono">sha256:4be1…9c0a</span>（没变）'], ['上传的文档', '1 份']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+    ${card({ icon: 'check', title: '待审批的文档', sub: '审批人 = 这个 agent 的其他管理者（docApproverRoles），上传的人不能批自己的。只在网页上审批。', flush: true,
+      body: a.id === 'expense-claims' ? `<div class="as-table-wrap"><table class="as-table"><tbody><tr><td><div class="as-doc"><strong>差旅费的上限（2026 年 12 月起）</strong><span>田中 美咲 上传 · 11-16 · 可见：member</span></div></td><td><div class="as-row-actions"><button class="as-btn as-btn--primary as-btn--sm" data-act="doc-approve">${icon('check', 14)}批准</button><button class="as-btn as-btn--danger as-btn--sm" data-act="doc-reject">驳回</button></div></td></tr></tbody></table></div>` : '<p class="as-empty">没有待审批的文档。</p>' })}
+    </div>`
+}
+
+function agentSns(a) {
+  const all = ['LINE', 'Slack', 'Teams', 'Telegram', '企业微信', '钉钉', '飞书', 'Discord']
+  return `<div class="as-alert as-alert--info">${icon('chat')}<div><strong>一个 agent 一组自己的 bot</strong>使用者把消息发给这个 agent 的 bot；签名是「— ${a.name}（AI 秘书）」。bot 的接入用 agent 设置画面里的 IM 机器人页（dsh-im 自己的设置组件，13 种 SNS）。</div></div>
+    <div class="hub-two">
+    ${card({ icon: 'chat', title: '组织的 IM bot', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开 IM 机器人设置</button>`, flush: true,
+      body: `<div class="as-table-wrap"><table class="as-table"><tbody>${all.map((k) => { const v = a.bots[k]; return `<tr><td><strong>${k}</strong></td><td>${v ? '<span class="as-pill as-pill--ok">已接入</span>' : '<span class="as-pill as-pill--plain">未接入</span>'}</td><td class="as-muted">${v ? (k === 'LINE' ? 'webhook /dsh-hooks/line' : k === 'Slack' ? 'Socket Mode' : 'webhook /dsh-hooks/teams') : ''}</td></tr>` }).join('')}</tbody></table></div>` })}
+    ${card({ icon: 'alert', title: '停止期间', sub: '业务进程停止后，Hub 的前置代理处理 webhook。', body: `<div>${[['LINE webhook', '回 503（开启「Webhook 再送」时 LINE 会重试）'], ['Slack（Socket Mode）', '连接断开，停止期间的消息不送达'], ['bot 的固定回复「停止中」', '第二阶段']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+    </div>`
+}
+
+// sandbox state
+const sb = { running: false, model: 'mock', user: 'A', items: [], cards: 0 }
+const TEST_USERS = { A: '测试用户 A（虚构）', B: '测试用户 B（虚构）', C: '测试用户 C（虚构）' }
+function agentSandbox(a) {
+  const scen = [['提交报销 → 卡片到其他成员 → 批准', true], ['发起人不能批自己的申请', true], ['问报销规定 → 带来源（规定画面）', true], ['问别人的报销 → 拒绝', true], ['外部链接被 link-guard 去掉', true], ['报告只有数字', true]]
+  return `<div class="as-alert as-alert--info">${icon('flask')}<div><strong>沙箱 = 临时的 cell</strong>同一版本的代码，临时数据库 + seed 的虚构数据；身份由沙箱自己的假 Hub 签发；IM 是 mock LINE，不接任何真实 SNS。空闲 30 分钟自动删除。</div></div>
+    ${card({ icon: 'flask', title: '沙箱', sub: sb.running ? `运行中 · 版本 ${a.release ?? 'b7c8d9e'} · 模型：${sb.model === 'mock' ? 'mock（不花钱、结果稳定）' : '真实模型（已确认外发）'}` : '没有运行。', actions: sb.running ? `<button class="as-btn" data-act="sb-reset">${icon('refresh', 15)}重置数据</button><button class="as-btn as-btn--danger" data-act="sb-stop">${icon('stop', 15)}停止并删除</button>` : `<div class="as-seg" role="radiogroup">${[['mock', 'mock 模型'], ['real', '真实模型']].map(([v, l]) => `<button class="as-seg__item" role="radio" aria-checked="${sb.model === v}" data-act="sb-model" data-v="${v}">${l}</button>`).join('')}</div><button class="as-btn as-btn--primary" data-act="sb-start">${icon('play', 15)}启动沙箱</button>`, body: '' }).replace('<div class="as-card__body"></div>', '')}
+    ${sb.running ? `<div class="hub-two hub-two--wide">
+      <section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('chat')}</div><div class="as-card__titles"><h2>沙箱聊天（mock LINE）</h2><p>以测试用户的身份说话；bot 的消息和审批卡片直接显示在这里，按钮可以按。</p></div></div>
+        <div class="as-card__body" style="padding-bottom:10px"><div class="hub-users">${Object.entries(TEST_USERS).map(([k, l]) => `<button class="as-chip as-btn as-btn--sm${sb.user === k ? ' as-btn--primary' : ''}" data-act="sb-user" data-v="${k}">${l}</button>`).join('')}</div></div>
+        <div class="hub-chat"><div class="hub-chat__log" id="sb-log">${sbLog()}</div>
+        <form class="hub-chat__input" id="sb-form"><input class="as-input" id="sb-text" placeholder="例：交通费 3,200 日元，11 月 14 日去客户那里" autocomplete="off"><button class="as-btn as-btn--primary" type="submit">${icon('send', 15)}发送</button></form></div></section>
+      ${card({ icon: 'list', title: '场景', sub: 'sandbox/scenarios：谁说什么 → 期望的工具、卡片、来源、禁止出现的内容。', actions: `<button class="as-btn" data-act="sb-run">${icon('play', 15)}全部运行</button>`, flush: true,
+        body: `<ol class="as-steps" id="sb-scen">${scen.map(([t], i) => `<li class="as-step" data-i="${i}"><span class="as-step__num">${i + 1}</span><span class="as-step__text"><strong>${t}</strong><span>mock 模型</span></span><span class="as-pill as-pill--plain">未运行</span></li>`).join('')}</ol>` })}
+    </div>` : ''}`
+}
+function sbLog() {
+  if (!sb.items.length) return '<span class="hub-sys">沙箱已启动 · 测试用户 A、B、C 在 mock LINE 上已经连携</span>'
+  return sb.items.map((m) => {
+    if (m.k === 'sys') return `<span class="hub-sys">${m.t}</span>`
+    if (m.k === 'me') return `<div class="hub-msg hub-msg--me"><span class="hub-msg__who">${TEST_USERS[m.u]}</span>${m.t}</div>`
+    if (m.k === 'bot') return `<div class="hub-msg hub-msg--bot"><span class="hub-msg__who">→ ${TEST_USERS[m.u]} · 报销 AI</span>${m.t}</div>`
+    if (m.k === 'card') return `<div class="hub-card"><div class="hub-card__head">【承认のお願い】报销 → ${TEST_USERS[m.u]}</div><div class="hub-card__body"><span>申请</span><span class="as-mono">${m.id}</span><span>金额</span><span>1,000–5,000 日元</span><span>期限</span><span>11-23</span></div><div class="hub-card__btns">${m.done ? `<button disabled>${m.done}</button>` : `<button data-act="sb-decide" data-id="${m.id}" data-u="${m.u}" data-v="approve">承认</button><button data-act="sb-decide" data-id="${m.id}" data-u="${m.u}" data-v="reject">驳回</button>`}</div></div>`
+    return ''
+  }).join('')
+}
+function sbSend(text) {
+  const u = sb.user
+  sb.items.push({ k: 'me', u, t: text })
+  if (/规定|上限|多少|吗/.test(text)) {
+    sb.items.push({ k: 'bot', u, t: '国内出差的交通费按实际金额报销，需要附收据。\n来源：报销规定 › 交通费（https://expense-claims.agents.example.net/handbook/rules）\n— 报销（AI 秘书）' })
+  } else if (/报销|交通|日元|费/.test(text)) {
+    const id = 'EC-' + String(1040 + ++sb.cards)
+    sb.items.push({ k: 'bot', u, t: `已为你准备报销申请（${id}）：交通费，等其他成员审批。审批结果出来后会通知你。\n— 报销（AI 秘书）` })
+    for (const o of Object.keys(TEST_USERS)) if (o !== u) sb.items.push({ k: 'card', u: o, id, from: u })
+    sb.items.push({ k: 'sys', t: `审批卡片发给了发起人以外的 ${Object.keys(TEST_USERS).length - 1} 位成员` })
+  } else {
+    sb.items.push({ k: 'bot', u, t: '我可以帮你提交报销、查进度、回答报销规定。\n— 报销（AI 秘书）' })
+  }
+}
+
+function agentLogs(a) {
+  const rows = [
+    ['08:02:11', 'error', 'business', 'db.connect.failed', 'code=db_connect_timeout attempts=5', '4f2a…e1'],
+    ['08:01:40', 'warn', 'hub-client', 'members.sync.stale', 'version=39 last_ok=07:58', '—'],
+    ['07:58:03', 'info', 'dsh', 'im.turn', 'platform=slack tools=1 ms=2140 user=<span class="hub-mask">•••</span>', '9c1d…07'],
+    ['07:58:02', 'info', 'business', 'http.request', 'GET /bridge/v1/knowledge/search 200 ms=38', '9c1d…07'],
+    ['07:58:01', 'info', 'business', 'delegation.minted', 'role=member ttl=300', '9c1d…07'],
+    ['07:41:22', 'warn', 'business', 'outbox.event.retry', 'type=approval.requested attempt=3', 'a3b4…5c'],
+    ['07:12:09', 'info', 'business', 'auth.sso.callback', 'agentRole=member', '7e7e…02'],
+  ]
+  return `<div class="as-alert as-alert--info">${icon('shield')}<div>日志是 <span class="as-mono">packages/telemetry</span> 的 JSON 行，已经脱敏（姓名、正文、联系方式由 <span class="as-mono">mask</span> 去掉）。trace 只有步骤、状态码和耗时，没有提问和回答的原文。保留 14 天。</div></div>
+    ${card({ icon: 'terminal', title: '日志', actions: `<button class="as-btn" data-act="noop">${icon('refresh', 15)}刷新</button>`, flush: true, body: `
+      <div class="hub-filters" style="padding:0 20px 12px">
+        <label class="as-field"><span class="as-field__label">级别</span><select class="as-input"><option>全部</option><option>error</option><option>warn</option><option>info</option></select></label>
+        <label class="as-field"><span class="as-field__label">进程</span><select class="as-input"><option>全部</option><option>business</option><option>dsh</option><option>hub-client</option></select></label>
+        <label class="as-field"><span class="as-field__label">事件名</span><input class="as-input" placeholder="例：outbox.*"></label>
+        <label class="as-field"><span class="as-field__label">trace id</span><input class="as-input as-mono" placeholder="9c1d…"></label>
+      </div>
+      <div class="as-table-wrap"><table class="as-table hub-log"><thead><tr><th>时间</th><th>级别</th><th>进程</th><th>事件</th><th>attrs</th><th>trace</th></tr></thead><tbody>
+      ${rows.map(([t, l, p, e, m, tr]) => `<tr><td>${t}</td><td><span class="hub-lv hub-lv--${l}">${l}</span></td><td>${p}</td><td>${e}</td><td class="msg">${m}</td><td>${tr === '—' ? '—' : `<button class="as-link" data-act="trace" data-v="${tr}">${tr}</button>`}</td></tr>`).join('')}
+      </tbody></table></div>` })}
+    <div id="trace-box"></div>`
+}
+function traceCard(id) {
+  const steps = [['0 ms', 'dsh · im.turn 开始（slack，direct）', 2140, 100], ['12 ms', 'bridge-identity · 解析身份 → member', 18, 1], ['35 ms', 'business · POST /bridge/v1/delegations → 201', 22, 1], ['60 ms', 'tool · expense_knowledge_search → 200（3 个来源）', 38, 2], ['110 ms', 'model · 第 1 轮', 1890, 88], ['2010 ms', 'guard · link-guard / citation-guard', 9, 1], ['2030 ms', 'dsh-im · 发送 → ok', 110, 5]]
+  return card({ icon: 'clock', title: `trace ${id}`, sub: '步骤、状态码、耗时；没有原文。', actions: `<button class="as-btn as-btn--ghost" data-act="trace-close">${icon('x', 15)}关闭</button>`, flush: true,
+    body: `<ul class="hub-trace">${steps.map(([t, s, ms, w]) => `<li><span class="as-mono as-muted">${t}</span><span>${s}<div class="hub-trace__bar" style="width:${Math.max(w, 2)}%;margin-top:5px"></div></span><span class="as-mono">${ms} ms</span></li>`).join('')}</ul>` })
+}
+
+function agentSettings(a) {
+  return `<div class="hub-two">
+    ${card({ icon: 'settings', title: 'cell', sub: '这些值由 Hub 在启动时注入（环境变量），不写在 agent.json 里。', body: `<div>${[['子域名', `<span class="as-mono">${a.id}.agents.example.net</span>`], ['runner', 'process（第一阶段）'], ['OS 用户', `<span class="as-mono">agent-${a.id}</span>`], ['数据库', `<span class="as-mono">agent_${a.id.replace(/-/g, '_')}</span>`], ['DSH profile', '<span class="as-mono">dsh-profile</span> · DSH 0.2.2-rc.1'], ['dsh.allow（打开的外发）', '无']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+    ${card({ icon: 'key', title: '密钥和环境变量', sub: '值放在属于这个 agent 的 OS 用户的 0600 文件里，画面上只显示「已设置」。', body: `<div>${[['BRIDGE_SERVICE_TOKEN', 'Hub 生成'], ['HUB_CLIENT_SECRET', 'Hub 生成'], ['DATABASE_URL', 'Hub 生成'], ['AGENT_SETTINGS_KEY', '已设置'], ['AZURE_OPENAI_KEY（可选）', '<span class="hub-no">未设置</span>']].map(([k, v]) => `<div class="hub-kv"><span class="as-mono">${k}</span><span>${v.startsWith('<') ? v : `<span class="hub-yes">${v}</span>`}</span></div>`).join('')}</div>` })}
+    </div>
+    ${card({ icon: 'ext', title: 'agent 自己的设置画面', sub: '模型、检索方式、IM 机器人、SNS 审批和报告在 agent 的 /agent-settings 里（经 Hub 登录，角色 agent_manager）。DSH 的完整画面在平台模式下关闭。', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开 /agent-settings</button>`, body: '' }).replace('<div class="as-card__body"></div>', '')}`
+}
+
+function pageAgents() { return head('Agent Hub', 'Agents', '公司的 AI agent。代码在 biz-ai-agents 仓库里，用 agent-builder skill 造出来；这里登记、检查、批准、启停、测试和调试。') + `<div class="as-pages">${agentsTable()}</div>` }
+
+function pageReleases() {
+  const pend = pendingReleases()
+  const recent = Object.entries(releases).flatMap(([id, rs]) => rs.filter((r) => r.status !== 'passed').map((r) => ({ id, ...r })))
+  return head('Agent Hub', '版本审批', '检查全部通过的版本，要由登记人以外的管理者或平台管理员批准后才能上线。批准前请看检查结果和 diff。') + `<div class="as-pages">
+    ${card({ icon: 'box', title: `待批准（${pend.length}）`, flush: true, body: pend.length ? `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>版本</th><th>登记</th><th>检查</th><th>状态</th><th></th></tr></thead><tbody>${releaseRows(pend)}</tbody></table></div>` : '<p class="as-empty">没有待批准的版本。</p>' })}
+    ${card({ icon: 'clock', title: '最近的版本', flush: true, body: `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>版本</th><th>登记</th><th>检查</th><th>状态</th><th></th></tr></thead><tbody>${releaseRows(recent)}</tbody></table></div>` })}
+  </div>`
+}
+
+let acctTab = 'manager'
+function pageAccounts() {
+  const list = accounts.filter((a) => a[1] === acctTab)
+  const st = { active: '<span class="as-pill as-pill--ok">有效</span>', disabled: '<span class="as-pill as-pill--plain">已停用</span>', invited: '<span class="as-pill as-pill--info">已邀请</span>' }
+  return head('平台管理员', '账号', '两种账号：管理者（创建和管理 agent）和使用者（agent 的成员）。种类创建后不能改；账号 ID 永久，删除是软删除。') + `<div class="as-pages">
+    ${card({ icon: 'users', title: '账号', actions: `<div class="as-seg" role="radiogroup">${[['manager', '管理者'], ['user', '使用者']].map(([v, l]) => `<button class="as-seg__item" role="radio" aria-checked="${acctTab === v}" data-act="acct-tab" data-v="${v}">${l}</button>`).join('')}</div><button class="as-btn as-btn--primary" data-act="new-account">${icon('plus', 16)}${acctTab === 'manager' ? '新建管理者' : '邀请使用者'}</button>`, flush: true,
+      body: `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>名字</th><th>登录 ID</th><th>${acctTab === 'manager' ? '负责的 agent' : '加入的 agent'}</th><th>状态</th><th></th></tr></thead><tbody>${list.map(([n, k, adm, id, s, c]) => `<tr><td><strong>${n}</strong>${adm ? ' <span class="as-pill as-pill--prim as-pill--plain">平台管理员</span>' : ''}</td><td class="as-mono">${id}</td><td>${c}</td><td>${st[s]}</td><td><div class="as-row-actions">${s === 'active' && n !== ME.name ? '<button class="as-btn as-btn--danger as-btn--sm" data-act="disable">停用</button>' : ''}</div></td></tr>`).join('')}</tbody></table></div>` })}
+    <div class="as-alert as-alert--info">${icon('shield')}<div>停用账号时：Hub 会话失效，并通知所有相关的 agent（作废会话、解除 SNS 连携、撤回他发起的未决审批）。一个人既是管理者又是使用者时，用两个账号（§17 决定 2，待定）。</div></div>
+  </div>`
+}
+
+function pageAudit() {
+  return head('平台管理员', '审计', '谁在什么时候启停、登记、批准、加人、改设置。只记 ID 和数字，没有自由文。') + `<div class="as-pages">${card({ icon: 'list', title: '审计记录', flush: true, body: `<div class="as-table-wrap"><table class="as-table"><thead><tr><th>时间</th><th>操作人</th><th>操作</th><th>Agent</th><th>内容</th></tr></thead><tbody>${audit.map(([t, w, a, g, x]) => `<tr><td class="as-mono">${t}</td><td>${w}</td><td><strong>${a}</strong></td><td class="as-mono">${g}</td><td class="as-muted">${x}</td></tr>`).join('')}</tbody></table></div>` })}</div>`
+}
+
+// ── router ──
+function render() {
+  const route = location.hash || '#/'
+  renderNav(route)
+  const m = route.match(/^#\/agents\/([^/]+)(?:\/([a-z]+))?/)
+  const main = document.getElementById('main')
+  main.innerHTML = m ? pageAgent(m[1], m[2] || '') : route === '#/agents' ? pageAgents() : route === '#/releases' ? pageReleases() : route === '#/accounts' ? pageAccounts() : route === '#/audit' ? pageAudit() : pageOverview()
+  const form = document.getElementById('sb-form')
+  if (form) form.addEventListener('submit', (e) => { e.preventDefault(); const t = document.getElementById('sb-text'); if (!t.value.trim()) return; sbSend(t.value.trim()); t.value = ''; refreshLog() })
+  const log = document.getElementById('sb-log'); if (log) log.scrollTop = log.scrollHeight
+}
+function refreshLog() { const log = document.getElementById('sb-log'); if (log) { log.innerHTML = sbLog(); log.scrollTop = log.scrollHeight } }
+addEventListener('hashchange', () => { render(); scrollTo(0, 0) })
+
+function transition(a, mid, end, msg) {
+  a.status = mid; render()
+  setTimeout(() => { a.status = end; if (end === 'running') { a.uptime = '刚刚'; a.mem = 305; a.errors = 0; a.sync = 'ok'; a.outbox = 0 } else { a.uptime = '—'; a.mem = 0 } render(); toast(msg) }, 1100)
+}
+
+document.addEventListener('click', (e) => {
+  const go = e.target.closest('[data-go]'); const b = e.target.closest('[data-act]')
+  if (go && !b) { location.hash = go.dataset.go; return }
+  if (!b) return
+  const act = b.dataset.act, a = b.dataset.id && find(b.dataset.id)
+  if (act === 'stop') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('stop')}</div><div class="as-card__titles"><h2>停止「${a.name}」？</h2><p>${a.members} 个成员会无法使用。</p></div></div><div class="as-card__body">
+      <div>${['网页显示「这个 agent 已停止」', 'outbox 里没送出的事件留在数据库，启动后接着送', 'LINE webhook 回 503；没开「Webhook 再送」时，停止期间的消息会丢', '自动任务、定时报告停止，启动后不补跑'].map((t) => `<div class="hub-kv"><span>${t}</span><span></span></div>`).join('')}</div>
+      <div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="stop-ok" data-id="${a.id}" style="background:var(--dbw-danger);border-color:var(--dbw-danger)">${icon('stop', 15)}停止</button></div></div></section>`)
+  else if (act === 'stop-ok') { closeModal(); transition(a, 'stopping', 'stopped', `「${a.name}」已停止`) }
+  else if (act === 'start') transition(a, 'starting', 'running', `「${a.name}」已启动（健康检查通过）`)
+  else if (act === 'restart') transition(a, 'starting', 'running', `「${a.name}」已重启`)
+  else if (act === 'approve') { const r = releases[b.dataset.id].find((x) => x.sha === b.dataset.sha); r.status = 'approved'; r.approved = ME.name; if (find(b.dataset.id).status === 'registered') find(b.dataset.id).release = r.sha; render(); toast(`已批准 ${r.sha}`) }
+  else if (act === 'deploy') { const rs = releases[b.dataset.id]; rs.forEach((x) => { x.live = x.sha === b.dataset.sha }); find(b.dataset.id).release = b.dataset.sha; transition(find(b.dataset.id), 'starting', 'running', `已切换到 ${b.dataset.sha}`) }
+  else if (act === 'invite') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('users')}</div><div class="as-card__titles"><h2>加入成员</h2><p>只能加使用者账号。管理者账号不能成为成员。</p></div></div><div class="as-card__body">
+      <label class="as-field"><span class="as-field__label">已有的使用者</span><select class="as-input"><option>小林 由美</option><option>中村 大辅</option></select></label>
+      <div class="as-muted" style="text-align:center">或者</div>
+      <label class="as-field"><span class="as-field__label">邀请新的使用者（登录 ID）</span><input class="as-input" placeholder="例：suzuki"><span class="as-field__hint">生成邀请链接，交给本人；本人设密码后自动加入。第一阶段不发邮件。</span></label>
+      <div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="invite-ok">${icon('check', 15)}加入</button></div></div></section>`)
+  else if (act === 'invite-ok') { closeModal(); toast('已加入（mock）') }
+  else if (act === 'remove') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('users')}</div><div class="as-card__titles"><h2>移除「${b.dataset.name}」？</h2><p>他的会话立即作废，SNS 连携解除，他发起的未决审批撤回。</p></div></div><div class="as-card__body"><div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="remove-ok" style="background:var(--dbw-danger);border-color:var(--dbw-danger)">移除</button></div></div></section>`)
+  else if (act === 'remove-ok') { closeModal(); toast('已移除，已通知 agent（mock）') }
+  else if (act === 'open-settings') toast(`会打开 https://${a.id}.agents.example.net/agent-settings（经 Hub 登录）`)
+  else if (act === 'doc-approve' || act === 'doc-reject') toast(act === 'doc-approve' ? '文档已批准，开始重建索引（mock）' : '文档已驳回（mock）')
+  else if (act === 'register' || act === 'register-release') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('box')}</div><div class="as-card__titles"><h2>${act === 'register' ? '登记 agent' : '登记版本'}</h2><p>从 biz-ai-agents 仓库取出这个 commit，安装依赖，在 agent 自己的 OS 用户下跑全部检查。</p></div></div><div class="as-card__body">
+      ${act === 'register' ? '<label class="as-field"><span class="as-field__label">目录</span><input class="as-input as-mono" value="agents/purchase-requests"><span class="as-field__hint">id 取 agent.json 的 id（= manifest 的 system.id）</span></label>' : ''}
+      <label class="as-field"><span class="as-field__label">commit</span><input class="as-input as-mono" value="main（c0ffee1）"></label>
+      <div class="as-alert as-alert--info">${icon('terminal')}<div>同样可以用 CLI：<span class="as-mono">biz-agent register ${a ? a.id : 'purchase-requests'} --ref c0ffee1</span></div></div>
+      <div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="register-ok">${icon('play', 15)}登记并检查</button></div></div></section>`)
+  else if (act === 'register-ok') { closeModal(); toast('已登记，检查开始（mock）') }
+  else if (act === 'sb-model') {
+    if (b.dataset.v === 'real') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('alert')}</div><div class="as-card__titles"><h2>用真实模型？</h2><p>系统提示和这个 agent 的知识文档（内部规定）会发给模型。只能用这个 agent 已批准的模型连接，会花 token。</p></div></div><div class="as-card__body"><div class="hub-kv"><span>模型连接</span><span>Azure OpenAI（日本东部）</span></div><div class="hub-kv"><span>估算</span><span>每次对话约 3,000 token</span></div><div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="sb-real-ok">我确认外发</button></div></div></section>`)
+    else { sb.model = 'mock'; render() }
+  }
+  else if (act === 'sb-real-ok') { closeModal(); sb.model = 'real'; render() }
+  else if (act === 'sb-start') { sb.running = true; sb.items = []; render(); toast('沙箱已启动（临时库 + seed + 假 Hub + mock LINE）') }
+  else if (act === 'sb-stop') { sb.running = false; sb.items = []; render(); toast('沙箱已停止并删除') }
+  else if (act === 'sb-reset') { sb.items = []; refreshLog(); toast('数据已重置为 seed') }
+  else if (act === 'sb-user') { sb.user = b.dataset.v; render() }
+  else if (act === 'sb-decide') {
+    const id = b.dataset.id, u = b.dataset.u
+    const cards = sb.items.filter((x) => x.k === 'card' && x.id === id)
+    if (cards.some((c) => c.done)) return
+    const word = b.dataset.v === 'approve' ? '已承认' : '已驳回'
+    cards.forEach((c) => { c.done = c.u === u ? `${word}（你）` : `${TEST_USERS[u].replace('（虚构）', '')} ${word}` })
+    const from = cards[0].from
+    sb.items.push({ k: 'bot', u: from, t: `你的报销申请 ${id} ${word}。\n— 报销（AI 秘书）` })
+    refreshLog()
+  }
+  else if (act === 'sb-run') {
+    const lis = [...document.querySelectorAll('#sb-scen .as-step')]
+    lis.forEach((li, i) => { li.querySelector('.as-pill').className = 'as-pill as-pill--warn'; li.querySelector('.as-pill').textContent = '运行中'
+      setTimeout(() => { li.classList.add('as-step--done'); li.querySelector('.as-step__num').innerHTML = icon('check', 14); const p = li.querySelector('.as-pill'); p.className = 'as-pill as-pill--ok'; p.textContent = '通过'; if (i === lis.length - 1) toast(`场景 ${lis.length}/${lis.length} 通过`) }, 500 + i * 380) })
+  }
+  else if (act === 'trace') document.getElementById('trace-box').innerHTML = traceCard(b.dataset.v)
+  else if (act === 'trace-close') document.getElementById('trace-box').innerHTML = ''
+  else if (act === 'acct-tab') { acctTab = b.dataset.v; render() }
+  else if (act === 'new-account') toast(acctTab === 'manager' ? '只有平台管理员能新建管理者（mock）' : '已生成邀请链接（mock）')
+  else if (act === 'disable') toast('已停用，已通知相关的 agent（mock）')
+  else if (act === 'noop') toast('已刷新（mock）')
+})
+// ?demo=sandbox: a running sandbox with one claim approved by B (for screenshots)
+if (new URLSearchParams(location.search).get('demo') === 'sandbox') {
+  sb.running = true; sbSend('交通费 3,200 日元，11 月 14 日去客户那里'); sbSend('报销规定的交通费有上限吗？')
+  const c = sb.items.find((x) => x.k === 'card' && x.u === 'B')
+  sb.items.filter((x) => x.k === 'card' && x.id === c.id).forEach((x) => { x.done = x.u === 'B' ? '已承认（你）' : '测试用户 B 已承认' })
+  sb.items.push({ k: 'bot', u: 'A', t: `你的报销申请 ${c.id} 已承认。\n— 报销（AI 秘书）` })
+  sb.user = 'B'
+}
+render()
+</script>
+</body>
+</html>

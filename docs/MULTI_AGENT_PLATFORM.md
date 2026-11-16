@@ -2,6 +2,7 @@
 
 > 2026-11-16 草案，等你 review。尚未实现。本文中的路径都指本仓库 biz-ai-agent。
 > v0.1 → v0.2：按独立审查的 15 条意见修改，记录在 §18。
+> 管理端的 HTML mock：[`mock/hub-console.html`](mock/hub-console.html)（单文件，浏览器直接打开；数据全部虚构）。
 
 **English summary.** Today biz-ai-agent builds and runs one agent: one business system, which is the SoR and has its own login, roles and knowledge, plus one DSH, the AI plane, with its IM bots.
 
