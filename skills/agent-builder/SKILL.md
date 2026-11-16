@@ -66,9 +66,15 @@ npm run vendor:install                # once: the vendor forks' own dependencies
 npm test                              # record the counts: 0 fail is the starting point
 ```
 
-If the baseline fails, stop and report it; do not build on a red repository. Copy `skills/agent-builder/templates/agent-plan.md`
-to `examples/<system-id>/AGENT_PLAN.md` and keep it current. Read both references' `src/app.mjs`, `bridge.manifest.yaml`,
-`knowledge/`, `evals/` and `test/` before you write code.
+If the baseline fails, stop and report it; do not build on a red repository. On Windows, failures in
+`packages/protocol/test/readme.test.mjs` or `profile/scripts/*.test.mjs` mean the checkout has CRLF line endings: the repository's
+`.gitattributes` forces LF, so clone again (or, in a clean clone, `git rm --cached -r -q . && git reset --hard`); check with
+`git ls-files --eol`. `npm install` may mark a few framework bin files as modified (file mode): never commit them — commit only
+`examples/<system-id>/` and the root `package-lock.json`.
+
+Read both references' `src/app.mjs`, `bridge.manifest.yaml`, `knowledge/`, `evals/` and `test/` before you write code. Write the
+step-1 decisions down now; they go into `examples/<system-id>/AGENT_PLAN.md` (from `skills/agent-builder/templates/agent-plan.md`)
+as soon as step 2 creates the directory. Keep the plan current.
 
 ## 1. Ask first — and write down what you did not ask
 
@@ -116,17 +122,34 @@ may use it through delegation). So write the business code and the manifest in t
      imports: its `SERVICE`, `BFF` and `manifestWithKnowledgeRoles`) rename: the factory name and the `globalThis.__<app>` handle
      in `conformance.test.mjs` / `fixtures.mjs`, the test service token and BFF secret, the application id and `<ns>`, and every
      hard-coded chunk id, document count, case count and eval floor.
-  7. A time-based event ("waiting too long", "overdue"): the conformance fixtures must make it happen without waiting. Give the
+  7. **The conformance fixtures' contracts** (`packages/protocol/conformance/fixtures.example.mjs` documents every hook; the
+     checks are in `packages/protocol/conformance/checks/`). Design the business so they can be met:
+     - Approvals A1–A4 decide with a FRESH employee of the approval's `approverRole`, and notifications N1–N3 create a FRESH manager
+       and expect that person among the recipients. A **person-specific** approver ("the requester's own manager") passes only
+       if `createPendingApproval` returns an approval any holder of its role may decide (e.g. one that needs an administrator) and
+       `emitNotifiableEvent({ employee })` creates a requester who reports to that fresh manager.
+     - Proposals PR1–PR3: PR3 needs `proposalForbiddenSample`, a proposal kind some role may NOT propose. With a single kind open
+       to every role, 52 / 52 is impossible: decide a second, role-restricted kind in step 1 (mark it "to confirm").
+  8. **Proposals are reviewed by role.** server-kit lets the roles in `roles.proposalReviewers` accept or reject proposals
+     (`GET /bridge/v1/proposals` lists them all to those roles); there is no per-person reviewer. When the business wants one
+     person to accept ("the claimant accepts the AI's correction"), keep the reviewers a role that may see every object, make
+     `apply` re-check the person, write the owner's own decision as a normal business route through your domain functions (not
+     through the store's internal methods), and report the framework gap in the plan.
+  9. A time-based event ("waiting too long", "overdue"): the conformance fixtures must make it happen without waiting. Give the
      scan a parameter (the pilot's `minDays`) or move the object's dates back on the running instance from the fixtures
      (`examples/equipment-loans/test/fixtures.mjs`); time passes on the instance, never through the API.
-  8. Dependencies: copy the pilot's `package.json` (`@dsh-bridge/knowledge`, `graph`, `agent-settings`, `gateway`, `server-kit`,
+  10. Dependencies: copy the pilot's `package.json` (`@dsh-bridge/knowledge`, `graph`, `agent-settings`, `gateway`, `server-kit`,
      `protocol`, `help`; devDependencies `@dsh-bridge/dsh-core`, `plugin-knowledge`, `plugin-graph` — the tool-module tests use
      them).
 - The manifest (start from the pilot's; keep its style):
   - `system` (`id` = `<system-id>`), `web.routes` (every screen a source or a notification may link to, including
-    `/handbook/:docId`, `/agent-settings`, `/me/sns`), `roles` (label, scope, `delegation: none | read | propose`).
+    `/handbook/:docId`, `/agent-settings`, `/me/sns`), `roles` (label, `scope: all | assigned | own` — a manager who sees a team
+    is `assigned`, `delegation: none | read | propose`).
+  - Approvals in levels ("up to X by the manager, above X by an administrator"): each approval carries its own `approverRole`
+    (and, for a named approver, an `assigned_to` relation in the graph); the references have one level only.
   - `entities`: your business entities (each with `pii` and, when it has a screen, `link: "/<things>/{id}"` — the graph builds
-    screen links from it) **plus the framework's**: `approval`, `proposal`, `sns_identity` (`pii: personal`) and, for the settings
+    screen links from it; `pii` is `none | personal | financial | sensitive | health` — amounts are `financial`, free-text notes at
+    least `personal`) **plus the framework's**: `approval`, `proposal`, `sns_identity` (`pii: personal`) and, for the settings
     plugin, `knowledge_document` (`link: "/handbook/{id}"`). Copy them.
   - `events`: the three framework events (`approval.requested`, `approval.decided`, `sns_identity.unlinked`), `knowledge.updated`
     (aggregate `knowledge_document`, payload `[buildId, documents, chunks, rejected, failed]`, `notify: { template:
@@ -212,7 +235,8 @@ may use it through delegation). So write the business code and the manifest in t
   imported by `evals/run.mjs`), not from the pilot, whose `evals/run.mjs` has no shared options.
 - Run from the example: `npm run evals` (or `npm run evals -w @biz-ai-agent/example-<system-id>` from the root). **Record the
   FIRST run's numbers before you change anything.**
-- Legitimate tuning: document keywords and headings (owners' wording); `synonyms` (`[[documentsWord, otherWord, ...], ...]`);
+- Legitimate tuning: document keywords and headings (owners' wording); `synonyms` (`[[documentsWord, otherWord, ...], ...]`,
+  **single words only**, see `packages/knowledge/README.md` "Search options");
   `fillers` and `stopWords` — these **replace** the defaults, so extend them: `fillers: [...KNOWLEDGE_FILLERS, 'word']`,
   `stopWords: new Set([...STOP_WORDS, 'word'])` (both exported by `@dsh-bridge/knowledge`). A question word missing for a whole
   language belongs in `packages/knowledge`: report it. Not legitimate: editing a case so it passes, or tuning a threshold on the
@@ -238,8 +262,10 @@ Copy the wiring of the pilot (`src/app.mjs`: search `createAgentSettings`, `crea
    everything else works.
 4. **Sign-in**: no sign-in screen of your own yet → serve `signInPage(...)` at `GET /login`. It posts `{ loginId, password }` as
    JSON to `endpoint` (default `/api/auth/login`): your login API must accept exactly that (or pass `endpoint`). The handler order
-   is `redirectToSignIn(req, res, { authenticate })` → `gateway.handleRequest` → `bridge.handler` (copy the pilot's `handler`). A
-   system with its own sign-in screen keeps it.
+   is `redirectToSignIn(req, res, { authenticate, paths })` → `gateway.handleRequest` → `bridge.handler` (copy the pilot's
+   `handler`). `paths` lists the screens a browser may open without a session: strings and RegExps — include the handbook
+   (`/^\/handbook\/[a-z0-9-]+$/`, the knowledge sources link there) and your own screens. A system with its own sign-in screen
+   keeps it.
 5. `dataDir` (settings, uploaded documents, vectors, graph JSON) is git-ignored. Keys are environment variable NAMES; a key typed on
    the screen is stored only with `AGENT_SETTINGS_KEY`. pgvector: the system's own pg pool as `vectorDb`, or
    `AGENT_VECTOR_DB_URL` — never a connection string in git.
@@ -269,16 +295,22 @@ Write yours in `examples/<system-id>/dsh-profile/` (GUIDELINE b.5, `profile/READ
      dependency).
 4. `bridge-identity` → `linkGuard: { webUrl: <business web URL> }` (every application needs one).
 5. `bridge-approvals` → `webUrl: <business web URL>/<your approval screen>?id={id}` (the template's default points at port 3010).
-6. The AI employee preset's persona: add the text of `knowledgeRules('<ns>_knowledge_search')` (from
+   The references have no approval web screen (they decide through `/api/*` and the chat card): if yours has none either, leave a
+   "to confirm" comment. Also fill `proactive.config.json` (it has a `<namespace>` placeholder `check.mjs` does not report).
+6. **Propose tools**: bridge-tools generates READ tools only. A manifest tool with `access: propose` reaches the AI only through a
+   hand-written tool module (`kit.proposeTool(...)`; model: `plugins/tools/src/examples/equipment-inspection.js` and the README of
+   `plugins/tools`). Write it in `examples/<system-id>/dsh-tools/` and add it to `toolModules`, or record "propose tools on DSH: not
+   verified".
+7. The AI employee preset's persona: add the text of `knowledgeRules('<ns>_knowledge_search')` (from
    `@dsh-bridge/plugin-knowledge`; print it once with node and paste it, YAML cannot call functions). A playbook's `agent` needs a
    preset of that id before the playbook is ever enabled.
-7. **Keep the outbound settings at the template's closed values** (`forwardPluginSources: []`, `deliveryGuard: required`,
+8. **Keep the outbound settings at the template's closed values** (`forwardPluginSources: []`, `deliveryGuard: required`,
    `restrictDelivery: true`, `groupChat: deny`, `audienceFallback: none`, `audienceText: template` …). Opening one is an explicit
    opt-in: change that line, write the reason in a comment, list it in the plan, and run `check.mjs` with `--allow <rule>`.
-8. From the repository root: `node profile/scripts/check.mjs examples/<system-id>/dsh-profile/cordis.patch.yml` must pass.
-9. Do not copy the e2e-only settings of `makeProductProfile()` (`digestMinutes: 0`, `honorQuietHours: false`, the 1-second
+9. From the repository root: `node profile/scripts/check.mjs examples/<system-id>/dsh-profile/cordis.patch.yml` must pass.
+10. Do not copy the e2e-only settings of `makeProductProfile()` (`digestMinutes: 0`, `honorQuietHours: false`, the 1-second
    bridge-events polling, absolute paths to an e2e home).
-10. Installing and starting a real DSH is a separate, optional step (`profile/README.md` "Starting"): `node profile/scripts/install.mjs
+11. Installing and starting a real DSH is a separate, optional step (`profile/README.md` "Starting"): `node profile/scripts/install.mjs
    --source examples/<system-id>/dsh-profile --home <isolated home> --profile <name> --framework-root .`, a DSH CLI on PATH or
    `DSH_BIN` (the pinned copy appears in `.dsh-cli/` after `npm run e2e`), started from `cd <home>` with `DSH_HOME`,
    `DSH_AGENTS_HOME`, `BRIDGE_DSH_WORKSPACE`, `<APP>_API_URL`, `<APP>_SERVICE_TOKEN`, `BRIDGE_WEB_PUBLIC_URL`; the model overlay
@@ -293,14 +325,14 @@ Run each and report the command with a summary of its output. Write **"not verif
 |---|---|
 | manifest | `npx bridge-validate manifest bridge.manifest.yaml --strict` → `ok` |
 | conformance | `test/conformance.test.mjs` + `test/fixtures.mjs` adapted → `# conformance: 52 / 52 checks passed` |
-| business rules | `test/app.test.mjs` adapted: requests, approvals (not the requester), the waiting scan, proposals (equipment-loans has a proposals test), reports. **Conformance does not prove your business rules**: letting the requester decide their own approval still passes 52 / 52; only these tests catch it. Break each rule once on purpose (back the file up, restore it after) and see a test fail |
+| business rules | `test/app.test.mjs` adapted: requests, approvals (not the requester), the waiting scan, proposals (equipment-loans has a proposals test), reports. **Conformance does not prove your business rules**: letting the requester decide their own approval still passes 52 / 52; only these tests catch it. Break each rule once on purpose (back the file up, restore it after) and see a test fail — **on that rule's assertion**, not on an unrelated one (a payload with nothing else to change fails for the wrong reason) |
 | knowledge | `test/knowledge.test.mjs`: the permission property (every role × web and delegation × every generated question: each result readable by the asker), no side channel (results and scores equal those of an index that never had the hidden sections), and `runKnowledgeChecks` from `@dsh-bridge/knowledge/conformance` (K-01…K-08; a second run with the tool for managers only via `manifestWithKnowledgeRoles`, so K-08 runs). The probe works **per document**: pick one the denied askers may not read at all |
 | graph | `test/graph.test.mjs`: `runGraphChecks` from `@dsh-bridge/graph/conformance` (G-01…G-07) and the why test — the bridge-graph tool through dsh-core `guardTool` with real delegations: the decider, the requester, another employee (`found: false`) |
 | tool modules | `test/plugin.test.mjs`: the bridge-knowledge tool the same way; delegation × role refused with 403 |
 | evals | `npm run evals` meets the floor; `test/evals.test.mjs` passes |
 | settings plugin | `test/agent-settings.test.mjs`: admins only, no delegation; upload → approval card for another person (never the uploader) → published → found by its roles only → `knowledge.updated` to the report roles; `/me/sns` for every employee; `/login` and the sign-in redirect; other events still reach your own `recipientsFor` |
 | AI plane profile | from the root: `node profile/scripts/check.mjs examples/<system-id>/dsh-profile/cordis.patch.yml` passes |
-| whole repository | from the root: `npm test` — 0 fail, and the counts = baseline + your tests |
+| whole repository | from the root: `npm test` — 0 fail (or exactly the baseline's failures, reported), and the counts = baseline + your tests |
 | real DSH (optional) | `npm run e2e` (from the root) still passes for the pilot; your system on a real DSH needs an adapted copy of `e2e/run.mjs` — otherwise "not verified" |
 
 ## 9. Rules
@@ -325,6 +357,10 @@ Run each and report the command with a summary of its output. Write **"not verif
 - Only one administrator: nobody can approve their documents until managers are approvers.
 - A time-based event the fixtures cannot trigger: the conformance checks that need it cannot run — and 52 / 52 allows no skip.
 - Replacing `fillers` / `stopWords` instead of extending the defaults: other languages' question words stop being ignored.
+- Multi-word synonyms: they never match.
+- A person-specific approver or a single all-roles proposal kind: conformance cannot reach 52 / 52 without the fixture design of
+  step 2.7.
+- `redirectToSignIn` without the handbook in `paths`: an employee who opens a knowledge source without a session reads a JSON 401.
 
 ## 11. Finishing
 

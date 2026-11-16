@@ -71,3 +71,18 @@ Tests: `npm test` (no server).
   add one.
 - **Evals.** `runKnowledgeEvals(service, suite)` / `formatEvalReport(report)` (also `@dsh-bridge/knowledge/evals`): hit@k per
   language, "nothing found" cases, and a leak check of every result against its chunk's visibility.
+
+## Search options (the language tuning)
+
+`createKnowledgeService(index, options)` (and the settings plugin's `knowledgeOptions`, which is passed through). Share ONE options
+object between the app and `evals/run.mjs`.
+
+| option | what it is | how to use it |
+|---|---|---|
+| `synonyms` | `[[documentsWord, otherWord, …], …]`: when any word of a group occurs in the question, the group's FIRST word is searched too | **Single words only.** A word matches as a substring of the question with its spaces removed, so a multi-word entry (`'money back'`) never matches; write `'refund'` and `'reimburse'` instead. Put the documents' own word first. Synonyms also count as content words (they can turn "nothing found" into found) |
+| `fillers` | question words removed before searching (`how`, `什么`, `どうやって` …) | **Replaces** the default list: extend it — `fillers: [...KNOWLEDGE_FILLERS, 'word']` |
+| `stopWords` | a `Set` of English words ignored as terms | **Replaces** the default set: extend it — `new Set([...STOP_WORDS, 'word'])` |
+| `minCoverage`, `minScore`, `perDocument` | thresholds and the results per document | leave the defaults unless the evals say otherwise, and report any change |
+| `embedder`, `minSimilarity`, `rerank`, `vectorSearch`, `graph` | the optional RAG / reranker / knowledge-graph parts | set by `@dsh-bridge/agent-settings` from its screen; do not wire a model yourself |
+
+A question word missing for a whole language (not just your documents) belongs in this package: report it.

@@ -525,7 +525,7 @@ export async function createLoansApp({
 
   // a browser without a session on a screen goes to /login (and back); the DSH gateway's paths; then the Bridge
   const handler = async (req, res) => {
-    if (await redirectToSignIn(req, res, { authenticate: hooks.authenticate })) return
+    if (await redirectToSignIn(req, res, { authenticate: hooks.authenticate, paths: ['/agent-settings', '/me/sns', /^\/handbook\/[a-z0-9-]+$/] })) return
     if (gateway && await gateway.handleRequest(req, res)) return
     return bridge.handler(req, res)
   }

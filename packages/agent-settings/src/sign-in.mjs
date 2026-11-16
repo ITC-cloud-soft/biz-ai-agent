@@ -125,11 +125,12 @@ export function signInPage({ lang, acceptLanguage, system = {}, next, endpoint =
 /**
  * A browser that opens a screen (GET, HTML wanted) without a session goes to the sign-in page and comes back afterwards,
  * instead of reading a JSON 401. Returns true when it answered. authenticate(req) → principal or null (the system's own hook).
+ * paths: exact paths (strings) and/or RegExps for the screens, e.g. /^\/handbook\// for the pages knowledge sources link to.
  */
 export async function redirectToSignIn(req, res, { authenticate, paths = ['/agent-settings', '/me/sns'], login = '/login' } = {}) {
   if (req.method !== 'GET' || !/text\/html/.test(String(req.headers.accept ?? ''))) return false
   const url = new URL(req.url, 'http://x')
-  if (!paths.includes(url.pathname)) return false
+  if (!paths.some((p) => (p instanceof RegExp ? p.test(url.pathname) : p === url.pathname))) return false
   if (await authenticate(req)) return false
   const lang = url.searchParams.get('lang')
   res.writeHead(302, { location: `${login}?${lang ? `lang=${encodeURIComponent(lang)}&` : ''}next=${encodeURIComponent(safeNext(url.pathname + url.search))}`, 'cache-control': 'no-store' })

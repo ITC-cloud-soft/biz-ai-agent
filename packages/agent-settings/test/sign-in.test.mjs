@@ -37,4 +37,7 @@ test('a browser without a session on a screen goes to the sign-in page and back;
   assert.equal((await run('GET', '/api/agent/settings', 'text/html', null)).done, false, 'not a screen')
   assert.equal((await run('GET', '/agent-settings', 'application/json', null)).done, false, 'an API client gets its 401')
   assert.equal((await run('POST', '/agent-settings', 'text/html', null)).done, false)
+  const res = { status: 0, headers: {}, writeHead(s, h) { this.status = s; this.headers = h }, end() {} }
+  assert.equal(await redirectToSignIn({ method: 'GET', url: '/handbook/leave-policy', headers: { accept: 'text/html' } }, res, { authenticate: async () => null, paths: ['/agent-settings', /^\/handbook\//] }), true, 'a RegExp covers a screen with an id')
+  assert.equal(res.headers.location, '/login?next=%2Fhandbook%2Fleave-policy')
 })

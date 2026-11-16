@@ -3,7 +3,7 @@
 Based on: biz-ai-agent <commit> (framework synced from <framework commit in framework.sync.json>).
 Baseline before this work: `npm test` → <tests> tests, <fail> fail.
 
-## Decisions (step 1)
+## Decisions (step 1 of the skill)
 
 | # | decision | options | recommendation | status (decided by / to confirm) |
 |---|---|---|---|---|

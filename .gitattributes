@@ -1,0 +1,15 @@
+# Check out text files with LF on every OS: several tests and profile/scripts/check.mjs read files with LF-only patterns,
+# and core.autocrlf=true (common on Windows) would otherwise turn them into CRLF and fail a fresh clone.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pptx binary
+*.docx binary
+*.xlsx binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.wasm binary
