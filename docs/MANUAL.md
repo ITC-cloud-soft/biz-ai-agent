@@ -161,12 +161,12 @@ npm test                    # 全部包、插件、示例，约 900 个测试
 ```
 
 - 期望结果：0 失败。少量 skip 是没有数据库连接的 PostgreSQL / MySQL 测试（设 `FW_TEST_DATABASE_URL`、`FW_TEST_MYSQL_URL`、`AGENT_TEST_PG_URL` 后会跑）。
-- 各示例的输出里有 `# conformance: 52 / 52 checks passed`。
+- 除 care-billing 外的四个示例，输出里都有 `# conformance: 52 / 52 checks passed`。
 
 ### 4.3 本地试用参考实现（不需要 DSH）
 
 ```sh
-node examples/leave-requests-knowledge/dev/mock-model.mjs   # 假模型（端口 19760）：不是 AI，只让 RAG / 图谱流程能跑
+node examples/leave-requests-knowledge/dev/mock-model.mjs   # 假模型（端口 19760，和 equipment-loans 的默认端口相同，不要同时开）：不是 AI，只让 RAG / 图谱流程能跑
 node examples/leave-requests-knowledge/src/server.mjs       # 试点（端口 19750）
 ```
 
@@ -287,7 +287,7 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须 ok
 1. `createBridgeApp` 之前：`createAgentSettings({ dataDir, env, fetch, vectorDb })`，用它包住 `hooks.approvals` 和 `hooks.recipientsFor`。
 2. 之后：`agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions, screen, gateway })` 和 `registerKnowledge(bridge, agent.knowledge)`。
 3. manifest：实体 `knowledge_document`、事件和模板 `knowledge.updated`、路由 `/agent-settings` 和 `/me/sns`。
-4. DSH 网关（SNS 页要用）：`createDshGateway({ target, mountPath: '/dsh', isAllowed: 管理员, getSessionUser })`，处理器先过 `redirectToSignIn` 再过 `gateway.handleRequest`。
+4. DSH 网关（SNS 页要用）：`createDshGateway({ target, mountPath: '/dsh', isAllowed: 管理员, getSessionUser, launchToken })`，`launchToken` 是**返回 DSH 启动令牌的函数**（如 `@dsh-bridge/gateway` 的 `fromValue(token)`）。处理器的顺序：`redirectToSignIn` → `gateway.handleRequest` → `bridge.handler`。
 5. 没有登录页时：`/login` 用 `signInPage(...)`。
 
 ### 6.7 AI 面（DSH profile）
@@ -340,17 +340,20 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须 ok
 
 1. 把 `profile/template/` 复制到你的产品里，填写 `cordis.patch.yml` 的所有 `<placeholder>`。
 2. 在 dsh-im 里为应用创建机器人（Slack App、LINE 官方账号、Teams Bot …），记下 `botId`。
-3. 写 `bridge-apps` 注册表（`id` = manifest 的 `system.id`，`namespace`，`apiUrlEnv`，`serviceTokenEnv`，`manifestUrl`，`generateTools: true`，`bots`）。令牌只写**环境变量名**。
+3. 写 `bridge-apps` 注册表（`id` = manifest 的 `system.id`，`namespace`，`apiUrlEnv`，`serviceTokenEnv`，`manifestUrl`，**`generateTools: false`**，`bots`）。令牌只写**环境变量名**。`generateTools` 要设 `false`：否则 bridge-apps 会按 manifest 生成同名的 `<ns>_knowledge_search`，和知识检索模块冲突（设 `false` 时由 bridge-tools 在模块之后生成读工具，同名的跳过）。
 4. `bridge-tools` 的 `config.toolModules` 加上：
 
    ```yaml
    toolModules:
      - { module: '@dsh-bridge/plugin-knowledge', application: <system-id> }
-     - { module: '@dsh-bridge/plugin-graph', application: <system-id> }
+     - { module: 'file:///<本仓库的绝对路径>/plugins/graph/src/index.js', application: <system-id> }
    ```
 
-   出处守卫：plugin-knowledge 的 bundle（`dsh.profile.bundles`，放在 `@dsh-bridge/plugin-identity` 之后；见 `plugins/knowledge/README.md` 和 `e2e/run.mjs`）。
-5. **发送设置保持模板的"关闭"值**（`forwardPluginSources: []`、`deliveryGuard: required`、`restrictDelivery: true`、`groupChat: deny`、`audienceFallback: none`、`audienceText: template` 等）。要打开只能显式改那一行并在注释里写理由。
+   - plugin-knowledge：在 profile 的 `package.json` 的 `dependencies` 里加 `"@dsh-bridge/plugin-knowledge": "file:{{FRAMEWORK_ROOT}}/plugins/knowledge"`，并把它加进 `dsh.profile.bundles`（放在 `@dsh-bridge/plugin-identity` 之后），它的 bundle 会插入出处守卫。
+   - plugin-graph 用文件 URL 加载（它依赖的 `@dsh-bridge/graph` 没有发布），和 `e2e/run.mjs` 一样。
+   - 审批卡片的链接：bridge-approvals 的 `webUrl` 设成你的审批画面（模板默认指向 3010 端口）。
+   - AI 员工预设的 persona 里贴上 `knowledgeRules('<ns>_knowledge_search')` 的输出（`@dsh-bridge/plugin-knowledge`）。
+5. **发送设置保持模板的"关闭"值**（`forwardPluginSources: []`、`deliveryGuard: required`、`restrictDelivery: true`、`groupChat: deny`、`audienceFallback: none`、`audienceText: template` 等）。要打开只能显式改那一行并在注释里写理由，`check.mjs` 时加 `--allow <规则>`。
 6. **链接守卫**：bridge-identity 的 `linkGuard.webUrl` / `webUrls.<应用 id>`，每个应用都要写，manifest 里也要有 `web.routes`。
 7. 基础模型：设置画面「DSH 用的 overlay」生成的 YAML（`llm-pi-ai`，只含变量名）。
 8. 安装并检查：
@@ -360,11 +363,14 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须 ok
    node profile/scripts/check.mjs <你的 cordis.patch.yml>
    ```
 
-9. 启动 DSH（在隔离的 home，不在仓库根目录）：
+9. 启动 DSH（在隔离的 home，不在仓库根目录；需要 PATH 上有 DSH CLI 或设 `DSH_BIN`，`npm run e2e` 之后 `.dsh-cli/` 里有固定版本）：
 
    ```sh
-   DSH_HOME=<home> dsh --profile <name> --no-open --host 127.0.0.1 --port <port> --public-url <业务网页>/dsh/
+   cd <home>
+   DSH_HOME=<home> DSH_AGENTS_HOME=<home>/agents BRIDGE_DSH_WORKSPACE=<home>/workspace \n   <APP>_API_URL=http://127.0.0.1:<port> <APP>_SERVICE_TOKEN=<从密钥保管处取> BRIDGE_WEB_PUBLIC_URL=<业务网页> \n   dsh --profile <name> --no-open --host 127.0.0.1 --port <port> --public-url <业务网页>/dsh/
    ```
+
+   模型的 overlay 用 `dsh --patch <overlay.yml>` 加上。
 
    DSH 输出的 `dsh web: …?token=…` 是 owner 凭据：只交给 `@dsh-bridge/gateway`（`launchToken`），不给浏览器。
 
@@ -378,21 +384,28 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须 ok
 
 ```markdown
 ---
-id: lending-rules              # [a-z0-9-]，唯一
+id: lending-rules
 title: Lending rules
-link: /handbook/lending-rules  # 必须匹配 manifest 的 web.routes
-roles: [admin, manager, staff] # 和 / 或 users: [<员工 id>]
+link: /handbook/lending-rules
+roles: [admin, manager, staff]
 keywords: [loan, borrow, return]
 ---
 引言（虚构的公司）。
 
 ## Returning equipment {#returning}
-...
-## Approval limits {#approval-limits roles=admin,manager}   ← 节只能把可见范围收窄
+
+文档角色里的人都能看的内容。
+
+## Approval limits {#approval-limits roles=admin,manager}
+
+只有管理员和经理能看的内容。
 ```
 
+- `id`：`[a-z0-9-]`，唯一；`link` 必须匹配 manifest 的 `web.routes`；`roles` 和 / 或 `users: [<员工 id>]`。
+- 节的 `roles=` / `users=` 只能把可见范围**收窄**。
+- **front matter 的行尾和标题的 `{…}` 后面不能写注释**：解析器会把整行剩下的部分当成值，id 会坏掉，节的权限限制会悄悄失效。
 - 每种服务的语言各写一份文档。
-- 建索引时做个人信息检查（格式 + 名册里的姓名）。查出来的块被拒，要改文档，不能关检查。
+- 建索引时做个人信息检查（格式 + 名册里的姓名）。运行中的应用会**丢掉**查出来的块并计入「被拒」（看「知识」页的状态，自己的文档要保持 0）；测试里直接建索引时会**失败**。要改文档，不能关检查。
 - 管理员也可以在设置画面上传（要审批）。
 
 ### 9.2 检索方式
@@ -414,7 +427,7 @@ keywords: [loan, borrow, return]
 ### 9.4 评测（evals）
 
 - `evals/knowledge.evals.json`：固定的问题、提问者、期望出处（`expect`）、不许出现的出处（`forbid`）。每种语言至少 20 个，包括受限节被无权角色提问、和范围外的问题。
-- `npm run evals` 输出 Markdown 表（hit@3、泄漏数）。**调参之前先记录第一次的数字。**
+- 在示例目录里 `npm run evals`（或在根目录 `npm run evals -w <示例的包名>`）输出 Markdown 表（hit@3、泄漏数）。**调参之前先记录第一次的数字。**
 - 完成标准：每种语言 hit@3 ≥ 80 %，**泄漏 0**。`test/evals.test.mjs` 固定下限，防止以后悄悄变差。
 
 ---
@@ -475,7 +488,7 @@ keywords: [loan, borrow, return]
 | 业务规则 | `test/app.test.mjs`：申请、审批（申请人不能批）、超时扫描、提案、报告 | 全部通过；故意破坏一条规则时有测试失败 |
 | 知识的权限 | 每个角色 × 网页和委托 × 生成的问题 | 每个结果都是提问者能看的 |
 | 无侧信道 | 和"从没有隐藏节的索引"比较结果和分数 | 完全相同 |
-| K-01…K-08、G-01…G-07 | `runKnowledgeChecks`、`runGraphChecks` | 全部通过 |
+| K-01…K-08、G-01…G-07 | `runKnowledgeChecks`（`@dsh-bridge/knowledge/conformance`）、`runGraphChecks`（`@dsh-bridge/graph/conformance`） | 全部通过 |
 | 评测 | `npm run evals`、`test/evals.test.mjs` | hit@3 ≥ 80 %，泄漏 0 |
 | 设置插件 | `test/agent-settings.test.mjs` | 只给管理员、上传者不能批、按角色可见、报告 |
 | DSH profile | `node profile/scripts/check.mjs <cordis.patch.yml>` | 无错误 |

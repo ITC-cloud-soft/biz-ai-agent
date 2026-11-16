@@ -1,5 +1,5 @@
 // biz-ai-agent 使用手册 — the deck (pptxgenjs, structured: theme + layouts + sections).
-// Rebuild: PPTX_SKILL=<the pptx skill's directory, for scripts/apply_theme.js> node docs/manual-deck/build.js docs/MANUAL.pptx
+// Rebuild (pptxgenjs installed anywhere on NODE_PATH): PPTX_SKILL=<the pptx skill's directory, for scripts/apply_theme.js> node docs/manual-deck/build.cjs docs/MANUAL.pptx
 // QA: powershell -File docs/manual-deck/render.ps1 -Deck docs/MANUAL.pptx -OutDir <dir>   (PowerPoint renders every slide to PNG)
 // The screenshots in img/ are of the fictional pilot (examples/leave-requests-knowledge), taken 2026-11-16.
 const path = require('path')
@@ -489,8 +489,8 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
 
 {
   const s = content(S3, '知识文档：一份 Markdown，可见范围写在里面')
-  code(s, ['---', 'id: lending-rules', 'title: Lending rules', 'link: /handbook/lending-rules    # 匹配 web.routes', 'roles: [admin, manager, staff]', 'keywords: [loan, borrow, return]', '---', '## Returning equipment {#returning}', '...', '## Approval limits {#approval-limits roles=admin,manager}'], M, 1.45, 7.2, 4.1, 14)
-  txt(s, bullets(['节只能把可见范围收窄，不能放宽', '每种服务的语言各写一份', '建索引时做个人信息检查：联系方式、长号码、名册里的姓名；查出来就拒绝，要改文档，不能关检查', '管理员也可以在设置画面上传（要另一个管理员批准）'], { after: 10 }), 8.15, 1.6, W - M - 8.15, 5, { size: 15, lsm: 1.25 })
+  code(s, ['---', 'id: lending-rules', 'title: Lending rules', 'link: /handbook/lending-rules', 'roles: [admin, manager, staff]', 'keywords: [loan, borrow, return]', '---', '## Returning equipment {#returning}', '...', '## Approval limits {#approval-limits roles=admin,manager}'], M, 1.45, 7.2, 4.1, 14)
+  txt(s, bullets(['行尾和 {…} 后面不能写注释（会被当成值）', '节只能把可见范围收窄，不能放宽', '每种服务的语言各写一份', '建索引时做个人信息检查：联系方式、长号码、名册里的姓名；查出来就拒绝，要改文档，不能关检查', '管理员也可以在设置画面上传（要另一个管理员批准）'], { after: 10 }), 8.15, 1.6, W - M - 8.15, 5, { size: 15, lsm: 1.25 })
 }
 
 {
@@ -552,13 +552,13 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
 
 {
   const s = content(S3, '7 安装 profile：发送设置保持关闭')
-  const steps = ['复制 profile/template/，填好所有 <placeholder>', '在 dsh-im 里为应用创建机器人，记下 botId', '写 bridge-apps：apiUrlEnv、serviceTokenEnv 只写变量名', 'toolModules 加 knowledge 和 graph；出处守卫的 bundle', '每个应用都写 linkGuard 的 URL', 'install.mjs 安装，check.mjs 检查，在隔离的 home 启动 DSH']
+  const steps = ['复制 profile/template/，填好所有 <placeholder>', '在 dsh-im 里为应用创建机器人，记下 botId', 'bridge-apps：变量名 + generateTools: false', 'toolModules 加 knowledge 和 graph；出处守卫的 bundle', '每个应用都写 linkGuard 的 URL', 'install.mjs 安装，check.mjs 检查，在隔离的 home 启动 DSH']
   steps.forEach((t, i) => {
     const y = 1.5 + i * 0.83
     numDot(s, i + 1, M, y + 0.05, 0.45, { size: 14 })
     txt(s, t, M + 0.7, y, 5.6, 0.6, { size: 15, valign: 'middle', lsm: 1.1 })
   })
-  code(s, ['- id: bridge-tools', "  name: '@dsh-bridge/plugin-tools'", '  config:', '    groupChat: deny', '    toolModules:', "      - { module: '@dsh-bridge/plugin-knowledge',", '          application: <system-id> }', "      - { module: '@dsh-bridge/plugin-graph',", '          application: <system-id> }'], 7.0, 1.45, W - M - 7.0, 3.75, 13)
+  code(s, ['- id: bridge-tools', "  name: '@dsh-bridge/plugin-tools'", '  config:', '    groupChat: deny', '    toolModules:', "      - { module: '@dsh-bridge/plugin-knowledge',", '          application: <system-id> }', "      - { module: '<plugins/graph 的 file URL>',", '          application: <system-id> }'], 7.0, 1.45, W - M - 7.0, 3.75, 13)
   card(s, 7.0, 5.45, W - M - 7.0, 1.2, { fill: 'FFF7E6' })
   txt(s, 'forwardPluginSources: [] · deliveryGuard: required · restrictDelivery: true · groupChat: deny · audienceText: template —— 要打开只能显式改那一行并写理由', 7.25, 5.5, W - M - 7.5, 1.1, { size: 12, valign: 'middle', lsm: 1.2 })
 }
