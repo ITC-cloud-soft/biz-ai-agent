@@ -5,6 +5,7 @@
 //   profile/    the DSH profile template and its install scripts
 //   vendor/     the dsh-im, dsh-auto-tasks and dsh-proactive forks (own npm setup each, not workspaces)
 //   examples/*  the framework's reference business systems; LICENSE and NOTICE (Apache-2.0; the vendor forks are MIT)
+//   docs/       GUIDELINE (ja / en / zh), ARCHITECTURE and the feature documents; skills/biz-assistant-integration
 // next to biz-ai-agent's own packages (agent-settings, knowledge, graph …), which it never touches.
 //
 //   node scripts/sync-framework.mjs [--from <framework checkout>]   (default: $BIZ_AI_FRAMEWORK or ../framework)
@@ -19,7 +20,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const DIRS = ['packages', 'plugins', 'profile', 'vendor', 'examples', 'LICENSE', 'NOTICE']
+// the framework's developer documents (same place, so their relative links work) and its integration skill (→ skills/)
+const DOCS = ['docs/GUIDELINE.md', 'docs/GUIDELINE.en.md', 'docs/GUIDELINE.zh-CN.md', 'docs/ARCHITECTURE.md', 'docs/AI_EMPLOYEE_PROFILE.md',
+  'docs/DOCUMENT_READS.md', 'docs/ASSISTANT_ATTACHMENTS.md', 'docs/EXTERNAL_LAYER_FEASIBILITY.md', 'docs/skill/biz-assistant-integration']
+const DIRS = ['packages', 'plugins', 'profile', 'vendor', 'examples', 'LICENSE', 'NOTICE', ...DOCS]
+const dest = (f) => (f.startsWith('docs/skill/') ? 'skills/' + f.slice('docs/skill/'.length) : f)
 const RECORD = join(REPO, 'framework.sync.json')
 
 const args = process.argv.slice(2)
@@ -32,8 +37,8 @@ const dirty = git('status', '--porcelain', '--', ...DIRS).trim()
 if (dirty) { console.error(`the framework checkout has uncommitted changes in ${DIRS.join(', ')}:\n${dirty}\ncommit them first`); process.exit(2) }
 
 const files = git('ls-files', '-z', '--', ...DIRS).split('\0').filter(Boolean)
-const own = new Set(['packages/agent-settings', 'packages/knowledge', 'packages/graph', 'plugins/knowledge', 'plugins/graph', 'examples/leave-requests-knowledge', 'examples/equipment-loans'])
-const clash = files.filter((f) => [...own].some((o) => f === o || f.startsWith(o + '/')))
+const own = new Set(['skills/agent-builder', 'docs/MANUAL.md', 'docs/MANUAL.pptx', 'docs/manual-deck', 'docs/STATUS.md', 'packages/agent-settings', 'packages/knowledge', 'packages/graph', 'plugins/knowledge', 'plugins/graph', 'examples/leave-requests-knowledge', 'examples/equipment-loans'])
+const clash = files.map(dest).filter((f) => [...own].some((o) => f === o || f.startsWith(o + '/')))
 if (clash.length) { console.error(`the framework now has a directory biz-ai-agent owns: ${clash[0]} — rename one side first`); process.exit(2) }
 
 // versions of the framework's workspace packages, for its "workspace:" ranges
@@ -58,12 +63,12 @@ const rewrite = (text) => {
 }
 
 const previous = existsSync(RECORD) ? JSON.parse(readFileSync(RECORD, 'utf8')).files ?? [] : []
-const now = new Set(files)
+const now = new Set(files.map(dest))
 let removed = 0
 for (const f of previous) if (!now.has(f) && existsSync(join(REPO, f))) { rmSync(join(REPO, f)); removed++ }
 
 for (const f of files) {
-  const to = join(REPO, f)
+  const to = join(REPO, dest(f))
   mkdirSync(dirname(to), { recursive: true })
   if (/^(packages|plugins|examples)\/[^/]+\/package\.json$/.test(f) || f === 'profile/package.json') writeFileSync(to, rewrite(readFileSync(join(FW, f), 'utf8')))
   else copyFileSync(join(FW, f), to)
@@ -72,6 +77,6 @@ for (const f of files) {
 const commit = git('rev-parse', 'HEAD').trim()
 writeFileSync(RECORD, JSON.stringify({
   note: 'Copied from the Biz Assistant Framework by scripts/sync-framework.mjs. Change these files in the framework, then sync again.',
-  commit, subject: git('log', '-1', '--format=%s').trim(), syncedAt: new Date().toISOString(), dirs: DIRS, files,
+  commit, subject: git('log', '-1', '--format=%s').trim(), syncedAt: new Date().toISOString(), dirs: DIRS, files: files.map(dest),
 }, null, 2) + '\n')
 console.log(`synced ${files.length} files from framework ${commit.slice(0, 7)}${removed ? `, removed ${removed}` : ''}`)

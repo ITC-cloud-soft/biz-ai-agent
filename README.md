@@ -20,6 +20,8 @@ things stand is in [`docs/STATUS.md`](docs/STATUS.md).
 An agent is first an IT system: no drag-and-drop flow editor. Flows are code, written with coding agents, guarded by the manifest, the
 conformance suite, tests, evals and traces.
 
+**Start here: the manual [`docs/MANUAL.md`](docs/MANUAL.md)** (Chinese; slides: [`docs/MANUAL.pptx`](docs/MANUAL.pptx)). To build an agent with a coding agent: [`skills/agent-builder`](skills/agent-builder/SKILL.md).
+
 ## What is here (MVP, weeks 1–5)
 
 | path | what |

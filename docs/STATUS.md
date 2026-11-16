@@ -54,6 +54,12 @@
   - 包：`createKnowledgeService` 加了 `fillers`、`stopWords` 选项；同义词现在也算「内容词」（能把「没找到」变成找到）；中文提问词补了 哪些 / 有没有 / 怎么知道 / 怎么办；evals 加了 `forbid`。
   - skill：定义了 `<ns>`；知识的一致性检查 probe 要用「整份都看不到」的文档；关系名必须用 `requested_by` 等（即使业务上叫「借用人」）；复制测试时要改名的清单；时间类事件在一致性 fixture 里怎么处理；**一致性 52/52 证明不了业务规则**（让借用人自己审批照样 52/52，只有业务测试抓得到）；app 和 evals 必须共用同一个选项对象。
 
+## 使用手册和 skill 重写（2026-11-16）
+
+- `docs/MANUAL.md`（中文手册，15 章）和 `docs/MANUAL.pptx`（35 页，生成脚本和截图在 `docs/manual-deck/`）。
+- framework 的 GUIDELINE（日 / 英 / 中）、ARCHITECTURE 等文档和接入 skill（`skills/biz-assistant-integration`）也同步进来了（同步脚本扩展）。
+- `skills/agent-builder` 按"仓库就是完整的 framework"重写：基线、决策、IT 系统、manifest、知识、图谱、评测、设置插件（画面、SNS、登录、DSH 网关）、AI 面的 profile、完成条件、以往的坑。
+
 ## framework 整体拷入（2026-11-16）
 
 用户的要求：biz-ai-agent 要自己成为完整的 agent framework，Biz Assistant Framework 有的都拷进来。
