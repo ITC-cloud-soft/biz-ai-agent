@@ -1,7 +1,8 @@
-# 多 agent 平台（Agent Hub）设计方案 v0.2
+# 多 agent 平台（Agent Hub）设计方案 v0.3
 
 > 2026-11-16 草案，等你 review。尚未实现。本文中的路径都指本仓库 biz-ai-agent。
 > v0.1 → v0.2：按独立审查的 15 条意见修改，记录在 §18。
+> v0.2 → v0.3（2026-11-16，你的决定）：**管理界面统一到 Hub**。模型、知识、IM bot 的设置页也放进 Hub，数据仍然存在各 agent 里（§5.5）。
 > 管理端的 HTML mock：[`mock/hub-console.html`](mock/hub-console.html)（单文件，浏览器直接打开；数据全部虚构）。
 
 **English summary.** Today biz-ai-agent builds and runs one agent: one business system, which is the SoR and has its own login, roles and knowledge, plus one DSH, the AI plane, with its IM bots.
@@ -19,6 +20,8 @@ This design adds **Agent Hub**. It is a control plane on the same framework that
 Each agent runs as an isolated **agent cell**: its business process, which supervises its DSH, together with its own OS user or container, database, data directory, bots and secrets. Each cell has its own subdomain. The agent trusts the hub through an OIDC-style sign-in and keeps a local copy of its members, so the hub is never on the AI's path.
 
 Creating an agent stays in code: the agent-builder skill in Claude Code or a similar tool. The hub registers, tests, runs and observes agents.
+
+All management screens live in the hub, including models, knowledge and IM bots. The data stays in each agent: the hub calls the agent's admin API over the internal network, carrying a signed manager assertion. Managers never browse an agent's own site; that site serves only users.
 
 ---
 
@@ -47,7 +50,11 @@ Creating an agent stays in code: the agent-builder skill in Claude Code or a sim
    - 自己的「假 Hub」签发身份，正式 agent 绝不信任它；
    - 虚构的测试用户和种子数据；
    - 控制台里的沙箱聊天和收件箱，审批卡片可以直接按。
-7. **MVP 约 6 周**（§16），比 v0.1 多一周，用于 cell 隔离和成员同步。要你决定的事见 §17，最重要的三件是：公司 agent 代码放哪个仓库、一个人既是管理者又是使用者时怎么办、谁批准上线。
+7. **管理界面统一在 Hub，数据留在各 agent。** 管理者只用 Hub 一个界面，不进 agent 自己的网站：
+   - 启停、版本、成员、沙箱、日志，加上模型、知识、IM bot 的设置，全都在 Hub 的控制台里。
+   - 设置和知识的数据仍然存在各 agent 自己的库里。Hub 在服务器之间，通过内网调用 agent 的管理 API，并带上「是哪位管理者」的签名声明（§5.5）。
+   - agent 自己的网站只留给使用者：SNS 连携页 `/me/sns` 和业务画面。
+8. **MVP 约 6 周**（§16），比 v0.1 多一周，用于 cell 隔离和成员同步。要你决定的事见 §17，最重要的三件是：公司 agent 代码放哪个仓库、一个人既是管理者又是使用者时怎么办、谁批准上线。
 
 ---
 
@@ -198,8 +205,8 @@ flowchart TB
 | 启动、停止、重启、回滚 | ✓ | ✓ | ✗ | ✗ |
 | 加入、移除成员 | ✓ | ✓ | ✗ | ✗ |
 | 知识：上传、撤下 | ✓ | ✓（发布要审批，见 §8） | ✗ | ✗ |
-| 模型、检索方式 | ✓ | ✓（该 agent 的 `/agent-settings`） | ✗ | ✗ |
-| 组织的 IM bot（接入和设置） | ✓ | ✓（只能用 dsh-im 的设置 RPC，不能进 DSH 的完整画面，§5.3） | ✗ | ✗ |
+| 模型、检索方式 | ✓ | ✓（Hub 控制台；数据在 agent，§5.5） | ✗ | ✗ |
+| 组织的 IM bot（接入和设置） | ✓ | ✓（Hub 控制台，经 agent 转给 dsh-im 的设置 RPC；DSH 的完整画面关闭，§5.5） | ✗ | ✗ |
 | 沙箱：运行、模拟对话、看结果 | ✓ | ✓ | ✗ | ✗ |
 | 日志、健康、trace（不含正文） | ✓ | ✓ | ✗ | ✗ |
 | **业务数据和对话原文** | ✗ | ✗ | ✓（按该 agent 的业务规则） | 只能以提问者本人的权限读（现有规则） |
@@ -230,10 +237,8 @@ sequenceDiagram
 - `state` 绑定发起登录的浏览器：agent 把随机 nonce 放在 `__Host-` cookie 里，回调时比对。这样防住 login CSRF。
 - 登录成功后**新发会话 ID**，防止会话固定攻击。
 - code 是一次性的，60 秒有效，用 PKCE。code 的 audience 绑定 `client_id`，`redirect_uri` 必须和登记的完全一致，所以拿到别的 agent 的 code 也换不到身份。
-- 只有当这个账号和这个 agent 有关系时，Hub 才签发 code：
-  - 成员得到 `agentRole = member`；
-  - 负责这个 agent 的管理者得到 `agentRole = manager`；
-  - 其他账号得到 403。
+- 只有这个 agent 的**成员**才能拿到 code（`agentRole = member`），其他账号一律 403。
+  - 管理者不经这个流程登录 agent：管理都在 Hub 里做（§5.5）。
 - cookie 一律用 `__Host-` 前缀：`Secure`、`Path=/`、不设 `Domain`。
 - Hub 和 agent 用**不同的注册域名**（例：`hub.example.com` 和 `*.agents.example.net`）。这样 agent 的代码即使恶意，也无法用父域 cookie 干扰 Hub。
 
@@ -258,7 +263,7 @@ sequenceDiagram
 - 员工 hooks：
   - `employees.get / getMany / list` 读这张表，返回 `{ id, role, active }`，不含姓名。
   - 管理者（`agent_manager`）**不出现**在 `employees.list` 的结果里，所以不会成为审批人或通知对象。
-  - 管理者只在 `authenticate` 时得到这个角色，用来进设置画面。
+  - 管理者的 `agent_manager` 角色只出现在 Hub 调用管理 API 时的签名声明里（§5.5），不会出现在浏览器会话里。
 - 同步：
   - **推送**：Hub 向 `POST /hub-agent/v1/events` 推送变更，带 HMAC 签名、时间戳和递增的 `version`。
   - **兜底**：agent 每 60 秒拉一次 `GET /hub/v1/agents/:id/members?since=<version>`。推送丢了，最晚 60 秒补上。
@@ -267,7 +272,7 @@ sequenceDiagram
   - agent 自己的会话 15 分钟无活动就过期，`isSessionLive` 只查本地。
   - agent 会话里记着 `hubSessionId`。Hub 注销会话或停用账号时，推送给 agent，agent 立刻作废对应的会话。
   - 会话作废后，挂在这个会话上的网页助手委托也随之失效（现有规则）。
-- 取舍：Hub 停的时候，被移除的人在 Hub 恢复之前仍是成员。我们**选择不让对话停下来**，这一点在 §18.3 里请你确认。
+- 取舍：Hub 停的时候，被移除的人在 Hub 恢复之前仍是成员。我们**选择不让对话停下来**，这一点在 §18.4 里请你确认。
 
 **成员被移除时（在 agent 里核对，reconcile）：**
 
@@ -282,11 +287,10 @@ sequenceDiagram
 
 agent 启动时、每次拉取之后，都按成员集合核对一遍本地的 `sns_identity` 和未决审批。推送丢失也就不会留下不一致。
 
-**管理者在 agent 里能进的地方：**
+**agent 的公开网站在平台模式下只有这些：** `/me/sns`、业务画面、`/sso/callback`、公开的 webhook。
 
-- `/agent-settings`：可以进。
-- `/dsh`：只能进 dsh-im 的设置 RPC（`/dsh/api/dsh-im/*`，SNS 页上的 `ImBotsShell` 用的就是它）。DSH 的完整画面（会话、工作区）在平台模式下**完全关闭**。
-- 拦截在 agent 的 BFF 里按路径做，放在 `gateway.handleRequest` 之前。
+- `/agent-settings` 的画面和它的 `/api/agent/*` 不再挂在公开端口上，改到内网端口，作为管理 API（§5.5）。
+- `/dsh` 不对浏览器开放，DSH 的完整画面（会话、工作区）**完全关闭**。dsh-im 的设置 RPC 只在服务器一侧用 `gateway.rpc`（带许可清单）。
 
 **放在哪里：** 以上都做成一个小包 `@dsh-bridge/hub-client`。agent 只需要几行代码，不再自己存密码。
 
@@ -300,6 +304,73 @@ agent 启动时、每次拉取之后，都按成员集合核对一遍本地的 `
 | 知识的可见范围 | 已发布的知识全体成员都能看。上传时「可见角色」的默认值只有 `member` |
 | AI 的权限 | 每个成员的委托相同：读工具一样，提案种类也一样 |
 | 以后要分等级 | 给 `memberRole` 加值（例：`approver`），manifest 加对应的角色，agent 的 `mayDecide` 和收件人规则按角色判断。Hub 和 cell 的结构不用变 |
+
+### 5.5 管理界面统一在 Hub：管理 API 和管理者的声明
+
+**目标：** 管理者只用 Hub 一个界面；设置和知识的数据仍然由各 agent 自己保存，Hub 不另外存一份。
+
+```mermaid
+sequenceDiagram
+  participant Br as 管理者的浏览器
+  participant H as Hub（控制台 + BFF）
+  participant A as agent（内网端口）
+  participant D as DSH（agent 的子进程）
+  Br->>H: PUT /api/agents/expense-claims/settings（Hub 会话）
+  H->>H: 确认：是这个 agent 的管理者
+  H->>A: PUT /hub-agent/v1/admin/settings<br/>HMAC（agent 凭据）+ 管理者声明（60 秒）
+  A->>A: 验证声明；本地成员副本里有这个 agent_manager
+  A-->>H: 结果（key 只回「已设置」）
+  H-->>Br: 结果
+  Br->>H: POST /api/agents/expense-claims/im/line（连接 bot）
+  H->>A: POST /hub-agent/v1/admin/im/line（同上）
+  A->>D: gateway.rpc('/line', method)（许可清单内的方法）
+  D-->>A: 结果
+  A-->>H: 结果
+  H-->>Br: 结果
+```
+
+**管理 API（agent 一侧，只在内网端口）：** 就是现在 `agent-settings` 的 `/api/agent/*`，换了挂载位置和鉴权方式。
+
+| 接口 | 内容 |
+|---|---|
+| `GET` / `PUT /hub-agent/v1/admin/settings` | 模型、检索方式、SNS 审批和报告的设置（key 只能写） |
+| `POST /hub-agent/v1/admin/settings/test` | 连接测试（只回 OK、错误码和耗时） |
+| `GET` / `POST /hub-agent/v1/admin/documents`、`POST …/:id/decision`、`DELETE …/:id` | 知识文档的列表、上传、审批、撤下 |
+| `POST /hub-agent/v1/admin/knowledge/rebuild`、`GET …/status` | 重建索引和它的结果 |
+| `POST /hub-agent/v1/admin/im/<channel>` | dsh-im 的设置 RPC（连接、扫码、断开……）；agent 用 `gateway.rpc` 转给 DSH，只放行许可清单里的方法 |
+
+**管理者的声明（assertion）：**
+
+- Hub 每次调用都带两样东西：
+  - 这个 agent 的 HMAC 签名，证明「是 Hub 在调」；
+  - 一个 60 秒有效的管理者声明 `{ sub: accountId, agentRole: 'agent_manager', aud: <agent id>, jti }`，用 Hub 的签名密钥签名，证明「是哪一位管理者」。
+- agent 一侧逐项检查：
+  - `aud` 必须是自己；
+  - `jti` 不能重复使用；
+  - 这个 `accountId` 必须在本地成员副本里，并且是 `agent_manager`。
+
+  所以 Hub 不能冒用一位已经不是管理者的人。
+- 文档审批里的「上传的人不能批自己的」照常成立，因为 agent 从声明里知道是哪一位管理者。
+- 两边都记审计：Hub 记「谁在 Hub 上做了什么」，agent 记「哪个声明改了什么」。
+
+**模型的 key：**
+
+- 管理者在 Hub 的画面上输入 key，Hub **不保存，直接转给** agent。
+- agent 用自己的 `AGENT_SETTINGS_KEY` 加密保存（现有做法）。
+- 之后只回「已设置 / 来源 / 末尾 4 位」。Hub 的日志里不记请求正文。
+
+**画面：**
+
+- 现在 `packages/agent-settings/web` 里的 React 组件（模型、知识、SNS，以及 IM bot 用的 `ImBotsShell` 和 dsh-im 的设置组件）**搬进 Hub 的控制台**，改成调用 Hub 的 `/api/agents/:id/*`。
+- 外观不变，用的还是同一套 web-kit。
+
+**Hub 停了：** 设置和知识暂时改不了；agent 照常运行（Hub 不在 AI 的路径上）。
+
+**风险：** Hub 能改所有 agent 的设置，所以 Hub 被攻破的影响比 v0.2 大。对策（§15）：
+- 管理者用公司的 IdP 并加两步验证（第二阶段）；
+- 声明 60 秒有效、不能重复使用；
+- agent 一侧再核对管理者的身份；
+- 两边都记审计。
 
 ---
 
@@ -369,6 +440,7 @@ agents/expense-claims/
 | 接口 | 监听在 | 用途 | 鉴权 |
 |---|---|---|---|
 | `GET /healthz` | **只在内网端口**（`INTERNAL_PORT`） | 业务进程、数据库、DSH 是否可达 | 内网 + `HUB_CLIENT_SECRET` |
+| `/hub-agent/v1/admin/*` | 内网端口 | 管理 API：设置、知识、IM bot（§5.5） | 内网 + HMAC + 管理者声明 |
 | `GET /hub-agent/v1/status` | 内网端口 | 只有数字：版本、知识文档数、块数、基础知识的哈希、outbox 积压、最近的错误数、bot 的连接状态、成员副本的 `version` | 内网 + HMAC |
 | `GET /hub-agent/v1/link-status?account=<id>` | 内网端口 | 这个人在各个 SNS 平台**是否已连携**（只有是/否） | 内网 + HMAC |
 | `POST /hub-agent/v1/events` | 内网端口 | 成员变更、账号停用、会话注销 | HMAC + 时间戳（5 分钟内）+ `version` |
@@ -452,7 +524,7 @@ stateDiagram-v2
 
 - 控制台的 agent 详情 →「知识」页，只显示数字：文档数、待审批数、块数、最近一次重建的时间和结果。
 - 每个版本里基础知识（`knowledge/*.md`）的哈希。这样能回答「哪个版本带的是哪一版规定」。
-- 想看文档本身、要上传文档：点「打开」，进入该 agent 自己的 `/agent-settings#knowledge`（经 SSO，用现有的画面）。
+- 文档的上传、查看、撤下、审批，以及检索方式和重建，都在 Hub 控制台的「知识」页里做。数据经管理 API 存到 agent 里（§5.5）。
 
 **发布审批**（现有的「文档发布要审批」）：
 
@@ -475,7 +547,7 @@ stateDiagram-v2
 - 停掉一个 agent 不影响别的；
 - 用的是现有的连携方式。
 
-管理者在这个 agent 的设置画面里接 bot（现有的 `ImBotsShell`，支持 13 种 SNS）。
+管理者在 Hub 控制台的「SNS」页里接 bot。用的是现有的 `ImBotsShell` 和 dsh-im 的设置组件，支持 13 种 SNS；经管理 API 转给 agent 的 DSH（§5.5）。
 
 **使用者的「我的 agent」页面（在 Hub 上）：**
 
@@ -653,9 +725,9 @@ flowchart LR
 | 部分 | 改动 | 属于 |
 |---|---|---|
 | 新包 `packages/agent-hub` | Hub：账号、SSO、登记、检查和批准、runner、沙箱（假 Hub、mock LINE 的收件箱和 postback）、日志、控制台和「我的 agent」的画面（web-kit） | 本仓库自己的。**加进 sync 的 `own` 列表**，以后框架里出现同名目录时，sync 会拒绝执行 |
-| 新包 `packages/hub-client` | agent 一侧：`hubAuth()`（authenticate、本地成员副本、isSessionLive、employees、显式的 `options.roles`）、SSO 回调、`/hub-agent/v1/*`、reconcile、`/dsh` 路径的拦截 | 同上 |
+| 新包 `packages/hub-client` | agent 一侧：`hubAuth()`（authenticate、本地成员副本、isSessionLive、employees、显式的 `options.roles`）、SSO 回调、`/hub-agent/v1/*`（包括管理 API 和管理者声明的验证）、reconcile、关闭 `/dsh` 和公开的 `/agent-settings` | 同上 |
 | 新 CLI `biz-agent` | `hub bootstrap / register / release check / release approve / start / stop / status / logs / trace / sandbox` | 放在 `agent-hub` 包里 |
-| `packages/agent-settings` | 加 `sns.docApproverRoles`；平台模式下 `adminRoles = ['agent_manager']`，可见角色默认 `member` | 本仓库自己的（不是同步来的） |
+| `packages/agent-settings` | 加 `sns.docApproverRoles`；平台模式下 `adminRoles = ['agent_manager']`，可见角色默认 `member`；路由可以挂在内网端口并接受管理者声明（§5.5）；`web/` 的组件改成可以被 Hub 引用（API 的基地址可配置） | 本仓库自己的（不是同步来的） |
 | `skills/agent-builder` | 加几步：写 `agent.json`、`sandbox/`；用 `hubAuth` 代替自己做登录；角色用 `member` / `agent_manager` | 本仓库自己的 |
 | 新 skill `skills/agent-ops` | 用 CLI 调试、在沙箱里重现、登记版本 | 本仓库自己的 |
 | `examples/*` | 保持原样（可以单独运行的样例）。另外加一个平台模式的样例 | 新样例是本仓库自己的 |
@@ -678,7 +750,7 @@ flowchart LR
 
 **还要注意：**
 
-- **Hub 是价值很高的攻击目标。** 管理员登录在第二阶段换成公司的 IdP，并加两步验证。docker socket 不直接暴露，只经过 runner 的代理。健康检查和状态接口只在内网。
+- **Hub 是价值很高的攻击目标**，统一界面以后更是如此：Hub 能改所有 agent 的设置（§5.5）。 管理员登录在第二阶段换成公司的 IdP，并加两步验证。docker socket 不直接暴露，只经过 runner 的代理。健康检查和状态接口只在内网。
 - **前置代理（Caddy）** 只把公开端口和公开的 hook 路径对外开放。内网端口只有 Hub 能访问。
 
 ---
@@ -689,7 +761,7 @@ flowchart LR
 |---|---|---|
 | 1 | `agent-hub` 核心：账号（密码）、平台管理员 bootstrap、agent 登记、`process` runner（启停、健康、pid 接管）、子域名反向代理（本地用 `*.localhost`） | 两个现有样例能在 Hub 下启动、停止、重启；Hub 重启时 agent 不受影响；在 5 个 cell 上实测内存 |
 | 2 | `hub-client`：SSO（state、nonce、PKCE、`__Host-`）、本地成员副本、推送加拉取、会话联动 | 模拟 Hub 宕机时对话照常；移除成员后，他的会话、连携、他发起的审批都按 §5.3 处理 |
-| 3 | 平台模式的 agent：显式的 `options.roles`、`docApproverRoles`、`/dsh` 路径拦截；「我的 agent」页面加 `link-status`；agent 的 OS 用户隔离 | e2e：成员 A 发起审批 → 卡片到成员 B 的 mock LINE → B 批准；A 不能批自己的；管理者进不了业务画面，也进不了 DSH 的完整画面 |
+| 3 | 平台模式的 agent：显式的 `options.roles`、`docApproverRoles`、关闭 `/dsh` 和公开的设置画面；管理 API 和管理者声明；把模型、知识、IM bot 的画面搬进 Hub；「我的 agent」页面加 `link-status`；agent 的 OS 用户隔离 | e2e：成员 A 发起审批 → 卡片到成员 B 的 mock LINE → B 批准；A 不能批自己的；管理者在 Hub 里上传文档、接 LINE bot，数据出现在 agent 里；管理者进不了业务画面，agent 的公开端口上没有 `/agent-settings` 和 `/dsh` |
 | 4 | 版本的检查和批准；沙箱（假 Hub、mock LINE 的收件箱和 postback、seed、测试用户）；控制台里的沙箱聊天 | 管理者在画面上用两个测试用户走完一次申请和审批；场景能一键全部跑完 |
 | 5 | 调试：日志的收集和过滤、trace、投递状态、报警（控制台加邮件）；`biz-agent` CLI；`agent-ops` skill | 故意弄坏一个 agent → 控制台报警 → Claude Code 按 skill 用 CLI 找到原因 |
 | 6 | 把 agent-builder skill 改成平台模式；用它从零造一个新 agent，在 Hub 上登记、检查、批准、运行 | 一个新的 coding agent 只看 skill 就造出一个 agent，在 Hub 上通过全部检查并运行 |
@@ -730,7 +802,7 @@ flowchart LR
 | 需求 R1–R7 是否都有对应 | 有（§1 的表） |
 | 是否违反现有规则（个人信息、密钥、外发、只能提案、本人连携） | 没有发现违反（§15）。「管理者在运行时看不到业务数据」比现在更严：现在的 `admin` 是业务角色之一，能看到业务数据 |
 | 是否需要改同步来的框架部分 | 这一版不需要（§14） |
-| 没有验证过的前提 | 见 §18.3 |
+| 没有验证过的前提 | 见 §18.4 |
 
 ### 18.2 独立审查的结果和处理
 
@@ -754,7 +826,18 @@ flowchart LR
 | 14 | 周期太乐观；MVP 可以砍掉一些东西 | 同意 | 改成 6 周，并列出 MVP 不做的项（§16） |
 | 15 | 内存写成了定数；`platformAdmin` 的说法前后不一致；§18.2 还是占位 | 同意 | 都改了 |
 
-### 18.3 还没验证的前提、要你确认的取舍
+### 18.3 v0.3 的变更（你的决定）
+
+2026-11-16 你决定把**管理界面统一到 Hub**。改了下面这些：
+- §0 第 7 条；
+- §5.2 的权限表；
+- §5.3：管理者不再经 SSO 登录 agent，agent 的公开网站只给使用者；
+- 新增 §5.5：管理 API 和管理者的声明；
+- §6.3、§8、§9、§14、§15、§16 的第 3 周。
+
+这些改动没有再请独立审查。新增的风险是 Hub 能改所有 agent 的设置，§5.5 写了对策。
+
+### 18.4 还没验证的前提、要你确认的取舍
 
 1. **DSH 的内存：** 约 200 MB 是空闲时的数字，第 1 周在 5 个 cell 上实测。
 2. **Hub 停了时的取舍：** 对话不停，但成员变更要等 Hub 恢复后才生效（最晚是恢复后的 60 秒内）。如果你更希望「宁可停下对话，也不能让被移除的人继续用」，就改成 fail-closed。

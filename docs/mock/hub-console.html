@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agent Hub 管理控制台（mock）</title>
 <!--
-  Agent Hub 管理控制台的 HTML mock（docs/MULTI_AGENT_PLATFORM.md v0.2）。
+  Agent Hub 管理控制台的 HTML mock（docs/MULTI_AGENT_PLATFORM.md v0.3：管理界面统一在 Hub）。
   外观沿用 packages/agent-settings/web/app.css（web-kit 的 --dbw-* 令牌 + as-* 组件）。
   单文件、无依赖、可直接用浏览器打开。数据全部虚构；按钮只改变本页内的状态，不连任何服务。
 -->
@@ -80,6 +80,7 @@ body { padding-top: 34px; font-family: var(--dbw-font); font-size: 14px; line-he
 .as-card__titles h2 { margin: 1px 0 2px; font-size: 16px; letter-spacing: -0.01em; }
 .as-card__titles p { margin: 0; color: var(--dbw-text-3); font-size: 13px; max-width: 80ch; }
 .as-card__actions { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.as-card__head:last-child { padding-bottom: 18px; }
 .as-card__body { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
 .as-card--flush .as-card__body { padding: 12px 0 4px; }
 
@@ -169,6 +170,48 @@ select.as-input { padding-right: 28px; }
 .as-toast { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-radius: 11px; font-size: 13px; font-weight: 600; color: #fff; background: #0f172a; box-shadow: 0 10px 30px -10px rgb(15 23 42 / .5); animation: as-in .18s ease-out; }
 .as-toast svg { color: #4ade80; flex: none; }
 
+/* ── more of the settings app's parts (knowledge, models, SNS) ── */
+.as-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.as-chip { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--dbw-border-strong); background: var(--dbw-surface); color: var(--dbw-text-2); }
+.as-chip[aria-pressed="true"] { border-color: var(--dbw-primary); background: var(--dbw-primary-soft); color: var(--dbw-primary-soft-text); font-weight: 600; }
+.as-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; cursor: pointer; }
+.as-toggle + .as-toggle { border-top: 1px solid var(--dbw-border); }
+.as-toggle__text { display: flex; flex-direction: column; }
+.as-toggle__label { font-weight: 600; }
+.as-switch { position: relative; width: 40px; height: 23px; flex: none; }
+.as-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.as-switch__track { position: absolute; inset: 0; border-radius: 999px; background: var(--dbw-surface-3); transition: background .15s; }
+.as-switch__track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .2); transition: transform .15s; }
+.as-switch input:checked + .as-switch__track { background: var(--dbw-primary); }
+.as-switch input:checked + .as-switch__track::after { transform: translateX(17px); }
+.as-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 4px; }
+.as-actions__buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.as-test { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.as-test--ok { color: var(--dbw-success); }
+.as-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.as-method { position: relative; text-align: left; font: inherit; color: inherit; display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 12px; border: 1.5px solid var(--dbw-border); background: var(--dbw-surface); cursor: pointer; transition: border-color .12s, background .12s; }
+.as-method:hover { border-color: var(--dbw-border-strong); }
+.as-method[aria-checked="true"] { border-color: var(--dbw-primary); background: color-mix(in srgb, var(--dbw-primary-soft) 55%, var(--dbw-surface)); box-shadow: 0 0 0 1px var(--dbw-primary) inset; }
+.as-method[aria-disabled="true"] { opacity: .6; }
+.as-method__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.as-method__icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--dbw-surface-2); color: var(--dbw-text-2); }
+.as-method[aria-checked="true"] .as-method__icon { background: var(--dbw-primary); color: var(--dbw-on-primary); }
+.as-method__radio { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--dbw-border-strong); }
+.as-method[aria-checked="true"] .as-method__radio { border: 5px solid var(--dbw-primary); }
+.as-method__title { font-weight: 700; font-size: 14.5px; }
+.as-method__desc { font-size: 13px; color: var(--dbw-text-2); flex: 1; }
+.as-method__tag { align-self: flex-start; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--dbw-surface-2); color: var(--dbw-text-3); }
+.as-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border-radius: 11px; background: var(--dbw-surface-2); }
+.as-inline__label { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; color: var(--dbw-text-2); }
+.as-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 24px; border-radius: 12px; border: 1.5px dashed var(--dbw-border-strong); background: var(--dbw-surface-2); text-align: center; color: var(--dbw-text-2); }
+.as-drop__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--dbw-surface); color: var(--dbw-primary); border: 1px solid var(--dbw-border); margin-bottom: 4px; }
+.as-tag { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--dbw-surface-2); color: var(--dbw-text-2); border: 1px solid var(--dbw-border); }
+.as-code pre { margin: 0; padding: 16px; border-radius: 11px; background: #0f172a; color: #e2e8f0; font-family: var(--dbw-font-mono); font-size: 12.5px; line-height: 1.6; overflow: auto; }
+.hub-im { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.hub-im__item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--dbw-border); background: var(--dbw-surface); }
+.hub-im__item .as-doc { flex: 1; }
+.hub-im__logo { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--dbw-surface-2); color: var(--dbw-text-2); }
+
 /* ── hub additions (same tokens) ── */
 .hub-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: 34px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 7px clamp(16px, 4vw, 48px); background: var(--dbw-warning-soft); color: var(--dbw-warning); border-bottom: 1px solid color-mix(in srgb, var(--dbw-warning) 25%, transparent); }
 .hub-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dbw-border); margin: -6px 0 4px; overflow-x: auto; }
@@ -256,12 +299,13 @@ select.as-input { padding-right: 28px; }
   .as-side { top: 34px; }
   .hub-filters .as-field { width: calc(50% - 5px); }
   .hub-chat { height: 420px; }
+  .hub-im { grid-template-columns: 1fr; }
   .hub-chat__log, .hub-chat__input { padding-left: 14px; padding-right: 14px; }
 }
 </style>
 </head>
 <body>
-<div class="hub-banner" role="note"><span id="banner-icon"></span>HTML mock：数据全部虚构，按钮只改变本页的状态，不连接任何服务（docs/MULTI_AGENT_PLATFORM.md v0.2）</div>
+<div class="hub-banner" role="note"><span id="banner-icon"></span>HTML mock：数据全部虚构，按钮只改变本页的状态，不连接任何服务（docs/MULTI_AGENT_PLATFORM.md v0.3：管理界面统一在 Hub）</div>
 <div class="as-app">
   <aside class="as-side">
     <div class="as-brand">
@@ -313,6 +357,8 @@ const P = {
   ext: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
   send: ['M21 3 10 14', 'M21 3l-7 18-4-7-7-4Z'],
   plus: ['M12 5v14', 'M5 12h14'],
+  upload: ['M12 16V4', 'M7 9l5-5 5 5', 'M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3'],
+  plug: ['M9 2v6', 'M15 2v6', 'M6 8h12v3a6 6 0 0 1-12 0Z', 'M12 17v5'],
   undo: ['M9 14 4 9l5-5', 'M4 9h11a5 5 0 0 1 0 10h-3'],
 }
 const icon = (n, s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(P[n] || []).map((d) => `<path d="${d}"/>`).join('')}</svg>`
@@ -452,13 +498,13 @@ function runButtons(a, small = false) {
   return `<button class="as-btn${sm}" disabled><span>${STATUS[a.status][1]}…</span></button>`
 }
 
-const TABS = [['', '概览', 'gauge'], ['releases', '版本', 'box'], ['members', '成员', 'users'], ['knowledge', '知识', 'book'], ['sns', 'SNS', 'chat'], ['sandbox', '沙箱', 'flask'], ['logs', '日志', 'terminal'], ['settings', '设置', 'settings']]
+const TABS = [['', '概览', 'gauge'], ['releases', '版本', 'box'], ['members', '成员', 'users'], ['models', '模型', 'cpu'], ['knowledge', '知识', 'book'], ['sns', 'SNS', 'chat'], ['sandbox', '沙箱', 'flask'], ['logs', '日志', 'terminal'], ['settings', '设置', 'settings']]
 function pageAgent(id, tab) {
   const a = find(id)
   if (!a) return head('Agents', '找不到这个 agent', '')
-  const body = { '': agentOverview, releases: agentReleases, members: agentMembers, knowledge: agentKnowledge, sns: agentSns, sandbox: agentSandbox, logs: agentLogs, settings: agentSettings }[tab] || agentOverview
+  const body = { '': agentOverview, releases: agentReleases, members: agentMembers, models: agentModels, knowledge: agentKnowledge, sns: agentSns, sandbox: agentSandbox, logs: agentLogs, settings: agentSettings }[tab] || agentOverview
   return `<div class="as-page-head"><div><div class="as-page-head__eyebrow"><a href="#/agents">Agents</a> / ${a.id}</div>
-      <h1>${mark(a, 32)}${a.name} ${pill(a.status)}</h1><p>${a.desc} · <span class="as-mono">https://${a.id}.agents.example.net</span></p></div>
+      <h1>${mark(a, 32)}${a.name} ${pill(a.status)}</h1><p>${a.desc} · 使用者用：<span class="as-mono">https://${a.id}.agents.example.net</span></p></div>
       <div class="as-page-head__actions">${runButtons(a)}</div></div>
     <nav class="hub-tabs">${TABS.map(([t, l, ic]) => `<a class="hub-tab" href="#/agents/${a.id}${t ? '/' + t : ''}" ${t === (tab || '') ? 'aria-current="page"' : ''}>${icon(ic, 16)}${l}</a>`).join('')}</nav>
     <div class="as-pages">${body(a)}</div>`
@@ -525,30 +571,91 @@ function agentMembers(a) {
     </div></div>`
 }
 
+// knowledge (managed in the hub; the data stays in the agent: /hub-agent/v1/admin/documents …)
+const docs = {
+  'expense-claims': [
+    { id: 'rules', title: '报销规定（2026 版）', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 9 },
+    { id: 'travel', title: '差旅费的计算方法', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 6 },
+    { id: 'receipts', title: '收据的要求', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 4 },
+    { id: 'faq', title: '常见问题', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 5 },
+    { id: 'flow', title: '审批的流程', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 3 },
+    { id: 'codes', title: '费用科目一览', src: 'base', by: '—', at: '11-12', status: 'published', chunks: 3 },
+    { id: 'cap-2612', title: '差旅费的上限（2026 年 12 月起）', src: 'upload', by: '田中 美咲', at: '11-16', status: 'pending', chunks: 0 },
+    { id: 'old-taxi', title: '出租车的旧规定', src: 'upload', by: '佐藤 一郎', at: '11-02', status: 'withdrawn', chunks: 0 },
+  ],
+}
+const DOC_ST = { published: ['ok', '已发布'], pending: ['warn', '待审批'], rejected: ['bad', '驳回'], pii: ['bad', '含个人信息'], withdrawn: ['plain', '已撤下'] }
+const kn = { method: 'bm25f' }
 function agentKnowledge(a) {
-  const tiles = a.id === 'expense-claims' ? ['7', '1', '30', '11-16 14:58'] : ['5', '0', '22', '11-14 10:20']
+  const list = docs[a.id] || (docs[a.id] = [{ id: 'rules', title: `${a.name}的规定`, src: 'base', by: '—', at: '11-10', status: 'published', chunks: 8 }, { id: 'faq', title: '常见问题', src: 'base', by: '—', at: '11-10', status: 'published', chunks: 6 }])
+  const pub = list.filter((d) => d.status === 'published'), pend = list.filter((d) => d.status === 'pending')
+  const chunks = pub.reduce((n, d) => n + d.chunks, 0)
+  const method = (v, ic, t, d, tag, disabled) => `<button class="as-method" role="radio" aria-checked="${kn.method === v}" ${disabled ? 'aria-disabled="true" data-act="kn-locked"' : `data-act="kn-method" data-v="${v}"`}><span class="as-method__top"><span class="as-method__icon">${icon(ic, 17)}</span><span class="as-method__radio"></span></span><span class="as-method__title">${t}</span><span class="as-method__desc">${d}</span><span class="as-method__tag">${tag}</span></button>`
   return `<div class="as-tiles">
-      ${tile('file', '文档', tiles[0], `已发布 ${tiles[0] - tiles[1]} · 待审批 ${tiles[1]}`, '#')}
-      ${tile('database', '索引', tiles[2], `${tiles[2]} 个区块`, '#')}
-      ${tile('search', '检索方式', 'BM25F', '默认 · 不需要模型', '#')}
-      ${tile('refresh', '最近重建', tiles[3], '成功', '#')}
+      ${tile('file', '文档', list.filter((d) => d.status !== 'withdrawn').length, `已发布 ${pub.length} · 待审批 ${pend.length}`, `#/agents/${a.id}/knowledge`)}
+      ${tile('database', '索引', chunks, `${chunks} 个区块`, `#/agents/${a.id}/knowledge`)}
+      ${tile('search', '检索方式', 'BM25F', '默认 · 不需要模型', `#/agents/${a.id}/knowledge`)}
+      ${tile('refresh', '最近重建', '11-16 14:58', '成功 · 拒绝 0 个区块', `#/agents/${a.id}/knowledge`)}
     </div>
-    <div class="hub-two">
-    ${card({ icon: 'book', title: '这个 agent 的知识', sub: '知识按 agent 分开存放：自己的数据目录和自己的数据库。上传、编辑、可见范围都在 agent 自己的设置画面里做。', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开知识设置</button>`,
-      body: `<div>${[['基础知识（版本里的 knowledge/*.md）', '6 份'], ['基础知识的哈希（当前版本）', '<span class="as-mono">sha256:4be1…9c0a</span>'], ['上一个版本的哈希', '<span class="as-mono">sha256:4be1…9c0a</span>（没变）'], ['上传的文档', '1 份']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
-    ${card({ icon: 'check', title: '待审批的文档', sub: '审批人 = 这个 agent 的其他管理者（docApproverRoles），上传的人不能批自己的。只在网页上审批。', flush: true,
-      body: a.id === 'expense-claims' ? `<div class="as-table-wrap"><table class="as-table"><tbody><tr><td><div class="as-doc"><strong>差旅费的上限（2026 年 12 月起）</strong><span>田中 美咲 上传 · 11-16 · 可见：member</span></div></td><td><div class="as-row-actions"><button class="as-btn as-btn--primary as-btn--sm" data-act="doc-approve">${icon('check', 14)}批准</button><button class="as-btn as-btn--danger as-btn--sm" data-act="doc-reject">驳回</button></div></td></tr></tbody></table></div>` : '<p class="as-empty">没有待审批的文档。</p>' })}
-    </div>`
+    ${card({ icon: 'search', title: '检索方式', sub: '不管哪种方式，都只在提问者能看的范围里检索（权限优先）。', body: `<div class="as-methods" role="radiogroup">
+      ${method('bm25f', 'search', 'BM25F', '关键词检索，中日文不需要分词器。不用模型，文档不出 agent。', '默认', false)}
+      ${method('rag', 'database', 'RAG', 'BM25F + 向量（embedding 模型），向量存在这个 agent 的 pgvector 里。', '需要 embedding 模型', true)}
+      ${method('graph', 'sparkle', '知识图谱', '用基础模型把文档抽成实体和关系（JSON），检索时 BM25F + 图谱。', '需要基础模型', true)}
+    </div><div class="as-alert as-alert--info">${icon('alert')}<div>按 2026-11-15 的决定，现在只用 BM25F。RAG 和知识图谱要先在「模型」页配好模型；用的时候，文档正文会发给所选的模型。</div></div>` })}
+    ${card({ icon: 'upload', title: '上传文档', sub: 'Markdown / 纯文本（.md .txt，≤ 200 KB）。保存前检查个人信息；含个人信息的区块不进索引。', body: `
+      <div class="as-drop"><span class="as-drop__icon">${icon('upload', 20)}</span><strong>把文件拖到这里，或者</strong><button class="as-btn as-btn--sm" data-act="kn-upload">选择文件</button><span class="as-muted">上传后需要这个 agent 的另一位管理者批准，才会进索引</span></div>
+      <div class="as-grid">
+        <label class="as-field"><span class="as-field__label">标题</span><input class="as-input" placeholder="例：差旅费的上限（2026 年 12 月起）"></label>
+        <label class="as-field"><span class="as-field__label">关键词（可选）</span><input class="as-input" placeholder="例：出差, 交通费, 上限"></label>
+        <div class="as-field"><span class="as-field__label">可见范围</span><div class="as-chips"><span class="as-chip" aria-pressed="true">member（全体成员）</span></div><span class="as-field__hint">成员之间平等，现在只有这一种</span></div>
+      </div>` })}
+    ${card({ icon: 'file', title: '文档', sub: '「版本内」= 代码里的 knowledge/*.md，随版本更新；「上传」= 在这里上传的。审批人是上传者以外的管理者。', actions: `<button class="as-btn" data-act="kn-rebuild">${icon('refresh', 15)}重建索引</button>`, flush: true, body: `
+      <div class="as-table-wrap"><table class="as-table"><thead><tr><th>文档</th><th>来源</th><th>状态</th><th>区块</th><th></th></tr></thead><tbody>
+      ${list.map((d) => `<tr><td><div class="as-doc"><strong>${d.title}</strong><span class="as-mono">${d.id}</span></div></td>
+        <td style="white-space:nowrap">${d.src === 'base' ? '<span class="as-tag">版本内</span>' : `<div class="as-doc"><strong style="font-weight:500">上传 · ${d.by}</strong><span>${d.at}</span></div>`}</td>
+        <td><span class="as-pill as-pill--${DOC_ST[d.status][0]}">${DOC_ST[d.status][1]}</span></td><td>${d.chunks || '—'}</td>
+        <td><div class="as-row-actions">${d.status === 'pending' ? (d.by === ME.name ? '<span class="as-muted">你上传的，需要别人批准</span>' : `<button class="as-btn as-btn--primary as-btn--sm" data-act="doc-approve" data-id="${a.id}" data-doc="${d.id}">${icon('check', 14)}批准</button><button class="as-btn as-btn--danger as-btn--sm" data-act="doc-reject" data-id="${a.id}" data-doc="${d.id}">驳回</button>`) : d.status === 'published' && d.src === 'upload' ? `<button class="as-btn as-btn--danger as-btn--sm" data-act="doc-withdraw" data-id="${a.id}" data-doc="${d.id}">撤下</button>` : d.src === 'base' ? '<span class="as-muted">改代码后发新版本</span>' : ''}</div></td></tr>`).join('')}
+      </tbody></table></div>` })}`
 }
 
-function agentSns(a) {
-  const all = ['LINE', 'Slack', 'Teams', 'Telegram', '企业微信', '钉钉', '飞书', 'Discord']
-  return `<div class="as-alert as-alert--info">${icon('chat')}<div><strong>一个 agent 一组自己的 bot</strong>使用者把消息发给这个 agent 的 bot；签名是「— ${a.name}（AI 秘书）」。bot 的接入用 agent 设置画面里的 IM 机器人页（dsh-im 自己的设置组件，13 种 SNS）。</div></div>
+function agentModels(a) {
+  const keyRow = (last) => `<div class="as-inline"><span class="as-inline__label">${icon('key', 15)}API key</span><span class="as-pill as-pill--ok">已设置 · 已保存（加密）· ••••${last}</span><span class="as-muted">只能写，不能读</span><button class="as-btn as-btn--sm" style="margin-left:auto" data-act="model-key">更换</button></div>`
+  return `<div class="as-alert as-alert--info">${icon('shield')}<div>这些设置保存在「${a.name}」这个 agent 里，Hub 只是界面（经内网的管理 API）。key 在这里输入后直接交给 agent 加密保存，Hub 不保存。</div></div>
     <div class="hub-two">
-    ${card({ icon: 'chat', title: '组织的 IM bot', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开 IM 机器人设置</button>`, flush: true,
-      body: `<div class="as-table-wrap"><table class="as-table"><tbody>${all.map((k) => { const v = a.bots[k]; return `<tr><td><strong>${k}</strong></td><td>${v ? '<span class="as-pill as-pill--ok">已接入</span>' : '<span class="as-pill as-pill--plain">未接入</span>'}</td><td class="as-muted">${v ? (k === 'LINE' ? 'webhook /dsh-hooks/line' : k === 'Slack' ? 'Socket Mode' : 'webhook /dsh-hooks/teams') : ''}</td></tr>` }).join('')}</tbody></table></div>` })}
-    ${card({ icon: 'alert', title: '停止期间', sub: '业务进程停止后，Hub 的前置代理处理 webhook。', body: `<div>${[['LINE webhook', '回 503（开启「Webhook 再送」时 LINE 会重试）'], ['Slack（Socket Mode）', '连接断开，停止期间的消息不送达'], ['bot 的固定回复「停止中」', '第二阶段']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+    ${card({ icon: 'cpu', title: '基础模型', sub: 'AI 员工对话用的模型，在 DSH 里运行。', body: `
+      <div class="as-seg" role="radiogroup"><button class="as-seg__item" role="radio" aria-checked="true">OpenAI 兼容</button><button class="as-seg__item" role="radio" aria-checked="false">Azure OpenAI</button></div>
+      <label class="as-field"><span class="as-field__label">Base URL</span><input class="as-input as-mono" value="https://api.deepseek.com/v1"></label>
+      <label class="as-field"><span class="as-field__label">模型</span><input class="as-input as-mono" value="deepseek-chat"></label>
+      ${keyRow('a9f2')}
+      <div class="as-actions"><span class="as-test as-test--ok" id="t-base"></span><div class="as-actions__buttons"><button class="as-btn" data-act="model-test" data-v="t-base">${icon('plug', 15)}连接测试</button><button class="as-btn as-btn--primary" data-act="model-save">保存</button></div></div>` })}
+    ${card({ icon: 'database', title: 'embedding 模型', sub: '只有检索方式选 RAG 时才用。', body: `
+      <div class="as-seg" role="radiogroup"><button class="as-seg__item" role="radio" aria-checked="true">不用（BM25F）</button><button class="as-seg__item" role="radio" aria-checked="false" disabled>OpenAI 兼容</button><button class="as-seg__item" role="radio" aria-checked="false" disabled>Azure OpenAI</button></div>
+      <p class="as-muted" style="margin:0">现在只用 BM25F（2026-11-15 的决定）。以后接 embedding 模型时，在这里设置。</p>` })}
+    </div>
+    ${card({ icon: 'settings', title: '应用到 DSH', sub: '基础模型的设置由 agent 生成 DSH 用的 overlay（llm-pi-ai，key 只写环境变量名），重启这个 agent 后生效。', actions: `<button class="as-btn" data-act="model-overlay">${icon('file', 15)}看 overlay</button><button class="as-btn as-btn--primary" data-act="restart" data-id="${a.id}">${icon('refresh', 15)}重启并生效</button>`, body: '' }).replace('<div class="as-card__body"></div>', '')}`
+}
+
+const IM = [['LINE', 'webhook'], ['Slack', 'Socket Mode'], ['Teams', 'webhook'], ['Telegram', 'polling'], ['企业微信应用', 'callback'], ['企业微信', '扫码'], ['钉钉', 'stream'], ['飞书', 'websocket'], ['QQ', 'websocket'], ['Discord', 'gateway'], ['Matrix', 'sync'], ['WhatsApp', '扫码'], ['iMessage', '本机'], ['邮箱', 'IMAP']]
+function agentSns(a) {
+  return `<div class="as-alert as-alert--info">${icon('chat')}<div><strong>一个 agent 一组自己的 bot</strong>使用者把消息发给这个 agent 的 bot，签名是「— ${a.name}（AI 秘书）」。这里用的是 dsh-im 自己的设置组件（web-kit 的 ImBotsShell），经 Hub → agent → DSH 转发；DSH 的完整画面不开放。</div></div>
+    ${card({ icon: 'chat', title: '组织的 IM bot', sub: '13 种 SNS + 邮箱。连接方式和各平台原有的一样：填凭据、扫二维码、手动设置。', body: `<div class="hub-im">${IM.map(([k, how]) => { const v = a.bots[k]; return `<div class="hub-im__item"><div class="hub-im__logo">${k.slice(0, 2)}</div><div class="as-doc"><strong>${k}</strong><span>${how}</span></div>${v ? '<span class="as-pill as-pill--ok">已连接</span>' : ''}<button class="as-btn as-btn--sm${v ? '' : ' as-btn--primary'}" data-act="im" data-v="${k}">${v ? '设置' : '连接'}</button></div>` }).join('')}</div>` })}
+    <div class="hub-two">
+    ${card({ icon: 'shield', title: '审批和报告', sub: '审批卡片和报告都经这个 agent 的 bot 送到各人的 SNS。', body: `<div>
+      ${[['业务审批的审批人', '全体成员（发起人除外）· 固定'], ['文档发布的审批人', '其他管理者 · 只在 Hub 审批'], ['报告的收件人', '全体成员（各人在 /me/sns 调整）']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>
+      <div>${[['文档发布要审批', true], ['报告：重建完成', true], ['报告：失败', true], ['报告：图谱生成完成', false]].map(([l, v]) => `<label class="as-toggle"><span class="as-toggle__text"><span class="as-toggle__label">${l}</span></span><span class="as-switch"><input type="checkbox" ${v ? 'checked' : ''}><span class="as-switch__track"></span></span></label>`).join('')}</div>` })}
+    ${card({ icon: 'alert', title: '停止期间', sub: '业务进程停止后，Hub 的前置代理处理 webhook。', body: `<div>${[['LINE webhook', '回 503（开启「Webhook 再送」时会重试）'], ['Slack（Socket Mode）', '连接断开，停止期间的消息不送达'], ['bot 的固定回复「停止中」', '第二阶段']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
     </div>`
+}
+function imModal(k) {
+  const how = IM.find((x) => x[0] === k)?.[1] ?? ''
+  const fields = k === 'LINE' ? [['Channel secret', 'password'], ['Channel access token', 'password']] : k === 'Slack' ? [['Bot token（xoxb-）', 'password'], ['App token（xapp-）', 'password']] : k === 'Teams' ? [['App ID', 'text'], ['App password', 'password'], ['Tenant ID', 'text']] : [['凭据', 'password']]
+  const qr = how === '扫码'
+  const aid = location.hash.split('/')[2]
+  modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('chat')}</div><div class="as-card__titles"><h2>${k}</h2><p>dsh-im 的设置组件（mock）。凭据直接交给 agent 的 DSH，Hub 不保存。</p></div></div><div class="as-card__body">
+    ${qr ? `<div class="as-drop"><span class="as-drop__icon">${icon('grid', 20)}</span><strong>用手机扫二维码</strong><span class="as-muted">（mock：这里显示 dsh-im 生成的二维码）</span></div>`
+      : fields.map(([l, t]) => `<label class="as-field"><span class="as-field__label">${l}</span><input class="as-input" type="${t}" placeholder="${t === 'password' ? '只能写，不能读' : ''}"></label>`).join('')}
+    ${k === 'LINE' ? `<div class="hub-kv"><span>Webhook URL（填到 LINE Developers）</span><span class="as-mono">https://${aid}.agents.example.net/dsh-hooks/line</span></div>` : ''}
+    <div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="im-ok" data-v="${k}">${icon('check', 15)}${qr ? '完成' : '保存并连接'}</button></div></div></section>`)
 }
 
 // sandbox state
@@ -623,10 +730,9 @@ function traceCard(id) {
 
 function agentSettings(a) {
   return `<div class="hub-two">
-    ${card({ icon: 'settings', title: 'cell', sub: '这些值由 Hub 在启动时注入（环境变量），不写在 agent.json 里。', body: `<div>${[['子域名', `<span class="as-mono">${a.id}.agents.example.net</span>`], ['runner', 'process（第一阶段）'], ['OS 用户', `<span class="as-mono">agent-${a.id}</span>`], ['数据库', `<span class="as-mono">agent_${a.id.replace(/-/g, '_')}</span>`], ['DSH profile', '<span class="as-mono">dsh-profile</span> · DSH 0.2.2-rc.1'], ['dsh.allow（打开的外发）', '无']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
+    ${card({ icon: 'settings', title: 'cell', sub: '这些值由 Hub 在启动时注入（环境变量），不写在 agent.json 里。', body: `<div>${[['子域名（给使用者）', `<span class="as-mono">${a.id}.agents.example.net</span>`], ['公开的路径', '<span class="as-mono">/me/sns</span>、业务画面、<span class="as-mono">/sso/callback</span>、webhook'], ['管理 API', '<span class="as-mono">/hub-agent/v1/admin/*</span>（只在内网端口）'], ['runner', 'process（第一阶段）'], ['OS 用户', `<span class="as-mono">agent-${a.id}</span>`], ['数据库', `<span class="as-mono">agent_${a.id.replace(/-/g, '_')}</span>`], ['DSH profile', '<span class="as-mono">dsh-profile</span> · DSH 0.2.2-rc.1'], ['dsh.allow（打开的外发）', '无']].map(([k, v]) => `<div class="hub-kv"><span>${k}</span><span>${v}</span></div>`).join('')}</div>` })}
     ${card({ icon: 'key', title: '密钥和环境变量', sub: '值放在属于这个 agent 的 OS 用户的 0600 文件里，画面上只显示「已设置」。', body: `<div>${[['BRIDGE_SERVICE_TOKEN', 'Hub 生成'], ['HUB_CLIENT_SECRET', 'Hub 生成'], ['DATABASE_URL', 'Hub 生成'], ['AGENT_SETTINGS_KEY', '已设置'], ['AZURE_OPENAI_KEY（可选）', '<span class="hub-no">未设置</span>']].map(([k, v]) => `<div class="hub-kv"><span class="as-mono">${k}</span><span>${v.startsWith('<') ? v : `<span class="hub-yes">${v}</span>`}</span></div>`).join('')}</div>` })}
-    </div>
-    ${card({ icon: 'ext', title: 'agent 自己的设置画面', sub: '模型、检索方式、IM 机器人、SNS 审批和报告在 agent 的 /agent-settings 里（经 Hub 登录，角色 agent_manager）。DSH 的完整画面在平台模式下关闭。', actions: `<button class="as-btn as-btn--primary" data-act="open-settings" data-id="${a.id}">${icon('ext', 15)}打开 /agent-settings</button>`, body: '' }).replace('<div class="as-card__body"></div>', '')}`
+    </div>`
 }
 
 function pageAgents() { return head('Agent Hub', 'Agents', '公司的 AI agent。代码在 biz-ai-agents 仓库里，用 agent-builder skill 造出来；这里登记、检查、批准、启停、测试和调试。') + `<div class="as-pages">${agentsTable()}</div>` }
@@ -695,8 +801,32 @@ document.addEventListener('click', (e) => {
   else if (act === 'invite-ok') { closeModal(); toast('已加入（mock）') }
   else if (act === 'remove') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('users')}</div><div class="as-card__titles"><h2>移除「${b.dataset.name}」？</h2><p>他的会话立即作废，SNS 连携解除，他发起的未决审批撤回。</p></div></div><div class="as-card__body"><div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="remove-ok" style="background:var(--dbw-danger);border-color:var(--dbw-danger)">移除</button></div></div></section>`)
   else if (act === 'remove-ok') { closeModal(); toast('已移除，已通知 agent（mock）') }
-  else if (act === 'open-settings') toast(`会打开 https://${a.id}.agents.example.net/agent-settings（经 Hub 登录）`)
-  else if (act === 'doc-approve' || act === 'doc-reject') toast(act === 'doc-approve' ? '文档已批准，开始重建索引（mock）' : '文档已驳回（mock）')
+  else if (act === 'doc-approve' || act === 'doc-reject' || act === 'doc-withdraw') {
+    const d = docs[b.dataset.id].find((x) => x.id === b.dataset.doc)
+    if (act === 'doc-approve') { d.status = 'published'; d.chunks = 4; toast('已批准，索引已重建（4 个区块）') } else if (act === 'doc-reject') { d.status = 'rejected'; toast('已驳回') } else { d.status = 'withdrawn'; d.chunks = 0; toast('已撤下，索引已重建') }
+    render()
+  }
+  else if (act === 'kn-method') { kn.method = b.dataset.v; render() }
+  else if (act === 'kn-locked') toast('现在只用 BM25F；要先在「模型」页配好模型')
+  else if (act === 'kn-upload') { docs[location.hash.split('/')[2]].push({ id: 'new-' + Date.now().toString(36).slice(-4), title: '新上传的文档（mock）', src: 'upload', by: ME.name, at: '11-16', status: 'pending', chunks: 0 }); render(); toast('已上传，等待另一位管理者批准') }
+  else if (act === 'kn-rebuild') toast('索引已重建：文档 6 · 区块 30 · 拒绝 0（报告已发给管理者）')
+  else if (act === 'model-test') { const el = document.getElementById(b.dataset.v); el.innerHTML = icon('check', 15) + 'OK · 412 ms' }
+  else if (act === 'model-save') toast('已保存到 agent（重启后生效）')
+  else if (act === 'model-key') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('key')}</div><div class="as-card__titles"><h2>更换 API key</h2><p>直接交给 agent，用它的 AGENT_SETTINGS_KEY 加密保存；Hub 不保存，也不记日志。</p></div></div><div class="as-card__body"><div class="as-seg" role="radiogroup"><button class="as-seg__item" role="radio" aria-checked="true">环境变量名（推荐）</button><button class="as-seg__item" role="radio" aria-checked="false">直接输入 key</button></div><label class="as-field"><span class="as-field__label">环境变量名</span><input class="as-input as-mono" placeholder="例：EXPENSE_LLM_KEY"><span class="as-field__hint">值由运维放进这个 agent 的密钥文件</span></label><div class="hub-modal__foot"><button class="as-btn" data-close>取消</button><button class="as-btn as-btn--primary" data-act="model-key-ok">保存</button></div></div></section>`)
+  else if (act === 'model-key-ok') { closeModal(); toast('已保存到 agent') }
+  else if (act === 'model-overlay') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('file')}</div><div class="as-card__titles"><h2>DSH overlay</h2><p>由 agent 生成；key 只写环境变量名。</p></div></div><div class="as-card__body"><div class="as-code"><pre>llm-pi-ai:
+  providers:
+    biz-base:
+      api: openai-completions
+      baseUrl: https://api.deepseek.com/v1
+      apiKeyEnv: AGENT_BASE_MODEL_KEY
+      models:
+        - id: deepseek-chat
+agent-default-model:
+  provider: biz-base
+  model: deepseek-chat</pre></div><div class="hub-modal__foot"><button class="as-btn" data-close>关闭</button></div></div></section>`)
+  else if (act === 'im') imModal(b.dataset.v)
+  else if (act === 'im-ok') { closeModal(); const a2 = find(location.hash.split('/')[2]); if (a2) a2.bots[b.dataset.v] = true; render(); toast(`${b.dataset.v} 已连接（mock）`) }
   else if (act === 'register' || act === 'register-release') modal(`<section class="as-card"><div class="as-card__head"><div class="as-card__icon">${icon('box')}</div><div class="as-card__titles"><h2>${act === 'register' ? '登记 agent' : '登记版本'}</h2><p>从 biz-ai-agents 仓库取出这个 commit，安装依赖，在 agent 自己的 OS 用户下跑全部检查。</p></div></div><div class="as-card__body">
       ${act === 'register' ? '<label class="as-field"><span class="as-field__label">目录</span><input class="as-input as-mono" value="agents/purchase-requests"><span class="as-field__hint">id 取 agent.json 的 id（= manifest 的 system.id）</span></label>' : ''}
       <label class="as-field"><span class="as-field__label">commit</span><input class="as-input as-mono" value="main（c0ffee1）"></label>
