@@ -1,6 +1,6 @@
 # 状态（2026-11-15）：MVP 5 周的内容已完成，真实 DSH 上的 e2e 已跑，设置插件 v0.1 已完成
 
-计划见 [`GENERAL_AGENT_FRAMEWORK.md`](GENERAL_AGENT_FRAMEWORK.md)：§5 设计，§7 按周的路线图。接口见 [`KNOWLEDGE_API.md`](KNOWLEDGE_API.md)、[`GRAPH_API.md`](GRAPH_API.md)。
+计划见 [`GENERAL_AGENT_FRAMEWORK.md`](GENERAL_AGENT_FRAMEWORK.md)：§5 设计，§7 按周的路线图。接口见 [`KNOWLEDGE_API.md`](KNOWLEDGE_API.md)、[`GRAPH_API.md`](GRAPH_API.md)。下一步（草案，等 review）：[`MULTI_AGENT_PLATFORM.md`](MULTI_AGENT_PLATFORM.md)，管理公司全部 agent 的控制面 Agent Hub。
 仓库：私有 [ITC-cloud-soft/biz-ai-agent](https://github.com/ITC-cloud-soft/biz-ai-agent)（main）。**framework 没有改动**，新包都是 `private`，没有发布到 npm。
 
 ## 路线图的判据，逐项对照

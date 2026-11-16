@@ -14,7 +14,7 @@ as their memory. What is missing is a **knowledge layer** (RAG and a semantic gr
 - sources that are **business screens**;
 - **no personal data** in the indexes.
 
-The plan is [`docs/GENERAL_AGENT_FRAMEWORK.md`](docs/GENERAL_AGENT_FRAMEWORK.md): §5 is the design, §7 the roadmap by week. Where
+The plan is [`docs/GENERAL_AGENT_FRAMEWORK.md`](docs/GENERAL_AGENT_FRAMEWORK.md): §5 is the design, §7 the roadmap by week. Next (draft, under review): [`docs/MULTI_AGENT_PLATFORM.md`](docs/MULTI_AGENT_PLATFORM.md), Agent Hub, a control plane that manages every agent of the company (manager / user accounts, start and stop, per-agent knowledge, sandbox, debugging). Where
 things stand is in [`docs/STATUS.md`](docs/STATUS.md).
 
 An agent is first an IT system: no drag-and-drop flow editor. Flows are code, written with coding agents, guarded by the manifest, the
