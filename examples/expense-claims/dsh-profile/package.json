@@ -1,0 +1,52 @@
+{
+  "name": "@biz-ai-agent/expense-claims-dsh-profile",
+  "private": true,
+  "description": "The DSH product profile (AI plane) of examples/expense-claims, copied from profile/template. {{FRAMEWORK_ROOT}} is replaced by install.mjs with the absolute path of this repository.",
+  "dependencies": {
+    "@care/dsh-auto-tasks": "file:{{FRAMEWORK_ROOT}}/vendor/dsh-auto-tasks",
+    "@care/dsh-im": "file:{{FRAMEWORK_ROOT}}/vendor/dsh-im",
+    "@care/dsh-proactive": "file:{{FRAMEWORK_ROOT}}/vendor/dsh-proactive",
+    "@dsh-bridge/dsh-core": "file:{{FRAMEWORK_ROOT}}/packages/dsh-core",
+    "@dsh-bridge/protocol": "file:{{FRAMEWORK_ROOT}}/packages/protocol",
+    "@dsh-bridge/plugin-identity": "file:{{FRAMEWORK_ROOT}}/plugins/identity",
+    "@dsh-bridge/plugin-tools": "file:{{FRAMEWORK_ROOT}}/plugins/tools",
+    "@dsh-bridge/plugin-events": "file:{{FRAMEWORK_ROOT}}/plugins/events",
+    "@dsh-bridge/plugin-notify": "file:{{FRAMEWORK_ROOT}}/plugins/notify",
+    "@dsh-bridge/plugin-approvals": "file:{{FRAMEWORK_ROOT}}/plugins/approvals",
+    "@dsh-bridge/plugin-assistant": "file:{{FRAMEWORK_ROOT}}/plugins/assistant",
+    "@dsh-bridge/plugin-memory": "file:{{FRAMEWORK_ROOT}}/plugins/memory",
+    "@dsh-bridge/plugin-persona": "file:{{FRAMEWORK_ROOT}}/plugins/persona",
+    "@dsh-bridge/plugin-reader": "file:{{FRAMEWORK_ROOT}}/plugins/reader",
+    "@dsh-bridge/plugin-knowledge": "file:{{FRAMEWORK_ROOT}}/plugins/knowledge",
+    "@dsh-bridge/plugin-graph": "file:{{FRAMEWORK_ROOT}}/plugins/graph"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "@care/dsh-im",
+        "@care/dsh-proactive",
+        "@care/dsh-auto-tasks",
+        "@dsh-bridge/dsh-core",
+        "@dsh-bridge/plugin-identity",
+        "@dsh-bridge/plugin-tools",
+        "@dsh-bridge/plugin-assistant",
+        "@dsh-bridge/plugin-events",
+        "@dsh-bridge/plugin-notify",
+        "@dsh-bridge/plugin-approvals",
+        "@dsh-bridge/plugin-memory",
+        "@dsh-bridge/plugin-persona",
+        "@dsh-bridge/plugin-reader",
+        "@dsh-bridge/plugin-knowledge"
+      ]
+    }
+  },
+  "dshBridge": {
+    "expectedDsh": "0.2.2-rc.1",
+    "delegation": {
+      "id": "bridge-tools",
+      "name": "@dsh-bridge/plugin-tools"
+    }
+  }
+}
