@@ -19,6 +19,7 @@ web:
     - /equipment/:id
     - /handbook/:docId
     - /agent-settings
+    - /me/sns
 
 roles:
   admin:

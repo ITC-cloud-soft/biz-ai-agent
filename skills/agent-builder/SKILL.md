@@ -169,7 +169,14 @@ search method) and the SNS approvals and reports. Copy the wiring of the referen
 4. `dataDir` holds settings and uploaded documents: git-ignore it. Keys: environment variable NAMES; a key typed on the screen
    is stored only with `AGENT_SETTINGS_KEY`. pgvector: pass the system's own pg pool as `vectorDb`, or set
    `AGENT_VECTOR_DB_URL` — never a connection string in a file in git.
-5. Approvals need a second person: the uploader never approves. With one administrator, managers must be approver roles
+5. The screens: `/agent-settings` (administrators: overview, models, knowledge, SNS) and `/me/sns` (every employee: their own SNS
+   links, link code, notifications). Add both to `web.routes`. The app is prebuilt in the plugin's `dist/`; rebuild only when you
+   change `packages/agent-settings/web/` (`npm run build -w @dsh-bridge/agent-settings`, needs the framework checkout).
+6. The SNS page's IM bots are dsh-im's own settings screens through a **DSH gateway** (`@dsh-bridge/gateway`, mounted at `/dsh`,
+   `isAllowed` = administrators, `getSessionUser` = your own session): wrap your handler with `gateway.handleRequest` and pass
+   `gateway: { rpcBase: '/dsh/api/dsh-im' }` to `register`. Copy the reference's `dsh` option. Without it the page says DSH is
+   not connected (everything else works).
+7. Approvals need a second person: the uploader never approves. With one administrator, managers must be approver roles
    (`sns.approverRoles`), or nobody can publish — write that down as a "to confirm" decision.
 
 ## 6. Verify — the definition of done

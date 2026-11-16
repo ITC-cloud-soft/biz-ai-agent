@@ -23,6 +23,7 @@ import {
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
 import { createAgentSettings } from '@dsh-bridge/agent-settings'
+import { createDshGateway } from '@dsh-bridge/gateway'
 import { registerGraph } from '@dsh-bridge/graph'
 import { bridgePiiScreen, buildKnowledgeIndex, canSee, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
@@ -57,11 +58,12 @@ export const loanDays = (startsOn, dueOn) => Math.round((Date.parse(`${dueOn}T00
  * knowledgeOptions: passed to createKnowledgeService (synonyms default KNOWLEDGE_SYNONYMS; embedder, rerank …; none = BM25F)
  * dataDir / agentEnv / agentFetch / vectorDb: the settings plugin (@dsh-bridge/agent-settings): its data directory (default a new
  *   temp directory), where it reads keys and AGENT_VECTOR_DB_URL, the fetch for model calls, a database for pgvector
+ * dsh: { target, launchToken } — a running DSH: the framework's DSH gateway at /dsh (administrators only), for the IM bot pages
  */
 export async function createLoansApp({
   serviceToken, bffSecret, orgId = 'example-org', now = () => new Date(), log = () => {},
   manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR, knowledgeOptions = {},
-  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch, vectorDb = null,
+  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch, vectorDb = null, dsh = null,
 }) {
   const store = createMemoryStore({ now })
   const data = { users: new Map(), sessions: new Map(), items: new Map(), loans: new Map(), approvals: new Map() }
@@ -320,6 +322,17 @@ export async function createLoansApp({
     return { status: 200, body: { ok: true, user: { id: u.id, role: u.role } }, headers: { 'set-cookie': sessionCookie(token, SESSION_TTL_MS / 1000) } }
   })
 
+  // A minimal sign-in page for trying the example in a browser (the business system's own login; the kit never sees passwords).
+  router.add('GET', '/login', POLICY.PUBLIC, async ({ res, query }) => {
+    const next = /^\/[A-Za-z0-9/_?=&.-]*$/.test(query.get('next') ?? '') ? query.get('next') : '/agent-settings'
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY' })
+    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Equipment Loans — sign in</title>
+<style>body{font:15px system-ui,sans-serif;max-width:360px;margin:60px auto;padding:0 16px}input,button{font:inherit;width:100%;padding:8px;margin:6px 0;box-sizing:border-box}</style>
+<h1>Equipment Loans</h1><form id="f"><input name="loginId" placeholder="login id" autocomplete="username" required><input name="password" type="password" placeholder="password" autocomplete="current-password" required><button>Sign in</button></form><p id="m"></p>
+<script>document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));const r=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)});if(r.ok)location.href=${JSON.stringify(next)};else document.getElementById('m').textContent='Sign-in failed ('+r.status+')'}</script>`)
+    return null
+  })
+
   router.add('POST', '/api/auth/logout', HUMAN, async ({ principal }) => {
     for (const s of data.sessions.values()) if (s.sessionId === principal.sessionId) s.revoked = true
     await store.revokeTicketsBySession(principal.sessionId)
@@ -431,7 +444,15 @@ export async function createLoansApp({
   })
   // the settings plugin builds the knowledge service (BM25F / RAG / knowledge graph, by its settings) and serves /agent-settings;
   // the synonyms are the same object evals/run.mjs uses
-  await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions: { synonyms: KNOWLEDGE_SYNONYMS, ...knowledgeOptions }, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }) })
+  const gateway = dsh ? createDshGateway({
+    target: dsh.target,
+    mountPath: '/dsh',
+    getSessionUser: async (req) => (await hooks.authenticate(req))?.user ?? null,
+    isAllowed: (u) => u?.role === 'admin',
+    launchToken: dsh.launchToken,
+    logger: { info() {}, warn: (...m) => log('[dsh-gateway]', ...m), error: (...m) => log('[dsh-gateway]', ...m) },
+  }) : null
+  await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions: { synonyms: KNOWLEDGE_SYNONYMS, ...knowledgeOptions }, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }), gateway: gateway ? { rpcBase: '/dsh/api/dsh-im' } : null })
   const knowledge = agent.knowledge
   registerKnowledge(bridge, knowledge)
   /** Rebuilds the index (documents added or changed; e.g. a document for one employee: visibility { users: [id] }). */
@@ -505,7 +526,8 @@ export async function createLoansApp({
     return null
   }, { patterns: { docId: '[a-z0-9][a-z0-9-]{0,62}' } })
 
-  return { ...bridge, kit, router, store, data, createUser, createItem, requestLoan, scanOverdue, mayDecide, knowledge, rebuildKnowledge, agent }
+  const handler = gateway ? async (req, res) => { if (await gateway.handleRequest(req, res)) return; return bridge.handler(req, res) } : bridge.handler
+  return { ...bridge, handler, kit, router, store, data, createUser, createItem, requestLoan, scanOverdue, mayDecide, knowledge, rebuildKnowledge, agent, gateway }
 }
 
 /** A running instance (server.mjs, the tests). */

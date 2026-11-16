@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 export const DIST = fileURLToPath(new URL('../dist/', import.meta.url))
 const LANGS = ['ja', 'en', 'zh']
 const TITLES = { ja: 'AI エージェントの設定', en: 'AI agent settings', zh: 'AI 代理设置' }
+const ME_TITLES = { ja: 'SNS 連携', en: 'SNS link', zh: 'SNS 连携' }
 const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' }
 
 export function pickLang(lang, acceptLanguage) {
@@ -25,14 +26,15 @@ export const CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'uns
 // < > & escaped so the JSON can never close its <script> element
 const safeJson = (v) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
 
-export function settingsShell({ lang, acceptLanguage, roles = [], system = {}, user = null, gateway = null } = {}) {
+/** mode 'admin' (the settings, /agent-settings) or 'me' (the employee's own SNS link page, /me/sns). */
+export function settingsShell({ lang, acceptLanguage, roles = [], system = {}, user = null, gateway = null, mode = 'admin', isAdmin = false, notifyTypes = [] } = {}) {
   const l = pickLang(lang, acceptLanguage)
   const built = existsSync(join(DIST, 'app.js'))
   const v = built ? Math.round(statSync(join(DIST, 'app.js')).mtimeMs).toString(36) : '' // a new build is never served from a cache
-  const cfg = { lang: l, roles, system: { name: String(system.name ?? '') }, user: user ? { id: String(user.id), role: String(user.role) } : null, gateway }
+  const cfg = { lang: l, mode: mode === 'me' ? 'me' : 'admin', isAdmin: Boolean(isAdmin), roles, system: { name: String(system.name ?? '') }, user: user ? { id: String(user.id), role: String(user.role) } : null, gateway, notifyTypes }
   return `<!doctype html>
 <html lang="${l === 'zh' ? 'zh-CN' : l}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${TITLES[l]}</title><meta name="color-scheme" content="light dark">
+<title>${(mode === 'me' ? ME_TITLES : TITLES)[l]}</title><meta name="color-scheme" content="light dark">
 ${built ? `<link rel="stylesheet" href="/agent-settings/assets/app.css?v=${v}"><script type="module" src="/agent-settings/assets/app.js?v=${v}"></script>` : ''}
 <script type="application/json" id="agent-settings-config">${safeJson(cfg)}</script>
 </head><body><div id="root">${built ? '' : '<p style="font:14px system-ui;padding:24px">The settings app is not built: run <code>npm run build -w @dsh-bridge/agent-settings</code>.</p>'}</div></body></html>`

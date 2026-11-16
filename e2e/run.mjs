@@ -370,6 +370,16 @@ async function main() {
       admin.ok && body?.result?.ok === true && (body.result.value?.bots ?? body.result.value?.snapshot?.bots ?? []).some((b) => b.connected) && [401, 403].includes(staff.status) && [401, 403].includes(anon.status) && gatewayInShell,
       { admin: admin.status, connected: (body?.result?.value?.bots ?? body?.result?.value?.snapshot?.bots ?? []).filter((b) => b.connected).length, staff: staff.status, anonymous: anon.status, shell: shell.status, gatewayInShell })
   }
+  // the employee's own SNS link page: staff1 sees their own LINE link only
+  {
+    const page = await fetch(`${WEB}/me/sns`, { headers: { cookie: people.staff1.cookie } })
+    const html = await page.text()
+    const mine = await call('GET', '/bridge/v1/me/identities', { cookie: people.staff1.cookie })
+    const ids = mine.data?.identities ?? []
+    record('me', 'staff1 opens /me/sns (the SNS link page) and sees exactly their own LINE link, never anyone else\'s',
+      page.status === 200 && html.includes('"mode":"me"') && ids.length === 1 && ids[0].platform === 'line' && (ids[0].externalId ?? ids[0].external_id) === LINE_USERS.staff1,
+      { page: page.status, identities: ids.map((i) => ({ platform: i.platform, mine: (i.externalId ?? i.external_id) === LINE_USERS.staff1 })) })
+  }
   // k1: a rule question as staff1
   {
     const r = await say('staff1', 'Can I carry over unused leave?', /carry over|nothing/i)

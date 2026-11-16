@@ -2,8 +2,9 @@
 // IM bots with web-kit's ImBotsShell (dsh-im's own settings components, the same screen as DSH and the framework's business webs).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  createAdminRpc, createMeImClient, ImBotsShell, LinkCodeBox, probeChannel, useLinkCode, WebKitProvider, type ChannelStatus,
+  createAdminRpc, createMeImClient, ImBotsShell, LinkCodeBox, probeChannel, SnsLinkPage, useLinkCode, WebKitProvider, type ChannelStatus,
 } from '@dsh-bridge/web-kit'
+import { SNS_PAGE_STRINGS } from './i18n-sns.ts'
 import { Icon } from './icons.tsx'
 import { LANGS, translator, WEBKIT_STRINGS, CHANNEL_LABELS, type Key, type Lang } from './i18n.ts'
 import { channelsFor, runtimeFor } from './im.ts'
@@ -14,6 +15,10 @@ export interface AppConfig {
   system: { name: string }
   user: { id: string; role: string }
   gateway: { rpcBase: string } | null
+  /** 'admin' (default): the settings; 'me': the employee's own SNS link page (/me/sns) */
+  mode?: 'admin' | 'me'
+  isAdmin?: boolean
+  notifyTypes?: { id: string; label: string; help?: string; roles?: string[] }[]
 }
 type T = ReturnType<typeof translator>
 type Page = 'overview' | 'models' | 'knowledge' | 'sns'
@@ -98,7 +103,7 @@ const serviceLabel = (t: T, service?: string) => (service ? ['BM25F', ...(servic
 const fmtTime = (iso: string | undefined, lang: Lang) => (iso ? new Date(iso).toLocaleString(lang === 'zh' ? 'zh-CN' : lang === 'en' ? 'en-US' : 'ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
 
 /* ---------------------------------------------------------------- pages */
-function Overview({ t, lang, settings, status, docs, sns, baseDocs, go }: { t: T; lang: Lang; settings: Settings; status: Status; docs: Doc[]; sns: { connected: number; reachable: boolean } | null; baseDocs: number; go: (p: Page) => void }) {
+function Overview({ t, lang, settings, status, docs, sns, baseDocs, myLinks, go }: { t: T; lang: Lang; settings: Settings; status: Status; docs: Doc[]; sns: { connected: number; reachable: boolean } | null; baseDocs: number; myLinks: number; go: (p: Page) => void }) {
   const published = docs.filter((d) => d.status === 'published').length
   const pending = docs.filter((d) => d.status === 'pending').length
   const methodLabel = { bm25f: t('mBm25f'), rag: t('mRag'), graph: t('mGraph') }[settings.knowledge.mode]
@@ -113,7 +118,7 @@ function Overview({ t, lang, settings, status, docs, sns, baseDocs, go }: { t: T
     { key: 'stepEmb', hint: t('stepEmbHint'), done: Boolean(settings.llm.embedding.enabled && settings.llm.embedding.key.set), optional: settings.knowledge.mode !== 'rag', page: 'models' },
     { key: 'stepDocs', hint: t('stepDocsHint', { base: baseDocs, uploaded: docs.filter((d) => d.status === 'published').length }), done: (status.documents ?? 0) > 0, page: 'knowledge' },
     { key: 'stepSns', hint: t('stepSnsHint'), done: Boolean(sns?.reachable && sns.connected > 0), page: 'sns' },
-    { key: 'stepLink', hint: t('stepLinkHint'), done: false, optional: true, page: 'sns' },
+    { key: 'stepLink', hint: myLinks > 0 ? t('linkedCount', { count: myLinks }) : t('stepLinkHint'), done: myLinks > 0, optional: true, page: 'sns' },
   ]
   return (
     <>
@@ -395,7 +400,7 @@ function Sns({ t, cfg, lang, dark, settings, saveSettings, notify }: { t: T; cfg
         </Field>
         <div className="as-actions"><span /><Btn kind="primary" busy={busy} disabled={!sns.approverRoles.length || !sns.reportRoles.length} onClick={save}>{t('save')}</Btn></div>
       </Section>
-      <Section icon="link" title={t('myLink')} desc={t('myLinkDesc')}><MyLink /></Section>
+      <Section icon="link" title={t('myLink')} desc={t('myLinkDesc')} actions={<a className="as-btn as-btn--ghost" href="/me/sns"><Icon name="arrow" size={16} /><span>{t('allLinks')}</span></a>}><MyLink /></Section>
     </>
   )
 }
@@ -417,12 +422,15 @@ export function App({ cfg }: { cfg: AppConfig }) {
     root.style.colorScheme = dark ? 'dark' : 'light'
   }, [dark])
 
-  const [data, setData] = useState<{ settings: Settings; status: Status; docs: Doc[] } | null>(null)
+  const [data, setData] = useState<{ settings: Settings; status: Status; docs: Doc[]; myLinks: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
     try {
-      const [s, d] = await Promise.all([api<{ settings: Settings; knowledge: Status }>('GET', '/api/agent/settings'), api<{ documents: Doc[] }>('GET', '/api/agent/documents')])
-      setData({ settings: s.settings, status: s.knowledge, docs: d.documents }); setError(null)
+      const [s, d, me] = await Promise.all([
+        api<{ settings: Settings; knowledge: Status }>('GET', '/api/agent/settings'), api<{ documents: Doc[] }>('GET', '/api/agent/documents'),
+        api<{ identities?: unknown[] }>('GET', '/bridge/v1/me/identities').catch(() => ({ identities: [] })),
+      ])
+      setData({ settings: s.settings, status: s.knowledge, docs: d.documents, myLinks: (me.identities ?? []).length }); setError(null)
     } catch (e) { setError((e as Error).message) }
   }, [])
   useEffect(() => { void reload() }, [reload])
@@ -459,7 +467,7 @@ export function App({ cfg }: { cfg: AppConfig }) {
   const setLang = (l: Lang) => { const u = new URL(location.href); u.searchParams.set('lang', l); location.href = u.toString() }
 
   return (
-    <WebKitProvider adminRpc={adminRpc} meIm={meIm} runtime={runtime} strings={WEBKIT_STRINGS[lang]} platformLabels={CHANNEL_LABELS[lang]}
+    <WebKitProvider adminRpc={adminRpc} meIm={meIm} runtime={runtime} strings={{ ...WEBKIT_STRINGS[lang], ...SNS_PAGE_STRINGS[lang] }} platformLabels={CHANNEL_LABELS[lang]}
       toast={(kind, title, detail) => notify(detail ? `${title}: ${detail}` : title, kind === 'error' ? 'bad' : 'ok')} confirm={async (o: { message?: string; title?: string }) => window.confirm(o.message ?? o.title ?? '')}>
       <div className="as-app" data-dbw-theme={dark ? 'dark' : undefined}>
         <aside className="as-side">
@@ -491,12 +499,68 @@ export function App({ cfg }: { cfg: AppConfig }) {
           {!data && !error ? <div className="as-loading"><span className="as-spin" />{t('loading')}</div> : null}
           {data ? (
             <div className="as-pages" key={current.id}>
-              {page === 'overview' ? <Overview t={t} lang={lang} settings={data.settings} status={data.status} docs={data.docs} sns={sns} baseDocs={Math.max(0, (data.status.documents ?? 0) - data.docs.filter((d) => d.status === 'published').length)} go={go} /> : null}
+              {page === 'overview' ? <Overview t={t} lang={lang} settings={data.settings} status={data.status} docs={data.docs} sns={sns} baseDocs={Math.max(0, (data.status.documents ?? 0) - data.docs.filter((d) => d.status === 'published').length)} myLinks={data.myLinks} go={go} /> : null}
               {page === 'models' ? <Models t={t} settings={data.settings} saveSettings={saveSettings} notify={notify} /> : null}
               {page === 'knowledge' ? <Knowledge t={t} lang={lang} cfg={cfg} settings={data.settings} status={data.status} docs={data.docs} saveSettings={saveSettings} reload={reload} notify={notify} /> : null}
               {page === 'sns' ? <Sns t={t} cfg={cfg} lang={lang} dark={dark} settings={data.settings} saveSettings={saveSettings} notify={notify} /> : null}
             </div>
           ) : null}
+        </main>
+        <Toasts items={toasts} />
+      </div>
+    </WebKitProvider>
+  )
+}
+
+/* ---------------------------------------------------------------- the employee's own SNS link page (/me/sns) */
+export function MeApp({ cfg }: { cfg: AppConfig }) {
+  const lang = cfg.lang
+  const t = useMemo(() => translator(lang), [lang])
+  const [dark, setDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  useEffect(() => { const m = matchMedia('(prefers-color-scheme: dark)'); const f = () => setDark(m.matches); m.addEventListener('change', f); return () => m.removeEventListener('change', f) }, [])
+  useEffect(() => {
+    const root = document.documentElement
+    if (dark) { root.setAttribute('data-dbw-theme', 'dark'); root.setAttribute('data-dsh-im-theme', 'dark') } else { root.removeAttribute('data-dbw-theme'); root.removeAttribute('data-dsh-im-theme') }
+    root.style.colorScheme = dark ? 'dark' : 'light'
+  }, [dark])
+  const [toasts, setToasts] = useState<{ id: number; text: string; tone: 'ok' | 'bad' }[]>([])
+  const notify = useCallback((text: string, tone: 'ok' | 'bad' = 'ok') => {
+    const id = Date.now() + Math.random()
+    setToasts((x) => [...x, { id, text, tone }])
+    setTimeout(() => setToasts((x) => x.filter((y) => y.id !== id)), 3600)
+  }, [])
+  const meIm = useMemo(() => createMeImClient({ base: '/bridge/v1', weixinBase: null }), [])
+  const setLang = (l: Lang) => { const u = new URL(location.href); u.searchParams.set('lang', l); location.href = u.toString() }
+  return (
+    <WebKitProvider meIm={meIm} strings={{ ...WEBKIT_STRINGS[lang], ...SNS_PAGE_STRINGS[lang] }} platformLabels={CHANNEL_LABELS[lang]}
+      toast={(kind, title, detail) => notify(detail ? `${title}: ${detail}` : title, kind === 'error' ? 'bad' : 'ok')} confirm={async (o: { message?: string; title?: string }) => window.confirm(o.message ?? o.title ?? '')}>
+      <div className="as-app">
+        <aside className="as-side">
+          <div className="as-brand">
+            <span className="as-brand__mark"><Icon name="sparkle" size={20} /></span>
+            <span className="as-brand__text"><strong>{t('appTitle')}</strong><span>{cfg.system.name}</span></span>
+          </div>
+          <nav className="as-nav" aria-label={t('meTitle')}>
+            <a href="/me/sns" className="as-nav__item" aria-current="page"><Icon name="link" /><span>{t('meTitle')}</span></a>
+            {cfg.isAdmin ? <a href="/agent-settings" className="as-nav__item"><Icon name="gauge" /><span>{t('appSub')}</span></a> : null}
+          </nav>
+          <div className="as-side__foot">
+            <div className="as-lang" role="group" aria-label="Language"><Icon name="globe" size={16} />
+              {LANGS.map((l) => <button key={l.id} type="button" aria-pressed={l.id === lang} onClick={() => setLang(l.id)}>{l.label}</button>)}
+            </div>
+            {cfg.user ? <div className="as-user"><span className="as-user__avatar">{cfg.user.role.slice(0, 1).toUpperCase()}</span><span>{cfg.user.role}</span></div> : null}
+          </div>
+        </aside>
+        <main className="as-main">
+          <header className="as-page-head">
+            <span className="as-page-head__eyebrow">{t('appTitle')}</span>
+            <h1>{t('meTitle')}</h1>
+            <p>{t('meDesc')}</p>
+          </header>
+          <div className="as-me">
+            <SnsLinkPage header={<></>} dark={dark} weixin={false} isAdmin={Boolean(cfg.isAdmin)} notify={{ role: cfg.user?.role, types: cfg.notifyTypes ?? [], labels: Object.fromEntries((cfg.notifyTypes ?? []).map((x) => [x.id, x.label])) }}
+              imBotsLink={cfg.isAdmin ? <a href="/agent-settings#sns">{t('imBotsLink')}</a> : undefined} />
+          </div>
         </main>
         <Toasts items={toasts} />
       </div>

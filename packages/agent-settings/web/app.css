@@ -236,3 +236,10 @@ body { font-family: var(--dbw-font); font-size: 14px; line-height: 1.55; color: 
   .as-card__head { flex-wrap: wrap; }
   .as-card__actions { width: 100%; }
 }
+
+/* the employee's SNS link page: web-kit's cards inside the app's look */
+.as-me .dbw-stack { gap: 18px; }
+.as-me .dbw-card { border-radius: var(--as-radius-lg); }
+.as-me .dbw-card__head { padding: 18px 20px 0; }
+.as-me .dbw-card__body { padding: 14px 20px 20px; }
+.as-me .dbw-button--primary { border-radius: 9px; font-weight: 600; }

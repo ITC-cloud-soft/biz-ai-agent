@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@dsh-bridge/agent-settings": "0.3.0",
+    "@dsh-bridge/gateway": "^0.1.1",
     "@dsh-bridge/graph": "0.0.1",
     "@dsh-bridge/knowledge": "0.0.1",
     "@dsh-bridge/protocol": "^0.1.1",

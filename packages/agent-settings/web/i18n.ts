@@ -56,6 +56,8 @@ const ja = {
   myLink: '自分の SNS 連携', myLinkDesc: '連携コードを発行し、組織のボットに「連携 123456」と送ると、あなたのアカウントが紐付きます。連携は本人しかできません。',
   failed: '失敗しました', loading: '読み込み中…', retry: '再読み込み',
   svcVectors: 'ベクトル', svcGraph: '知識グラフ',
+  meTitle: 'SNS 連携', meDesc: 'あなた自身の IM アカウントを業務アカウントに紐付けます。紐付けると、IM 上の AI 社員があなたの権限の範囲で動き、承認の依頼も届きます。',
+  allLinks: '自分の連携と通知の設定を開く', imBotsLink: 'IM ボットの設定へ', linkedCount: '{count} 件連携済み',
 } as const
 export type Key = keyof typeof ja
 
@@ -108,6 +110,8 @@ const en: Record<Key, string> = {
   myLink: 'My SNS link', myLinkDesc: 'Issue a link code and send "連携 123456" to the organisation\'s bot to link your account. Only you can link your own account.',
   failed: 'Failed', loading: 'Loading…', retry: 'Reload',
   svcVectors: 'vectors', svcGraph: 'knowledge graph',
+  meTitle: 'SNS link', meDesc: 'Link your own IM accounts to your business account. Once linked, the AI employee on IM works within your rights, and approval requests reach you there.',
+  allLinks: 'Open my links and notification settings', imBotsLink: 'To the IM bot settings', linkedCount: '{count} linked',
 }
 
 const zh: Record<Key, string> = {
@@ -159,6 +163,8 @@ const zh: Record<Key, string> = {
   myLink: '我的 SNS 连携', myLinkDesc: '发行连携码后，向组织的机器人发送「連携 123456」，即可绑定你的账号。只有本人可以连携。',
   failed: '失败', loading: '加载中…', retry: '重新加载',
   svcVectors: '向量', svcGraph: '知识图谱',
+  meTitle: 'SNS 连携', meDesc: '把你自己的 IM 账号绑定到业务账号。绑定后，IM 上的 AI 员工在你的权限范围内工作，审批请求也会发到那里。',
+  allLinks: '打开我的连携和通知设置', imBotsLink: '前往 IM 机器人设置', linkedCount: '已连携 {count} 个',
 }
 
 export const DICTS: Record<Lang, Record<Key, string>> = { ja, en, zh }

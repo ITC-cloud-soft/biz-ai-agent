@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 216 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 86），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
+测试：全仓库 216 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 86），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：15 / 15**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -67,7 +67,9 @@
 验证了什么：
 - **试点的 HTTP 测试（7 个）**：只有管理员能用，委托一律拒绝；key 不出现在 API、日志、文件里；上传 → 审批 → 发布 → 只有能看的角色检索得到 → 报告；含个人信息的文档被拒，正文不保存；RAG 下没改过的块不会重新做 embedding；知识图谱下没改过的块不会再发给模型；两种方式都过了权限性质测试；模型出错时退回 BM25F，状态和报告里都写明。
 - **变异检查**：故意让图谱检索忽略可见范围，有 3 个测试失败。
-- **真实 DSH 的 e2e（新增 3 项，共 13 / 13）**：
+- **真实 DSH 的 e2e（共 15 / 15；2026-11-16 加了 `[sns]` 和 `[me]`）**：
+  - `[sns]`：设置画面的 SNS 页通过试点的 DSH 网关连到 dsh-im，管理员能看到 LINE 的连接状态；staff 403，未登录 401；
+  - `[me]`：staff1 打开 `/me/sns`，只看到自己的 LINE 连携；
   - admin 上传文档，审批卡片（【承認のお願い】）到了 admin2 的 LINE，没有发给上传者；
   - admin2 在 LINE 上点「承認」，文档发布，【ご報告】（只有数字）只发给了管理员；
   - staff 在 LINE 上提问时，新文档作为来源出现。
@@ -87,6 +89,8 @@
 原来的画面只是能用，没有经过设计，SNS 部分也没有照 framework 的做法。现在改成：
 - **React + framework 的 web-kit**，和 framework 的业务网页同一套设计：左侧导航（概要 / 模型 / 知识 / SNS）、卡片、开关、角色标签、拖放上传、文档表格、通知；日 / 英 / 中，浅色 / 深色，手机宽度（375 px 没有横向滚动）。
 - **SNS 页 = web-kit 的 `ImBotsShell` + dsh-im 自己的设置组件**，经业务系统的 DSH 网关（`/dsh`，只给管理员）调用，和 DSH、care-web 的画面完全一样。13 种 SNS 加邮箱，扫码接入、填凭据、手动设置都照原样。
+- **员工本人的 SNS 连携页 `/me/sns`**（2026-11-16 追加）：web-kit 的 `SnsLinkPage`。本人的连携、连携码、解除、通知设置；e2e 检查了 staff1 只看到自己的 LINE 连携。概要页的「我的 SNS 连携」现在按真实连携状态显示。
+- **equipment-loans** 也加了同样的登录页和 DSH 网关。
 - 在真实 DSH 上看过：LINE「1/1 接続中」、「bridge test bot 接続済み」、钉钉的「QR コードをスキャン / 手動で設定」、Slack 的接入卡片；e2e 里也检查了：管理员能通过网关拿到 dsh-im 的状态，staff 得到 403，未登录得到 401。
 
 ## 本地试用（2026-11-16）

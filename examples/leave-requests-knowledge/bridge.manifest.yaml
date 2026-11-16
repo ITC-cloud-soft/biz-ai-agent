@@ -16,6 +16,7 @@ web:
     - /leave-requests/:id
     - /handbook/:docId
     - /agent-settings
+    - /me/sns
 
 roles:
   admin:

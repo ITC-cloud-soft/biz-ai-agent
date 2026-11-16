@@ -113,7 +113,12 @@ test('only administrators reach the settings; no delegation does; the screen is 
   assert.match(screen.body, /"gateway":null/, 'no DSH here: the SNS page says so')
   const js = await env.call('GET', '/agent-settings/assets/app.js', { headers: admin() })
   assert.equal(js.status, 200)
-  assert.equal((await env.call('GET', '/agent-settings/assets/app.js', { headers: env.people.staff1.web })).status, 403)
+  assert.equal((await env.call('GET', '/agent-settings/assets/app.js', { headers: env.people.staff1.web })).status, 200, 'the code (no data) is for every employee: /me/sns uses it')
+  assert.ok([401, 403].includes((await env.call('GET', '/agent-settings/assets/app.js')).status), 'not for anonymous')
+  const me = await env.call('GET', '/me/sns?lang=en', { headers: env.people.staff1.web })
+  assert.equal(me.status, 200)
+  assert.match(me.body, /<title>SNS link<\/title>[\s\S]*"mode":"me","isAdmin":false/)
+  assert.match((await env.call('GET', '/me/sns', { headers: admin() })).body, /"isAdmin":true/)
   assert.equal((await env.call('GET', '/api/agent/settings', { headers: admin() })).body.settings.knowledge.mode, 'bm25f')
 })
 

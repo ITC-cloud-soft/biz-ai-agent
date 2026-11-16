@@ -271,8 +271,17 @@ export function createAgentSettings({
       res.end(a.body)
       return null
     }
-    router.add('GET', '/agent-settings/assets/:file', ADMIN, serveAsset, { patterns: { file: '[A-Za-z0-9._-]{1,120}' } })
-    router.add('GET', '/agent-settings/assets/:dir/:file', ADMIN, (c) => serveAsset({ ...c, params: { ...c.params, sub: true } }), { patterns: { dir: 'chunks|assets', file: '[A-Za-z0-9._-]{1,120}' } })
+    // the app's code (no data): for every signed-in employee, since /me/sns uses it too
+    router.add('GET', '/agent-settings/assets/:file', PEOPLE, serveAsset, { patterns: { file: '[A-Za-z0-9._-]{1,120}' } })
+    router.add('GET', '/agent-settings/assets/:dir/:file', PEOPLE, (c) => serveAsset({ ...c, params: { ...c.params, sub: true } }), { patterns: { dir: 'chunks|assets', file: '[A-Za-z0-9._-]{1,120}' } })
+    // the employee's own SNS link page (web-kit SnsLinkPage over Bridge v1 /me/*: own links only, link code, unlink, notifications)
+    router.add('GET', '/me/sns', PEOPLE, async ({ req, res, query, principal }) => {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin', 'content-security-policy': CSP })
+      // the notification types: the manifest's notified events, with their own label / description / audience roles
+      const notifyTypes = Object.entries(kit.manifest.events ?? {}).filter(([, e]) => e?.notify).map(([id, e]) => ({ id, label: String(e.label ?? id), help: e.description ? String(e.description) : undefined, roles: e.audience?.roles }))
+      res.end(settingsShell({ mode: 'me', notifyTypes, isAdmin: adminRoles.includes(principal.user.role), lang: query.get('lang'), acceptLanguage: req.headers['accept-language'], roles: kit.declaredRoles, system: kit.manifest.system ?? {}, user: principal.user }))
+      return null
+    })
     router.add('GET', '/api/agent/settings', ADMIN, async () => ({ status: 200, body: { ok: true, settings: pub(), roles: kit.declaredRoles, knowledge: status } }))
     router.add('PUT', '/api/agent/settings', ADMIN, async ({ body }) => {
       let next
@@ -332,7 +341,7 @@ export function createAgentSettings({
     }, { patterns: { docId: '[a-z0-9][a-z0-9-]{0,62}' } })
     router.add('POST', '/api/agent/knowledge/rebuild', ADMIN, async () => ({ status: 200, body: { ok: true, knowledge: await rebuild('manual') } }))
     router.add('GET', '/api/agent/knowledge/status', ADMIN, async () => ({ status: 200, body: { ok: true, knowledge: status } }))
-    return { routes: ['/agent-settings', '/api/agent/*'] }
+    return { routes: ['/agent-settings', '/me/sns', '/api/agent/*'] }
   }
 
   return {
