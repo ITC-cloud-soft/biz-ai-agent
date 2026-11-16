@@ -1,0 +1,60 @@
+{
+  "name": "@dsh-bridge/plugin-notify",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge plugin bridge-notify: IM notifications (recipients from the business API, realtime digest, quiet hours, AI secretary framing, scheduled reports, audience delivery)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/plugins/notify#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "plugins/notify"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./templates": "./src/templates.js",
+    "./format": "./src/format.js",
+    "./ai-report": "./src/ai-report.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

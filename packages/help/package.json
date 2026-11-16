@@ -1,0 +1,49 @@
+{
+  "name": "@dsh-bridge/help",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge — answering how-to questions on SNS from the business system's own manual: manual parsing, the help index, CI checks against the screens, role-aware search with link building (no I/O except reading files you name)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/packages/help#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "packages/help"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./manual": "./src/manual.mjs",
+    "./routes": "./src/routes.mjs",
+    "./build": "./src/build.mjs",
+    "./check": "./src/check.mjs",
+    "./search": "./src/search.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

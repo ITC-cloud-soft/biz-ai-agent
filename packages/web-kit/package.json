@@ -1,0 +1,62 @@
+{
+  "name": "@dsh-bridge/web-kit",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "React + TypeScript parts for the business web of a DSH Business Bridge system: IM bot connection page shell (dsh-im settings tabs), self-service SNS linking (personal WeChat QR, link codes, own links), notification preferences, platform labels",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/packages/web-kit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "packages/web-kit"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./im-theme.css": "./src/im/im-theme.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.mjs && tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1",
+    "@dsh-bridge/server-kit": "0.1.1",
+    "@types/react": "^18.3.31",
+    "react": "^18.3.1",
+    "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

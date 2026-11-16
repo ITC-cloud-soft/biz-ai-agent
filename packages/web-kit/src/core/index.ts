@@ -1,0 +1,13 @@
+// @dsh-bridge/web-kit/core — the pure logic (no React, no DOM): usable from node --test and from any UI framework.
+export * from './platforms-core.ts'
+export * from './strings-core.ts'
+export * from './rpc-core.ts'
+export * from './me-im-core.ts'
+export * from './notify-core.ts'
+export * from './link-code-core.ts'
+export * from './im-runtime-core.ts'
+export * from './help-markdown-core.ts'
+export * from './ai-profile-core.ts'
+export * from './assistant-markdown-core.ts'
+export * from './assistant-attachments-core.ts'
+export * from './external-connectors-core.ts'

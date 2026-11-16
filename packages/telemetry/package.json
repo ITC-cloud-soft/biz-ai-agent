@@ -1,0 +1,48 @@
+{
+  "name": "@dsh-bridge/telemetry",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge — one log format for every service of a business system (RSI_SELF_IMPROVING_SYSTEM.md §5.1): JSON lines, masking by default, W3C traceparent, error fingerprints, access and security events (no dependencies, no I/O except the write function you pass)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/packages/telemetry#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "packages/telemetry"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./mask": "./src/mask.mjs",
+    "./trace": "./src/trace.mjs",
+    "./fingerprint": "./src/fingerprint.mjs",
+    "./http": "./src/http.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

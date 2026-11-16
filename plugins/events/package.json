@@ -1,0 +1,57 @@
+{
+  "name": "@dsh-bridge/plugin-events",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge plugin bridge-events: per-application event cursors, dispatch to DSH plugins and auto-tasks, manifest playbook deployment",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/plugins/events#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "plugins/events"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

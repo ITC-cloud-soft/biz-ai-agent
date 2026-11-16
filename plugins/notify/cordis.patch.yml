@@ -1,0 +1,8 @@
+# bridge-notify: 業務イベントの IM 通知（受信者・文面の材料は業務システムの notifications API、文面は manifest の templates）。
+# 前提: bridge fork の dsh-im（sendCard の to.userId と idempotencyKey）と bridge-events（通知イベントを転送）。
+- insert:
+    - id: bridge-notify
+      name: '@dsh-bridge/plugin-notify'
+      config:
+        digestMinutes: 30
+        deliveryMode: card        # 既定（sendCard で職員本人に直接）。text は登録済み配信先（createTarget）向け

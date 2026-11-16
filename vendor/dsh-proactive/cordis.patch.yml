@@ -1,0 +1,6 @@
+# @care/dsh-proactive — bundle patch layer (care fork of dsh-proactive 0.3.1, see CARE_FORK.md)
+# 一行 insert；profile 的 dsh.profile.bundles 里列了本包即整层生效。
+# row id 保持上游的 `dsh-proactive`（profile patch 按 id 定位不受影响），name 为包名。
+- insert:
+    - id: dsh-proactive
+      name: '@care/dsh-proactive'

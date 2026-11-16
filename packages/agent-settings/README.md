@@ -12,7 +12,7 @@ its own connect flow (credentials, QR, manual). They reach dsh-im through the sy
 (web-kit's `SnsLinkPage`: their own links only, the link code, unlink, notification preferences — server-kit's Bridge v1 `/me/*`). For a system without a sign-in screen of its own, `signInPage({ system, next, lang })` is one in
 the same look (it posts to the system's own login API and never sees a session) and `redirectToSignIn(req, res, { authenticate })`
 sends a browser without a session from a screen to it and back. The build needs a framework checkout
-(`BIZ_AI_FRAMEWORK`, default `../framework`); `dist/` is committed, so a system serving it needs no bundler.
+(web-kit and the dsh-im client from this repository's synced framework, or `BIZ_AI_FRAMEWORK`); `dist/` is committed, so a system serving it needs no bundler.
 
 | tab | settings |
 |---|---|

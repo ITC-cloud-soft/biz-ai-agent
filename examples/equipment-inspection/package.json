@@ -1,0 +1,22 @@
+{
+  "name": "@dsh-bridge/example-equipment-inspection",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Example business system (facility equipment inspection) on @dsh-bridge/server-kit; passes the Bridge v1 conformance suite through the generic HTTP adapter",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "validate": "node ../../packages/protocol/bin/bridge-validate.mjs manifest bridge.manifest.yaml",
+    "test": "node --test --test-concurrency=1 test/help.test.mjs test/domain.test.mjs test/conformance.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/help": "0.1.0",
+    "@dsh-bridge/protocol": "0.1.1",
+    "@dsh-bridge/server-kit": "0.1.1",
+    "pg": "^8.23.1"
+  }
+}

@@ -1,0 +1,5 @@
+# bridge-assistant: 業務 Web の右パネルの AI アシスタント。職員ごとの DSH 会話と、BFF（@dsh-bridge/gateway）からだけ呼ぶ管理 RPC（/api/bridge-assistant/assistant）。
+# 前提: bridge-tools（アシスタント会話では本人の委託 token で動く）、プリセット（agents[].preset。業務ツールだけを持つプリセットにする）。
+- insert:
+    - id: bridge-assistant
+      name: '@dsh-bridge/plugin-assistant'

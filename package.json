@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "license": "Apache-2.0",
-  "description": "Exploring a general AI agent framework on top of the Biz Assistant Framework (@dsh-bridge/*): the knowledge layer first",
+  "description": "A complete AI agent framework: the Biz Assistant Framework (DSH core, dsh-im, memory, approvals, notify … copied in by scripts/sync-framework.mjs) plus the agent layer (knowledge, graph, settings)",
   "type": "module",
   "workspaces": [
     "packages/*",
     "plugins/*",
+    "profile",
     "examples/*"
   ],
   "engines": {
@@ -15,6 +16,8 @@
   },
   "scripts": {
     "test": "npm test --workspaces --if-present",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "sync-framework": "node scripts/sync-framework.mjs",
+    "vendor:install": "npm ci --prefix vendor/dsh-im --no-audit --no-fund --ignore-scripts && npm ci --prefix vendor/dsh-auto-tasks --no-audit --no-fund --ignore-scripts && npm ci --prefix vendor/dsh-proactive --no-audit --no-fund --ignore-scripts"
   }
 }

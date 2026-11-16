@@ -1,0 +1,91 @@
+# A minimal manifest for the server-kit tests (a fictional "toy" task system). No personal data.
+bridge: 1
+version: 2026-10-27
+system:
+  id: toy-tasks
+  name: タスク管理（テスト）
+  locale: ja-JP
+  timezone: Asia/Tokyo
+  description: server-kit の単体テスト用の架空の業務システム。
+
+roles:
+  admin: { label: 管理者, scope: all, delegation: propose }
+  manager: { label: 責任者, scope: all, delegation: propose }
+  staff: { label: 担当者, scope: assigned, delegation: propose }
+
+entities:
+  task: { label: タスク, pii: none, link: "/tasks/{id}" }
+  approval: { label: 承認, pii: none }
+  proposal: { label: AI 提案, pii: none }
+  sns_identity: { label: SNS 連携, pii: personal }
+
+audienceRules:
+  owner_and_managers:
+    description: タスクの担当者と、管理者・責任者。
+    roles: [admin, manager]
+    includes: [assignee]
+    implementedBy: test hooks recipientsFor
+
+events:
+  task.overdue:
+    label: 期限超過
+    aggregate: task
+    payload: [taskId, dueOn, daysOverdue, ownerUserId]
+    severity: warning
+    audience: { rule: owner_and_managers }
+    notify: { template: task.overdue, digestMinutes: 30 }
+  task.done:
+    label: 完了
+    aggregate: task
+    payload: [taskId, doneOn]
+    severity: info
+  approval.requested:
+    label: 承認依頼
+    aggregate: approval
+    payload: [approvalId, subjectType, subjectId, requiredRole, expiresAt]
+    severity: info
+    internal: approvals_im
+  approval.decided:
+    label: 承認の決定
+    aggregate: approval
+    payload: [approvalId, subjectType, subjectId, decision, status, channel, decidedByUserId]
+    severity: info
+    internal: approvals_im
+  sns_identity.unlinked:
+    label: SNS 連携の解除
+    aggregate: sns_identity
+    payload: [identityId, userId, platform]
+    severity: info
+    internal: identity
+
+templates:
+  task.overdue:
+    intent: action
+    action: 期限を過ぎたタスクを確認してください。
+    description: 期限を {daysOverdue} 日過ぎたタスクがあります（期限 {dueOn}）。未完了は {count} 件です。
+    params: { count: { type: integer }, daysOverdue: { type: integer }, dueOn: { type: date } }
+
+tools:
+  - name: toy_list_tasks
+    description: タスクの一覧（ID・期限・担当者 ID）。
+    http: GET /api/tasks
+    access: read
+    roles: [admin, manager, staff]
+    pii: none
+  - name: toy_list_overdue
+    description: 期限超過のタスクの一覧。
+    http: GET /api/tasks/overdue
+    access: read
+    roles: [admin, manager]
+    pii: none
+
+reports:
+  daily_tasks:
+    label: タスクの定時報告
+    cron: ["0 9 * * *"]
+    audience: { roles: [admin, manager] }
+    sections: [tasks, overdue]
+    sectionsByRole:
+      admin: [tasks, overdue]
+      manager: [tasks, overdue]
+      staff: [overdue]

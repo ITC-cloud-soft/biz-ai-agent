@@ -1,0 +1,6 @@
+# bridge-identity: IM 発信者 → 職員の連携（「連携 123456」）と、dsh-im のアクセス制御（未連携は拒否・案内）。共用ボットの窓口内のアプリ切り替え。
+# 前提: bridge fork の dsh-im（ctx.dshIm.setAccessResolver / claimReplies / sourceForTurn / setConversationRouter）。
+# 業務アプリケーションは bridge-apps（@dsh-bridge/dsh-core）のレジストリで設定する。レジストリが無いときだけ apiUrl / serviceToken を使う。
+- insert:
+    - id: bridge-identity
+      name: '@dsh-bridge/plugin-identity'

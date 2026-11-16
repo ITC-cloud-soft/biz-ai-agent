@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-bridge.dev/schema/manifest.schema.json",
+  "title": "Bridge business manifest (protocol v1)",
+  "description": "The machine-readable self introduction of a business system (BRIDGE_ARCHITECTURE section 11). Served at GET /bridge/v1/manifest or kept in the repository as bridge.manifest.yaml. Bridge reads it to set up the AI employee persona and vocabulary, register tools, classify events, render notifications and deploy playbooks. Cross references (roles, events, tools, templates, playbooks, audience rules) are checked by validateManifest() in addition to this schema.",
+  "type": "object",
+  "required": ["bridge", "system", "roles", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "bridge": { "const": 1, "description": "Protocol major version." },
+    "version": { "type": "string", "maxLength": 64, "description": "Manifest revision (SemVer or date); the HTTP etag is derived from the content." },
+    "system": {
+      "type": "object",
+      "required": ["id", "name", "locale", "timezone"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,39}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "locale": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$" },
+        "timezone": { "type": "string", "pattern": "^[A-Za-z_]+(/[A-Za-z_+-]+)*$" },
+        "description": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/role" },
+      "description": "Business roles. delegation is the CEILING of what the AI may do for an employee of that role (AI allow-list intersected with the role)."
+    },
+    "entities": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/entity" },
+      "description": "Kinds of business data and their personal-information class (basis for AI / IM visibility)."
+    },
+    "events": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/eventType" },
+      "additionalProperties": { "$ref": "#/$defs/event" },
+      "description": "Business state changes (signals). The payload list is the PII whitelist: IDs, dates, counts and status values only."
+    },
+    "audienceRules": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/audienceRule" },
+      "description": "Named recipient rules. The business adapter resolves a rule to concrete employees (recipientsFor); the manifest only names and documents it."
+    },
+    "templates": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/templateId" },
+      "additionalProperties": { "$ref": "#/$defs/template" },
+      "description": "Deterministic IM notification templates. Parameters are typed: free text is intentionally not available."
+    },
+    "tools": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/tool" },
+      "description": "Business tools the AI employee can call; Bridge generates them with the delegation gate."
+    },
+    "playbooks": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/playbook" },
+      "description": "AI employee procedures (= auto-task templates): triggered by events / cron / condition, executed with the audience's delegation."
+    },
+    "reports": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/report" },
+      "description": "Scheduled business reports."
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The business system's own web screens. routes: the path patterns of its screens (':name' = one path segment, a trailing '/*' = any sub path). The AI's answers may link only these paths on the business web URL (the link guard of bridge-identity drops other links).",
+      "properties": {
+        "routes": {
+          "type": "array",
+          "maxItems": 2000,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^/[A-Za-z0-9_./:*-]*$", "maxLength": 200 }
+        }
+      }
+    },
+    "help": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How-to questions answered from the business system's manual (@dsh-bridge/help). tool: the read tool (declared in tools, GET, e.g. GET /bridge/v1/help/search) that the DSH generates as the manual search (its rendering and URL rules); manualPage: the manual page on the business web ({chapter} / {id}).",
+      "required": ["tool"],
+      "properties": {
+        "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
+        "manualPage": { "type": "string", "pattern": "^/", "maxLength": 200 }
+      }
+    },
+    "glossary": {
+      "type": "object",
+      "propertyNames": { "type": "string", "minLength": 1, "maxLength": 60 },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 400 },
+      "description": "Business vocabulary handed to the AI employee persona."
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": { "type": "object" },
+      "description": "Reusable JSON Schemas for tool inputs, referenced as { \"$ref\": \"#/schemas/Name\" }."
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,59}$" },
+    "sectionKey": { "type": "string", "pattern": "^[a-z][A-Za-z0-9_]{0,59}$", "description": "Report section key (snake or camel case)." },
+    "eventType": { "type": "string", "maxLength": 80, "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" },
+    "templateId": { "type": "string", "maxLength": 80, "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$" },
+    "roleRefs": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "$ref": "#/$defs/identifier" } },
+    "piiClass": {
+      "enum": ["none", "personal", "financial", "sensitive", "health"],
+      "description": "none < personal (contact, employment) < financial < sensitive (identity of a service user) < health."
+    },
+    "role": {
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 300 },
+        "scope": { "enum": ["all", "assigned", "own"], "description": "Default data scope of the role." },
+        "delegation": { "enum": ["none", "read", "propose"], "description": "AI delegation ceiling for this role (default propose)." },
+        "mask": { "type": "boolean", "description": "Responses to this role are PII-masked." }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "required": ["label", "pii"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "pii": { "$ref": "#/$defs/piiClass" },
+        "link": { "type": "string", "maxLength": 200, "pattern": "^/[^\\s]*$", "description": "Web path template with {id}; links in IM point here and the reader is authorised again." },
+        "description": { "type": "string", "maxLength": 300 }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "rule": { "$ref": "#/$defs/identifier" },
+        "roles": { "$ref": "#/$defs/roleRefs" },
+        "include": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" },
+          "description": "Optional. Further audience rules whose recipients are added, e.g. the people the subject of the event determines (the resident's own care manager). Each item names a declared audience rule."
+        },
+        "fallback": {
+          "type": "object",
+          "required": ["roles"],
+          "additionalProperties": false,
+          "properties": {
+            "roles": { "$ref": "#/$defs/roleRefs", "description": "Roles that get the notice instead." },
+            "templates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/templateId" }, "description": "Templates used for the handed-over notice (default: the event's own template). Each must be a template the event's notify may pick." }
+          },
+          "description": "Optional. Hand-over: only when the audience resolves to nobody (no active employee of the rule's roles / include, after its excludes), the notice goes to these roles instead."
+        }
+      },
+      "anyOf": [{ "required": ["rule"] }, { "required": ["roles"] }],
+      "description": "Who: a named rule resolved by the business adapter, or plain roles; optionally further rules (include) and a hand-over when nobody is left (fallback)."
+    },
+    "audienceRule": {
+      "type": "object",
+      "required": ["description"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "roles": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } },
+        "includes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "maxLength": 80 }, "description": "Specific people the rule adds (documentation: 'author', 'assignee', ...)." },
+        "excludes": { "type": "array", "uniqueItems": true, "items": { "type": "string", "maxLength": 80 }, "description": "People the rule removes ('author', 'requester', ...)." },
+        "implementedBy": { "type": "string", "maxLength": 200, "description": "Where the rule lives in the business system (informational)." }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": ["payload", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 400 },
+        "aggregate": { "$ref": "#/$defs/identifier", "description": "Entity the event is about." },
+        "payload": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 24,
+          "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{0,39}$" },
+          "description": "Allowed payload keys (PII whitelist)."
+        },
+        "severity": { "enum": ["info", "warning", "critical"] },
+        "audience": { "$ref": "#/$defs/audience" },
+        "notify": {
+          "type": "object",
+          "required": ["template"],
+          "additionalProperties": false,
+          "properties": {
+            "template": { "$ref": "#/$defs/templateId" },
+            "variants": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/templateId" }, "description": "Other templates the audience rule may pick for the same event (per recipient / decision)." },
+            "digestMinutes": { "type": "integer", "minimum": 0, "maximum": 1440, "description": "Merge window into one message (0 = no merging)." },
+            "quiet": { "enum": ["respect", "exempt"], "description": "Quiet hours behaviour (default respect)." },
+            "default": { "enum": ["on", "off"], "description": "Initial per-employee preference (default on)." }
+          }
+        },
+        "playbook": { "$ref": "#/$defs/identifier", "description": "Hand the event to this AI playbook." },
+        "internal": { "enum": ["approvals_im", "identity"], "description": "Handled by a Bridge-internal plugin; never notified or given to an AI playbook." },
+        "deprecated": { "type": "boolean", "description": "No longer emitted; declared only so historical events stay valid. A deprecated event has no audience, notify or playbook." }
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": ["params"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "maxLength": 200 },
+        "intent": {
+          "enum": ["info", "action", "urgent", "approval", "consult"],
+          "description": "What the IM message asks of the reader (docs/design/IM_MESSAGE_STYLE.md): info = information only (【ご報告】, ends with \"no action needed\"), action = a concrete action is requested (【対応のお願い】), urgent = urgent action (【至急】), approval = an approval to decide in the business web, without buttons (【承認のお願い】; e.g. handed to someone else because the requester cannot approve their own), consult = a judgement to talk over (【ご相談】). Optional; default info."
+        },
+        "action": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "For every intent but info: what the reader should do and where (screen name), shown as 「▶ お願いしたいこと：…」. May use the same {param} placeholders as description; never free text from the business data."
+        },
+        "params": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]{0,39}$" },
+          "additionalProperties": { "$ref": "#/$defs/templateParam" }
+        }
+      }
+    },
+    "templateParam": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["integer", "number", "flag", "time", "date", "monthday", "month", "datetime"],
+          "description": "integer / number / flag (0 or 1) / time HH:MM / date YYYY-MM-DD / monthday MM/DD / month YYYY-MM / datetime ISO 8601."
+        },
+        "optional": { "type": "boolean" }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "http", "access", "roles"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,59}$" },
+        "description": { "type": "string", "maxLength": 400 },
+        "http": { "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE) /[^\\s]*$", "description": "Primary business endpoint, e.g. GET /api/visit-records (path parameters as {name})." },
+        "alsoCalls": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE) /[^\\s]*$" }, "description": "Further endpoints the tool calls." },
+        "access": { "enum": ["read", "propose"], "description": "read | propose. Writes are always proposals a human accepts." },
+        "roles": { "$ref": "#/$defs/roleRefs", "description": "Roles whose delegation may use the tool." },
+        "pii": { "$ref": "#/$defs/piiClass", "description": "Highest personal-information class the tool can return (default none)." },
+        "open": { "type": "boolean", "description": "No delegation needed (health check)." },
+        "input": {
+          "type": "object",
+          "description": "JSON Schema of the arguments (object) or { \"$ref\": \"#/schemas/Name\" }."
+        }
+      },
+      "if": { "properties": { "access": { "const": "propose" } }, "required": ["access"] },
+      "then": { "properties": { "http": { "pattern": "^POST " } } }
+    },
+    "playbook": {
+      "type": "object",
+      "required": ["agent", "trigger", "instructions", "tools", "audience", "delivery", "approval"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "maxLength": 80 },
+        "agent": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,59}$", "description": "AI employee preset (agent) that runs it, e.g. report-assistant." },
+        "trigger": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "events": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/eventType" } },
+            "cron": { "type": "string", "format": "cron5", "description": "5-field cron in system.timezone." },
+            "condition": { "$ref": "#/$defs/condition" }
+          }
+        },
+        "instructions": { "type": "string", "minLength": 20, "maxLength": 6000 },
+        "tools": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,59}$" } },
+        "audience": { "$ref": "#/$defs/audience" },
+        "delegation": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,39}(=each)?$",
+          "description": "Optional. Whose delegation runs the playbook when no employee sent the turn (an automatic task). `<class>` (e.g. care, billing): the unattended delegate the operator configured for that class (profile install.mjs --auto-task-delegate <class>=<platform>:<userId>), else the default one. `<class>=each`: one delegation per run, issued by the business system for the person of the triggering event (POST /delegations with {event}); the operator opts the class in with --auto-task-delegate <class>=each."
+        },
+        "delivery": { "enum": ["always", "only_if_actionable", "digest"] },
+        "approval": { "enum": ["none", "require"], "description": "require: a person approves before the result is sent." },
+        "guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxRunsPerDay": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "maxConsecutiveFailures": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "dedupe": { "enum": ["event", "event_type_day", "none"] }
+          }
+        },
+        "enabled": { "type": "boolean", "description": "Initial state when deployed (default false: the operator enables it)." }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "required": ["metric", "op", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-zA-Z0-9_]+)+$", "description": "<report>.<section>.<field>, e.g. daily_status.unsubmitted.total." },
+        "op": { "enum": ["gt", "gte", "lt", "lte", "eq", "increase_gte", "decrease_gte"] },
+        "value": { "type": "number" },
+        "since": { "enum": ["previous", "yesterday", "last_week"], "description": "Baseline for increase_gte / decrease_gte." },
+        "cooldownMinutes": { "type": "integer", "minimum": 0, "maximum": 10080 }
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["cron", "audience", "sections"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "maxLength": 80 },
+        "cron": { "type": "array", "minItems": 1, "maxItems": 12, "uniqueItems": true, "items": { "type": "string", "format": "cron5" } },
+        "audience": { "$ref": "#/$defs/audience" },
+        "sections": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/sectionKey" } },
+        "sectionsByRole": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sectionKey" } },
+          "description": "Sections each role may see when the report is read through a delegation."
+        },
+        "template": { "$ref": "#/$defs/templateId", "description": "Deterministic notification announcing a new report." },
+        "event": { "$ref": "#/$defs/eventType", "description": "Event emitted when a report is ready." },
+        "playbook": { "$ref": "#/$defs/identifier", "description": "AI playbook that writes the narrative report from the snapshot." }
+      }
+    }
+  }
+}

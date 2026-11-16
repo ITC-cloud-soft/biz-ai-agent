@@ -1,0 +1,71 @@
+{
+  "name": "@dsh-bridge/server-kit",
+  "version": "0.1.1",
+  "license": "Apache-2.0",
+  "description": "L2 of the DSH Business Bridge: Node parts for a business system that implements Bridge protocol v1 (node:http handler, gate, stores, hooks)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/packages/server-kit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "packages/server-kit"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./memory": "./src/store/memory.mjs",
+    "./postgres": "./src/store/postgres.mjs",
+    "./pg": "./src/store/pg.mjs",
+    "./mysql": "./src/store/mysql.mjs",
+    "./mysqldb": "./src/store/mysqldb.mjs",
+    "./alias": "./src/alias.mjs",
+    "./extract": "./src/extract/index.mjs",
+    "./connectors": "./src/connectors/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  },
+  "dependencies": {
+    "@dsh-bridge/protocol": "0.1.1"
+  },
+  "peerDependencies": {
+    "mysql2": "^3.11.5",
+    "pg": "^8.23.1"
+  },
+  "peerDependenciesMeta": {
+    "mysql2": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "mysql2": "3.11.5",
+    "pg": "^8.23.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

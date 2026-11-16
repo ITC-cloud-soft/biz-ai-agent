@@ -1,0 +1,23 @@
+{
+  "name": "@dsh-bridge/profile",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH product profile template for the DSH Business Bridge (template/), its installer (scripts/install.mjs, patch preservation) and the automatic task template format",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "bin": {
+    "dsh-bridge-profile-install": "./scripts/install.mjs",
+    "dsh-bridge-profile-check": "./scripts/check.mjs"
+  },
+  "scripts": {
+    "install-profile": "node scripts/install.mjs",
+    "check-profile": "node scripts/check.mjs",
+    "test": "node --test --test-concurrency=1 scripts/patch-preserve.test.mjs scripts/auto-tasks.test.mjs scripts/install.test.mjs scripts/template.test.mjs"
+  },
+  "devDependencies": {
+    "@dsh-bridge/protocol": "0.1.1"
+  }
+}

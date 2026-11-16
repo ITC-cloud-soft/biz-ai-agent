@@ -1,0 +1,2548 @@
+openapi: 3.1.0
+info:
+  title: DSH Business Bridge protocol
+  version: 1.0.0
+  summary: What a business system provides so the AI plane (DSH) and SNS can work with it.
+  description: |
+    Protocol v1 of the DSH Business Bridge (see docs/ARCHITECTURE.md).
+    A business system implements these endpoints (hand written, or with @dsh-bridge/server-kit) under `/bridge/v1`,
+    then proves it with the conformance suite in `packages/protocol/conformance`.
+
+    ## Security invariants (section 3, enforced by the conformance suite)
+    1. Link yourself only: every employee links only their own SNS account; nobody (admin included) links or unlinks another employee.
+    2. Delegation = AI allow-list intersected with the employee role: the AI never has more power than the employee it acts for;
+       a sender that is not linked gets no business data at all.
+    3. The AI reads and proposes; confirming, approving, issuing and paying are always done by a person.
+    4. Events and IM messages carry no personal information: event payloads are whitelisted IDs / dates / counts / status values,
+       IM text is a parameter template (numbers and times only).
+    5. Identity comes only from the business system (tickets / delegation tokens); a `userId` in a request body is never trusted.
+    6. The business system is the single source of record; DSH keeps conversations only.
+
+    ## Conventions
+    * Every response (errors included) carries the header `bridge-protocol: 1`.
+    * JSON only. Success bodies are `{ "ok": true, ... }`. Errors are `{ "ok": false, "error": "<code>", "message"?: "<text for people>" }`
+      (see ErrorEnvelope and the `x-error-codes` catalog below). Codes are lower snake case and stable; messages are not.
+    * Time values are ISO 8601 with offset. IDs are opaque strings.
+    * Validation errors never embed a field name in the code: `required` / `invalid_value` (and the other codes) carry the
+      field in `details.field` (for example `{ ok: false, error: required, details: { field: botId } }`).
+    * An implementation that maps v1 onto older routes of its own may document the mapping per operation in an optional
+      `x-alias` list (`{ method, path, status: exact | shape | missing, note?, for? }`; see `aliasTable` in src/openapi.mjs).
+      This document carries none: the mapping of the first user (care-api) lives in examples/care-billing/manifest.
+  x-bridge-protocol: 1
+  x-error-codes:
+    invalid_service_token: { status: 401, meaning: "x-service-token is wrong." }
+    q_required: { status: 400, meaning: "The question (q) is missing (help)." }
+    invalid_limit: { status: 400, meaning: "limit is not an integer 1-5 (help)." }
+    authentication_required: { status: 401, meaning: "No valid user session or service token." }
+    service_token_required: { status: 401, meaning: "A delegation token was sent without the service token." }
+    invalid_delegation_token: { status: 401, meaning: "The delegation token is unknown, expired, revoked, or its employee / link / web session ended." }
+    delegation_not_permitted: { status: 403, meaning: "A delegation token cannot call this operation (read and propose only)." }
+    insufficient_role: { status: 403, meaning: "The caller's role may not do this." }
+    role_not_permitted: { status: 403, meaning: "The employee's role may not do this for this kind of object." }
+    human_required: { status: 403, meaning: "Only a logged-in employee (not the service principal) may call this." }
+    bff_only: { status: 403, meaning: "Needs the employee session AND the BFF secret; a browser alone cannot do this." }
+    bff_secret_not_configured: { status: 503, meaning: "The BFF secret is not configured on the server." }
+    identity_not_linked: { status: 404, meaning: "The SNS account is not linked to an employee." }
+    identity_not_found: { status: 404, meaning: "No such link among the caller's own links." }
+    identity_already_linked: { status: 409, meaning: "The SNS account is already linked (to this or another employee)." }
+    link_code_invalid: { status: 404, meaning: "Unknown, used or revoked link code." }
+    link_code_expired: { status: 410, meaning: "The link code expired." }
+    too_many_attempts: { status: 429, meaning: "Too many failed attempts from this source." }
+    too_many_requests: { status: 429, meaning: "Rate limit." }
+    personal_bot_owner_mismatch: { status: 403, meaning: "The link code belongs to someone other than the registrant of the personal bot it was sent through." }
+    personal_bot_revoked: { status: 403, meaning: "The personal bot was retired; nobody can link through it." }
+    bot_already_registered: { status: 409, meaning: "The bot is registered as another employee's personal bot." }
+    invalid_platform: { status: 400, meaning: "Platform not allowed here." }
+    invalid_assistant_ticket: { status: 401, meaning: "Unknown, expired or revoked ticket, or its web session ended." }
+    session_revoked: { status: 401, meaning: "The web session ended." }
+    event_not_found: { status: 404, meaning: "Unknown event id." }
+    event_not_delegable: { status: 422, meaning: "Per-event delegation: this event type grants no delegation." }
+    event_stale: { status: 409, meaning: "Per-event delegation: the event is no longer fresh." }
+    event_delegation_refused: { status: 403, meaning: "Per-event delegation: the person the event names is not eligible now (who it would be is not told)." }
+    approval_not_found: { status: 404, meaning: "Unknown approval." }
+    delivery_not_found: { status: 404, meaning: "Unknown delivery or token." }
+    proposal_not_found: { status: 404, meaning: "Unknown proposal." }
+    identity_mismatch: { status: 403, meaning: "The approval card was not addressed to the employee behind the SNS account." }
+    invalid_reply_code: { status: 403, meaning: "Wrong reply code." }
+    delivery_locked: { status: 429, meaning: "Too many wrong reply codes; decide in the web UI." }
+    delivery_used: { status: 409, meaning: "The card token was already used." }
+    delivery_revoked: { status: 409, meaning: "The card token was revoked." }
+    expired: { status: 410, meaning: "The approval expired." }
+    already_decided: { status: 409, meaning: "Generic form is already_<status> (already_approved, already_rejected, ...)." }
+    token_or_reply_code_required: { status: 400, meaning: "Exactly one of token / replyCode is needed." }
+    required: { status: 400, meaning: "A required field is missing or empty (details.field names it)." }
+    invalid_value: { status: 400, meaning: "A field is malformed or out of range (details.field names it)." }
+    unknown_fields: { status: 400, meaning: "The body has fields the operation does not accept (fields lists them)." }
+    invalid_profile: { status: 422, meaning: "The AI employee's profile failed the check (details.errors: [{ field, code, kinds? }], never the matched text)." }
+    version_not_found: { status: 404, meaning: "No such version of the AI employee's profile." }
+    attachments_not_allowed: { status: 403, meaning: "Attachments: the employee's role may not attach files (attachment settings)." }
+    too_many_files: { status: 422, meaning: "Attachments: more than 5 files (or the system's lower limit)." }
+    file_too_large: { status: 422, meaning: "Attachments: one file is larger than 10 MB (details.index / name)." }
+    total_too_large: { status: 422, meaning: "Attachments: the files together are larger than 20 MB." }
+    unsupported_type: { status: 422, meaning: "Attachments: a type that is not accepted or not allowed (macro-enabled, xls / doc, archives, executables; details.reason disabled = turned off in the settings)." }
+    type_mismatch: { status: 422, meaning: "Attachments: the extension, the media type and the leading bytes disagree." }
+    no_text: { status: 422, meaning: "Attachments: no text could be read from the document (details.reason ocr_unavailable: scanned pages could not be rendered for OCR; ocr_off: OCR is off)." }
+    images_not_supported: { status: 422, meaning: "Attachments: the AI employee's model cannot read images." }
+    invalid_attachment: { status: 422, meaning: "Attachments: malformed entry (details.reason: name, data, size, empty, shape, unknown_field, pdf_unreadable, ...)." }
+    invalid_connector: { status: 422, meaning: "External connectors: the connector failed the check (details.errors: [{ field, code }])." }
+    invalid_rule: { status: 422, meaning: "External connectors: the rule failed the check (details.errors: [{ field, code }])." }
+    invalid_secret: { status: 422, meaning: "External connectors: the secret does not fit the auth type (details.errors: [{ field, code }], never the value)." }
+    connector_not_found: { status: 404, meaning: "External connectors: no such connector." }
+    operation_not_found: { status: 404, meaning: "External connectors: no such operation (or not given to the AI)." }
+    rule_not_found: { status: 404, meaning: "External connectors: no such rule." }
+    connector_in_use: { status: 409, meaning: "External connectors: a rule uses it (details.rules)." }
+    connector_stopped: { status: 409, meaning: "External connectors: the connector is disabled or the emergency stop is on." }
+    write_requires_approval: { status: 403, meaning: "External connectors: a write operation never runs from the AI; propose it (kind connector_write)." }
+    connector_failed: { status: 502, meaning: "External connectors: the external API call failed (details.code: timeout / network_error / upstream_error / ...; details.status)." }
+    read_not_found: { status: 404, meaning: "Document reads: no such read." }
+    read_not_claimed: { status: 409, meaning: "Document reads: the read is not claimed (never handed out, already answered, or handed out again after its claim expired)." }
+    manifest_unavailable: { status: 503, meaning: "The manifest could not be loaded." }
+    invalid_json: { status: 400, meaning: "Body is not a JSON object." }
+    invalid_encoding: { status: 400, meaning: "Body is not valid UTF-8." }
+    payload_too_large: { status: 413, meaning: "Body too large." }
+    not_found: { status: 404, meaning: "Unknown path." }
+    method_not_allowed: { status: 405, meaning: "Wrong HTTP method for the path." }
+    internal_error: { status: 500, meaning: "Unexpected failure (never contains details)." }
+servers:
+  - url: /bridge/v1
+    description: Mounted by the business system under /bridge/v1.
+tags:
+  - { name: identity, description: "Identity lookup and linking (DSH to business, service token)." }
+  - { name: me, description: "Operations of the logged-in employee on their own data (BFF / web session)." }
+  - { name: delegation, description: "Short-lived tokens that let the AI act as one employee." }
+  - { name: events, description: "Business events (transactional outbox, cursor)." }
+  - { name: notifications, description: "Deterministic IM notifications: recipients, templates, delivery results." }
+  - { name: approvals, description: "IM approval cards and decisions." }
+  - { name: assistant, description: "Web AI assistant: ticket bound to the web session, exchanged for a delegation; files attached in the panel (optional)." }
+  - { name: reports, description: "Scheduled business reports." }
+  - { name: proposals, description: "AI proposals (generic envelope; content defined by the business)." }
+  - { name: manifest, description: "The business manifest." }
+  - { name: profile, description: "The AI employee's profile (optional): nickname, tone, company introduction, personality, background." }
+  - { name: meta, description: "Health." }
+  - { name: help, description: "How-to questions answered from the business system's manual (optional)." }
+  - { name: connectors, description: "External connectors of the AI employee (optional): own and third-party APIs, run by the business system." }
+  - { name: document-reads, description: "Scanned documents read by the AI model (optional): page images the business system hands out, text back." }
+security: []
+paths:
+  /health:
+    get:
+      tags: [meta]
+      operationId: getHealth
+      summary: Liveness and protocol version
+      description: Unauthenticated. `protocol` must be 1.
+      x-invariants: []
+      security: []
+      responses:
+        '200':
+          description: Alive.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /manifest:
+    get:
+      tags: [manifest]
+      operationId: getManifest
+      summary: The business manifest
+      description: |
+        Machine-readable self introduction (schema/manifest.schema.json). DSH reads it at start-up and periodically; `etag`
+        changes when the content changes and `If-None-Match` is honoured (304).
+      x-invariants: []
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: if-none-match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: The manifest.
+          headers:
+            bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' }
+            etag: { schema: { type: string }, description: Strong or weak entity tag of the manifest content. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Manifest' }
+        '304': { description: Unchanged since the given etag., headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /identity:
+    get:
+      tags: [identity]
+      operationId: lookupIdentity
+      summary: Who is this SNS account?
+      description: |
+        Resolves a trusted IM source to an ACTIVE employee. An account that is not linked answers `linked: false` and
+        nothing else: no hint about which employees exist (invariant 2).
+      x-invariants: [2]
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: platform, in: query, required: true, schema: { $ref: '#/components/schemas/Platform' } }
+        - { name: teamId, in: query, required: false, schema: { type: string, maxLength: 128 } }
+        - { name: userId, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+        - { name: botId, in: query, required: false, schema: { type: string, maxLength: 128 } }
+      responses:
+        '200':
+          description: Lookup result.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityLookup' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /identities/link:
+    post:
+      tags: [identity]
+      operationId: linkIdentity
+      summary: Link an SNS account with a link code
+      description: |
+        The employee issued a code in the web UI (POST /me/link-codes) and sent "link 123456" to the bot. DSH calls this with
+        the trusted source of that message. The code links the account to the employee who ISSUED it, nobody else; it is
+        single use and short lived; failed attempts per source (and globally) are throttled (429). A code sent through
+        someone else's personal bot is refused (personal_bot_owner_mismatch) and burnt.
+      x-invariants: [1, 5]
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LinkRequest' }
+            example: { code: '123456', source: { platform: slack, teamId: T0001, userId: U0001 } }
+      responses:
+        '200':
+          description: Linked.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /identities/stats:
+    get:
+      tags: [identity]
+      operationId: identityStats
+      summary: Counts of linked accounts
+      description: Counts only (no personal data).
+      x-invariants: [4]
+      security: [{ serviceToken: [] }]
+      responses:
+        '200':
+          description: Counts.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityStats' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /me/link-codes:
+    post:
+      tags: [me]
+      operationId: createLinkCode
+      summary: Issue a link code for MYSELF
+      description: |
+        Only a logged-in employee, only for themselves. The body is ignored: a `userId` there never changes whose code it is.
+        The service principal and delegation tokens are refused. A new code revokes the previous unused one. Issuing is rate limited.
+      x-invariants: [1, 5]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: The code (shown once; only a hash is stored).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkCode' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /me/identities:
+    get:
+      tags: [me]
+      operationId: listMyIdentities
+      summary: My own SNS links
+      description: Own links only, for every role (admin included). There is no operation that binds an account on behalf of someone.
+      x-invariants: [1]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: My links.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyIdentities' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /me/identities/{identityId}:
+    delete:
+      tags: [me]
+      operationId: deleteMyIdentity
+      summary: Unlink one of MY links
+      description: |
+        Someone else's link answers 404 (existence is not disclosed), admin included. Unlinking ends, in the same
+        transaction, the delegation tokens and pending IM approval cards of that account, retires a personal bot
+        linked through it, and emits the event `sns_identity.unlinked` so IM-side caches drop the account.
+      x-invariants: [1, 2]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdentityId' }
+      responses:
+        '200':
+          description: Unlinked.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /me/identities/{identityId}/bot:
+    get:
+      tags: [me]
+      operationId: getMyIdentityBot
+      summary: The bot of one of MY links
+      description: Used by the BFF to check ownership before it deletes a personal bot.
+      x-invariants: [1]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/IdentityId' }
+      responses:
+        '200':
+          description: The bot.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IdentityBot' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /me/personal-bots:
+    get:
+      tags: [me]
+      operationId: listMyPersonalBots
+      summary: My personal bots
+      description: Own active personal bots only (admin included).
+      x-invariants: [1]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: My bots.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PersonalBots' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [me]
+      operationId: registerMyPersonalBot
+      summary: Register a personal bot as MINE (BFF only)
+      description: |
+        Personal IM bots (for example a WeChat bot the employee connected by QR code) belong to exactly one employee.
+        Registration needs the employee session AND the BFF secret (constant-time compare); a browser calling the
+        business API directly gets 403 bff_only (audited). Idempotent for the registrant (200, created: false); a bot
+        registered by someone else is 409. A link code sent through a registered personal bot is accepted only from its
+        registrant (see linkIdentity).
+      x-invariants: [1, 5]
+      security: [{ userSessionCookie: [], bffSecret: [] }, { userBearer: [], bffSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterPersonalBot' }
+      responses:
+        '200':
+          description: Already registered by me.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredPersonalBot' }
+        '201':
+          description: Registered.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisteredPersonalBot' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /me/notification-preferences:
+    get:
+      tags: [me]
+      operationId: getMyNotificationPreferences
+      summary: My notification preferences
+      description: Own preferences only; defaults when never saved. No operation reads or writes someone else's.
+      x-invariants: [1]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: Preferences and the list of notifiable event types.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [me]
+      operationId: updateMyNotificationPreferences
+      summary: Update my notification preferences (partial)
+      x-invariants: [1]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationPreferencesUpdate' }
+      responses:
+        '200':
+          description: Saved.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferencesSaved' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /delegations:
+    post:
+      tags: [delegation]
+      operationId: issueDelegation
+      summary: A delegation token for the employee behind an SNS account
+      description: |
+        The AI then calls business endpoints with BOTH `x-service-token` and `x-delegation-token`; the business system acts
+        as `AI allow-list intersected with the employee's role` (read and propose only, never confirm / approve / pay).
+        Not linked: 404 identity_not_linked and NO token (invariant 2). The token lives at most 5 minutes, is stored only
+        as a hash and is bound to the link: unlinking or deactivating the employee ends it at once. Only the service
+        principal may call this (a delegation token cannot mint another).
+
+        Optional per-event form `{ event: { id } }` (an automatic task whose playbook delegation is `<class>=each`): the
+        business system issues a delegation for the person its own event names (never a person the caller chooses), only
+        for event types it declares delegable, only while that event is fresh and the person's own opt-in holds, and the
+        token stays bound to those conditions (it stops working when they end). Unknown event: 404; a type that grants no
+        delegation: 422; a stale event: 409; a person who is not eligible: 403. A business system without the per-event
+        form answers 400 to the `event` key.
+      x-invariants: [2, 5]
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DelegationRequest' }
+      responses:
+        '201':
+          description: The token (shown once).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Delegation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /events:
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: Business events after a cursor
+      description: |
+        Events are inserted in the same transaction as the business change, so ids are committed in increasing order and a
+        cursor never skips an event. Read-only and repeatable; the consumer stores `nextAfter`. Payload keys are
+        whitelisted per event type by the manifest and carry only IDs, dates, counts and status values (invariant 4).
+        Reads that disclose events are audited.
+      x-invariants: [4]
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: after, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        '200':
+          description: A page.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /notifications/for-event/{eventId}:
+    get:
+      tags: [notifications]
+      operationId: resolveNotificationRecipients
+      summary: Who gets an IM notification for this event, and with what text parameters
+      description: |
+        The business system (never the IM plugin) decides the recipients: active employees with a linked account on one of
+        the requested platforms (priority order), whose own preference for the type is on, minus people already notified
+        of this event. `template` names a manifest template; `params` are numbers and time strings only (no names, no
+        free text, no health data); `link` points to the business web where the reader is authorised again.
+        `stale` means the event no longer needs a notification (state changed since); `supported: false` means the
+        type is not notified. Resolving is idempotent and audited.
+      x-invariants: [4, 5]
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: eventId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - { name: platforms, in: query, required: false, description: "Comma separated platforms in priority order.", schema: { type: string } }
+      responses:
+        '200':
+          description: Recipients.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationRecipients' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /notifications/deliveries:
+    post:
+      tags: [notifications]
+      operationId: recordNotificationDelivery
+      summary: Report the delivery result of an IM message
+      description: |
+        One IM message may cover several events (digest). `sent` and `skipped` are terminal (never downgraded). Only rows
+        created by a resolution can be reported; unknown ones are listed in `unknown`.
+      x-invariants: []
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryReport' }
+      responses:
+        '200':
+          description: Counts.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryReportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /approvals/{approvalId}/deliveries:
+    post:
+      tags: [approvals]
+      operationId: createApprovalDeliveries
+      summary: Approval cards for the eligible approvers
+      description: |
+        Resolves the approvers (required role or admin, active, not the requester, linked on one of the platforms; employees who
+        already approved are excluded) and issues one delivery each: a one-time card token and a 6 digit reply code bound to
+        that employee and that approval (valid until the approval expires). The call is idempotent: repeating it returns the
+        same values. Card content is IDs, month, amount and deadline only (no names). Tokens and codes stay in the
+        IM plugin code; they never enter the LLM context. A delivery locked by wrong reply codes is never re-issued
+        (no fresh guesses): that approver decides in the web UI.
+      x-invariants: [3, 4]
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalDeliveriesRequest' }
+      responses:
+        '200':
+          description: Deliveries.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApprovalDeliveries' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+  /approvals/{approvalId}/deliveries/{deliveryId}/sent:
+    post:
+      tags: [approvals]
+      operationId: markApprovalDeliverySent
+      summary: Record that a card was sent
+      x-invariants: []
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+        - { name: deliveryId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageRef]
+              additionalProperties: false
+              properties:
+                messageRef: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          description: Recorded.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, delivery], properties: { ok: { const: true }, delivery: { type: object } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /approvals/{approvalId}/im-decision:
+    post:
+      tags: [approvals]
+      operationId: imDecision
+      summary: A person decides an approval from IM
+      description: |
+        The card token (or reply code) is bound to one employee and one approval. The business system checks: the token /
+        code is valid, unused and unexpired; the employee behind `source` IS the employee the card was issued to; that
+        employee is allowed to decide (same rule and same transaction as the web UI, including segregation of duties);
+        then it records the decision as that employee. Once decided, every other delivery of the approval is revoked.
+        Wrong reply codes are counted and lock the delivery. A delegation token can never decide (403).
+        This is the only way an IM message changes business state, and it is always a person's own decision (invariant 3).
+      x-invariants: [3, 5]
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ApprovalId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImDecisionRequest' }
+      responses:
+        '200':
+          description: Decided.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImDecisionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /approvals/im-decisions:
+    post:
+      tags: [approvals]
+      operationId: imDecisionByReplyCode
+      summary: Decide by reply code alone
+      description: Same as imDecision, but the approval is found from the reply code among the employee's active deliveries. `token` is not accepted.
+      x-invariants: [3, 5]
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ImDecisionRequest' }
+      responses:
+        '200':
+          description: Decided.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ImDecisionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /assistant/tickets:
+    post:
+      tags: [assistant]
+      operationId: issueAssistantTicket
+      summary: A ticket that identifies the logged-in employee to the AI assistant
+      description: |
+        Called by the BFF for the employee's own web session (session AND BFF secret). The ticket is bound to that web
+        session: logging out kills the ticket and every delegation made from it. Only the ticket HASH is stored.
+        The service principal cannot mint tickets.
+      x-invariants: [2, 5]
+      security: [{ userSessionCookie: [], bffSecret: [] }, { userBearer: [], bffSecret: [] }]
+      responses:
+        '201':
+          description: The ticket (shown once).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AssistantTicket' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /assistant/delegations:
+    post:
+      tags: [assistant]
+      operationId: exchangeAssistantTicket
+      summary: Exchange a ticket for a delegation token
+      description: |
+        Service principal only. The token acts exactly like an IM sender's delegation (AI allow-list intersected with the
+        employee's role; read and propose only), expires within 5 minutes and no later than the ticket, and stops working
+        when the web session ends. The same ticket can be exchanged again until it expires (a long conversation).
+        The body accepts only `ticket`; there is no way to name another employee.
+      x-invariants: [2, 5]
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              additionalProperties: false
+              properties:
+                ticket: { type: string, minLength: 10, maxLength: 200 }
+      responses:
+        '201':
+          description: The token (shown once).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Delegation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /assistant/attachments/prepare:
+    post:
+      tags: [assistant]
+      operationId: prepareAssistantAttachments
+      summary: Check the files attached in the AI assistant panel and convert the documents to text (optional)
+      description: |
+        Optional capability (docs/ASSISTANT_ATTACHMENTS.md). Called by the BFF for the employee's own web session (session AND BFF
+        secret) before it sends a message with files to DSH. The business system checks the employee's role and the allowed types
+        (attachment settings), the limits (5 files, 10 MB each, 20 MB together after decoding) and each file's type by its extension
+        AND its leading bytes, then converts every document in memory to Markdown text (PDF: the text layer, `--- p.N ---` between
+        pages; docx: paragraphs, headings, tables; xlsx: one `## <sheet>` table per visible sheet, formulas as values, 2,000 rows a
+        sheet; CSV: a table; Markdown / text as they are; UTF-8 or Shift_JIS). 30,000 characters per file and 60,000 together, cut
+        with `truncated: true`. Images are sent without `data` (only the name, type and size are checked; their bytes go from the
+        BFF to DSH). Nothing is stored: neither the files nor the text. Audited as `assistant.attachments` with the employee, the
+        count, the count per type and the total size, never a file name or contents. Refusals: 403 `attachments_not_allowed`
+        (role), 422 with `details: { index?, name?, reason? }` (too_many_files, file_too_large, total_too_large, unsupported_type
+        (macro-enabled, old binary Office formats, archives, executables and anything not listed), type_mismatch, no_text,
+        invalid_attachment).
+      x-invariants: [4, 5, 6]
+      x-optional: true
+      security: [{ userSessionCookie: [], bffSecret: [] }, { userBearer: [], bffSecret: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [files]
+              additionalProperties: false
+              properties:
+                files: { type: array, maxItems: 5, items: { $ref: '#/components/schemas/AttachmentFile' } }
+      responses:
+        '200':
+          description: The documents as text, the images as checked.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentsPrepared' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /assistant/attachment-settings:
+    get:
+      tags: [assistant]
+      operationId: getAssistantAttachmentSettings
+      summary: May the logged-in employee attach files, which types, which limits (optional)
+      description: |
+        Optional capability. The employee's own session. `enabled` = the employee's role is among `roles` and at least one type is
+        allowed. The BFF adds it to what the assistant panel reads (with the AI employee's `capabilities.images` from DSH).
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: The settings as they apply to the employee.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/assistant/attachment-settings:
+    get:
+      tags: [assistant]
+      operationId: getAdminAssistantAttachmentSettings
+      summary: Which roles may attach files and which types, for the administrator (optional)
+      description: |
+        Optional capability. Administrators only. Before the first save: the defaults (admin, manager, billing within the manifest's
+        roles; every type).
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: The settings.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentAdminSettings' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [assistant]
+      operationId: putAdminAssistantAttachmentSettings
+      summary: Save which roles may attach files and which types (optional)
+      description: |
+        Optional capability. Administrators only. `roles` must be roles of the manifest, `types` among the seven types (more types
+        need a code change, never a setting). An empty list turns attachments off. Audited as `assistant.attachment_settings.updated`.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles, types]
+              additionalProperties: false
+              properties:
+                roles: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 64 } }
+                types: { type: array, items: { $ref: '#/components/schemas/AttachmentType' } }
+      responses:
+        '200':
+          description: Saved.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentAdminSettings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /reports/latest:
+    get:
+      tags: [reports]
+      operationId: getLatestReport
+      summary: The latest scheduled business report
+      description: |
+        Counts only (never names). A logged-in manager / admin reads the stored report; a delegation token reads the
+        report scoped to the delegated employee's role (staff: own work only), as a stored report of today or a live snapshot.
+      x-invariants: [2, 4]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }, { serviceToken: [], delegationToken: [] }]
+      responses:
+        '200':
+          description: The report (`report` is null when none exists yet).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReportLatest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /reports/run:
+    post:
+      tags: [reports]
+      operationId: runReport
+      summary: Send a test report now
+      description: "Admin (human session) only. Creates an extra report for the configured recipients, or only the requester (to = me). Rate limited."
+      x-invariants: [4]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                to: { enum: [recipients, me] }
+      responses:
+        '201':
+          description: Created.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReportRun' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /proposals:
+    get:
+      tags: [proposals]
+      operationId: listProposals
+      summary: AI proposals
+      x-invariants: [3]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }, { serviceToken: [], delegationToken: [] }]
+      parameters:
+        - { name: status, in: query, required: false, schema: { enum: [pending_review, accepted, rejected] } }
+        - { name: kind, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: Proposals visible to the caller.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, proposals], properties: { ok: { const: true }, proposals: { type: array, items: { $ref: '#/components/schemas/Proposal' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [proposals]
+      operationId: createProposal
+      summary: The AI proposes (it never decides)
+      description: |
+        The service principal, or a delegation token (then the employee's role must be one that could act on the proposal's
+        subject, kind by kind). The result is `pending_review`; confirming, issuing and paying stay with people.
+        `kind` and `payload` are defined by the business; the envelope is generic.
+      x-invariants: [2, 3]
+      security: [{ serviceToken: [], delegationToken: [] }, { serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProposalCreate' }
+      responses:
+        '201':
+          description: Created, pending review.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, proposal], properties: { ok: { const: true }, proposal: { $ref: '#/components/schemas/Proposal' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /proposals/{proposalId}/accept:
+    post:
+      tags: [proposals]
+      operationId: acceptProposal
+      summary: A person accepts a proposal
+      description: Logged-in reviewer only. Neither the service principal nor a delegation token can accept (403).
+      x-invariants: [3]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ProposalId' }
+      responses:
+        '200':
+          description: Accepted.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, proposal], properties: { ok: { const: true }, proposal: { $ref: '#/components/schemas/Proposal' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /proposals/{proposalId}/reject:
+    post:
+      tags: [proposals]
+      operationId: rejectProposal
+      summary: A person rejects a proposal
+      description: Logged-in reviewer only (see acceptProposal).
+      x-invariants: [3]
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ProposalId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                comment: { type: string, maxLength: 1000 }
+      responses:
+        '200':
+          description: Rejected.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, proposal], properties: { ok: { const: true }, proposal: { $ref: '#/components/schemas/Proposal' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /pii-scan:
+    post:
+      tags: [proposals]
+      operationId: piiScan
+      summary: Does this text contain personal data? (optional)
+      description: |
+        Optional capability. Returns only the detected categories, never the matched text. Used before the AI saves anything
+        to organisational memory.
+      x-invariants: [4]
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              additionalProperties: false
+              properties:
+                text: { type: string, maxLength: 20000 }
+      responses:
+        '200':
+          description: Categories.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, containsPersonalData, kinds]
+                properties:
+                  ok: { const: true }
+                  containsPersonalData: { type: boolean }
+                  kinds: { type: array, items: { type: string } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+  /help/search:
+    get:
+      tags: [help]
+      operationId: searchHelp
+      summary: How-to question answered from the business system's manual (optional)
+      description: |
+        Optional capability (@dsh-bridge/help, server-kit `help` option). The manual's sections for the question, ordered for the
+        asker's role. `url` is the screen on the business web, present only when the asker's role may open it (else `alt` says whom
+        to ask); `manualUrl` is the manual page. URLs are built from the manual's own screen paths only. The service principal
+        without a delegation gets the public sections only. The AI answers from these sections only and copies the URLs as given.
+      x-invariants: [2, 6]
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }, { serviceToken: [], delegationToken: [] }, { serviceToken: [] }]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 5 } }
+      responses:
+        '200':
+          description: Sections (found=false when the manual has no answer).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HelpAnswer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /help/public:
+    get:
+      tags: [help]
+      operationId: searchPublicHelp
+      summary: The answer to a sender that is not linked yet (optional)
+      description: |
+        Optional capability. Service principal only (never a delegation): the public sections only (signing in, linking an SNS
+        account). bridge-identity answers an unlinked sender with the first section, without the AI.
+      x-invariants: [2]
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 5 } }
+      responses:
+        '200':
+          description: Public sections.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HelpAnswer' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /help/sections/{sectionId}:
+    get:
+      tags: [help]
+      operationId: getHelpSection
+      summary: One section of the manual (optional)
+      x-invariants: [2]
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }, { serviceToken: [], delegationToken: [] }, { serviceToken: [] }]
+      parameters:
+        - { name: sectionId, in: path, required: true, schema: { type: string, pattern: '^manual-[a-z0-9-]{1,60}$' } }
+      responses:
+        '200':
+          description: The section for the asker (404 when unknown, or not public for the service principal).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, section], properties: { ok: { const: true }, section: { $ref: '#/components/schemas/HelpSection' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /ai-profile:
+    get:
+      tags: [profile]
+      operationId: getAiProfile
+      summary: The AI employee's profile (optional)
+      description: |
+        Optional capability (docs/AI_EMPLOYEE_PROFILE.md). The persona the administrator set in the business web: nickname, first person,
+        tone, company introduction, personality, background, speaking examples, per-preset overrides (`agents`). Text only: it can never
+        change rules, permissions or tools (DSH puts the fixed rules first). Normalised and checked with `validateAiProfile` of
+        @dsh-bridge/protocol when it was saved. `profile: null` = not set yet. DSH reads it at start-up and every 60 s; `etag` is derived
+        from the version and `If-None-Match` is honoured (304). A system without the capability answers 404.
+      x-invariants: []
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: if-none-match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: The current profile (or null).
+          headers:
+            bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' }
+            etag: { schema: { type: string }, description: Derived from the version. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiProfileCurrent' }
+        '304': { description: Unchanged since the given etag., headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/ai-profile:
+    get:
+      tags: [profile]
+      operationId: getAdminAiProfile
+      summary: The profile and its versions, for the administrator (optional)
+      description: |
+        Optional capability. The business system's own login, administrators only (D2). Versions newest first, at most 20; a version
+        carries who and when and the reason, never the text of older versions.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: The profile, its version and the version list.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiProfileAdmin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [profile]
+      operationId: putAdminAiProfile
+      summary: Save the profile as a new version (optional)
+      description: |
+        Optional capability. Administrators only. The body is checked with `validateAiProfile` (required / too_long / invalid /
+        unknown_field / rule_override: wording that would lift the rules (D4) / personal_data: contacts, numbers). Refused: 422
+        `invalid_profile` with `details.errors: [{ field, code, kinds? }]` (never the matched text). Saved: a new version, audited as
+        `ai_profile.updated` (the version number only, never the text).
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              additionalProperties: false
+              properties:
+                profile: { $ref: '#/components/schemas/AiProfile' }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Saved as a new version.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiProfileSaved' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/ai-profile/versions/{version}/restore:
+    post:
+      tags: [profile]
+      operationId: restoreAiProfileVersion
+      summary: Make an earlier version current again (optional)
+      description: |
+        Optional capability. Administrators only. Saves the content of that version as a NEW version (checked again; 422 when it no
+        longer passes), audited as `ai_profile.updated` with the version restored from. Unknown version: 404 `version_not_found`.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Restored as a new version.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiProfileSaved' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /connectors/catalog:
+    get:
+      tags: [connectors]
+      operationId: getConnectorCatalog
+      summary: The external operations the AI may use (optional)
+      description: |
+        Optional capability (docs/AI_EMPLOYEE_PROFILE.md §3). The operations of the enabled external connectors that have roles: the AI
+        plane turns a read into a tool `<namespace>_ext_<connector>_<operation>` (run with POST .../run as the employee) and a write into a
+        proposal tool (kind `connector_write`). Never a URL, a host or a secret. Empty while the administrator's emergency stop is on.
+        `etag` / `If-None-Match` (304). A system without the capability answers 404.
+      x-invariants: [2, 3]
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: if-none-match, in: header, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: The catalog.
+          headers:
+            bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' }
+            etag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorCatalog' }
+        '304': { description: Unchanged since the given etag., headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /connectors/{connectorId}/operations/{operationId}/run:
+    post:
+      tags: [connectors]
+      operationId: runConnectorOperation
+      summary: Run a READ operation of an external connector as the employee (optional)
+      description: |
+        Optional capability. Delegation only (the AI acting as one employee): the employee's role must be in the operation's `roles`.
+        A write is refused (403 `write_requires_approval`: propose it as `connector_write`). The business system runs the call (its
+        host allow-list, the secret, timeout ≤ 10 s, the per-minute limit, the response size cap) and answers with the operation's
+        allow-listed response fields only. Logged as a run (ids, status, code, timing — never the input or the response).
+      x-invariants: [2, 3, 5]
+      x-optional: true
+      security: [{ serviceToken: [], delegationToken: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+        - { $ref: '#/components/parameters/OperationId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, properties: { input: { type: object } } }
+      responses:
+        '200':
+          description: The allow-listed fields of the response.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorRunResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /admin/connectors:
+    get:
+      tags: [connectors]
+      operationId: listAdminConnectors
+      summary: External connectors, for the administrator (optional)
+      description: |
+        Optional capability. Administrators only. The connectors with their operations, whether a secret is set and its hint (the last
+        4 characters; never the secret), the emergency stop, the events and roles rules may use.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: The connectors.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorAdminList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/connectors/{connectorId}:
+    put:
+      tags: [connectors]
+      operationId: putAdminConnector
+      summary: Create or replace an external connector (optional)
+      description: |
+        Optional capability. Administrators only. Checked with `validateConnector` of @dsh-bridge/protocol (https only, the base host on
+        the allow-list, operations with an input schema, response fields, a PII class, read / write, idempotent, roles, auto-run only for
+        an idempotent write with a reason). Refused: 422 `invalid_connector` with `details.errors: [{ field, code }]`. A change that would
+        break a rule: 409 `connector_in_use` (`details.rules`). Audited (ids and counts only). `enabled: false` is the connector's stop switch.
+      x-invariants: [3]
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connector]
+              additionalProperties: false
+              properties:
+                connector: { $ref: '#/components/schemas/Connector' }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Saved.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, connector], properties: { ok: { const: true }, connector: { $ref: '#/components/schemas/ConnectorAdmin' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [connectors]
+      operationId: deleteAdminConnector
+      summary: Delete an external connector (optional)
+      description: Optional capability. Administrators only. 409 `connector_in_use` while a rule uses it. Its sealed secret goes with it.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+      responses:
+        '200':
+          description: Deleted.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOnly' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /admin/connectors/{connectorId}/secret:
+    put:
+      tags: [connectors]
+      operationId: putAdminConnectorSecret
+      summary: Set the connector's secret (optional)
+      description: |
+        Optional capability. Administrators only. `secret` has the fields of the auth type (api_key / bearer: token; basic: password;
+        oauth2_client: clientSecret). Sealed at rest (AES-256-GCM); the answer and every later read carry the hint only. Never in an
+        audit, a log, the AI plane or a response. 422 `invalid_secret` (`details.errors: [{ field, code }]`).
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [secret], additionalProperties: false, properties: { secret: { type: object } } }
+      responses:
+        '200':
+          description: Set.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorSecretState' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [connectors]
+      operationId: deleteAdminConnectorSecret
+      summary: Remove the connector's secret (optional)
+      description: Optional capability. Administrators only.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+      responses:
+        '200':
+          description: Removed.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorSecretState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/connectors/{connectorId}/test:
+    post:
+      tags: [connectors]
+      operationId: testAdminConnector
+      summary: The connection test (optional)
+      description: |
+        Optional capability. Administrators only. Runs a READ operation (the given one, or the first whose input needs nothing) and answers
+        with the result's status, code, timing and the names of the allow-listed fields received — never the values. A write is never tested (422).
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ConnectorId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, properties: { operationId: { type: string }, input: { type: object } } }
+      responses:
+        '200':
+          description: The result of the test.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectorTestResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+  /admin/connector-rules:
+    get:
+      tags: [connectors]
+      operationId: listAdminConnectorRules
+      summary: Rules of the external connectors (optional)
+      description: Optional capability. Administrators only.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      responses:
+        '200':
+          description: The rules.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, rules], properties: { ok: { const: true }, rules: { type: array, items: { $ref: '#/components/schemas/ConnectorRule' } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/connector-rules/{ruleId}:
+    put:
+      tags: [connectors]
+      operationId: putAdminConnectorRule
+      summary: Create or replace a rule (optional)
+      description: |
+        Optional capability. Administrators only. Checked with `validateRule` (one trigger: a manifest event or a 5-field cron; conditions
+        eq / contains / gt / lt / exists only; the input from `{payload.x}` / `{event.x}` / `{now.month}` templates; mode approval (default) /
+        auto (reads, and writes the operation allows to run automatically) / propose-by-ai; approvers by role; PII classes financial /
+        sensitive / health need `allowPii: true`). 422 `invalid_rule` with `details.errors: [{ field, code }]`.
+      x-invariants: [3]
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/RuleId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rule]
+              additionalProperties: false
+              properties:
+                rule: { $ref: '#/components/schemas/ConnectorRule' }
+                reason: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Saved.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, rule], properties: { ok: { const: true }, rule: { $ref: '#/components/schemas/ConnectorRule' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [connectors]
+      operationId: deleteAdminConnectorRule
+      summary: Delete a rule (optional)
+      description: Optional capability. Administrators only.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/RuleId' }
+      responses:
+        '200':
+          description: Deleted.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkOnly' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/connector-runs:
+    get:
+      tags: [connectors]
+      operationId: listAdminConnectorRuns
+      summary: The run log of the external connectors (optional)
+      description: |
+        Optional capability. Administrators only. Newest first (limit 1-200, default 50). Ids, the trigger (ai / event / cron / approval /
+        test), who, the status, the code, the HTTP status and the timing — never the input or the response.
+      x-invariants: [4]
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: connectorId, in: query, required: false, schema: { type: string } }
+        - { name: ruleId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: The runs.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, runs], properties: { ok: { const: true }, runs: { type: array, items: { $ref: '#/components/schemas/ConnectorRun' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /admin/connector-settings:
+    put:
+      tags: [connectors]
+      operationId: putAdminConnectorSettings
+      summary: The emergency stop of every external connector (optional)
+      description: Optional capability. Administrators only. `stopped` true stops every run, rule and AI tool at once; audited with the reason.
+      x-invariants: []
+      x-optional: true
+      security: [{ userSessionCookie: [] }, { userBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [stopped], additionalProperties: false, properties: { stopped: { type: boolean }, reason: { type: string, maxLength: 200 } } }
+      responses:
+        '200':
+          description: The state.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok, state], properties: { ok: { const: true }, state: { $ref: '#/components/schemas/ConnectorState' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /document-reads:
+    get:
+      tags: [document-reads]
+      operationId: claimDocumentReads
+      summary: Claim scanned documents for the AI model to read (optional)
+      description: |
+        Optional capability (docs/DOCUMENT_READS.md). A document the business system could not read itself (an image, a PDF without a
+        text layer) waits here as page images (PNG / JPEG, at most 10 pages). DSH (bridge-reader) claims a few, has an image-reading
+        model transcribe them in one request each (no conversation, nothing logged by DSH beyond counts) and answers with the text.
+        Returning a read claims it; a claim older than 10 minutes may be handed out again (the old claim's answer is then refused,
+        409 read_not_claimed). The business system turns the text into its own fields and has a person confirm every value.
+        A system without the capability answers 404.
+      x-invariants: []
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 5, default: 2 } }
+      responses:
+        '200':
+          description: The claimed reads (possibly none).
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DocumentReadsClaimed' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /document-reads/{readId}/result:
+    post:
+      tags: [document-reads]
+      operationId: answerDocumentRead
+      summary: The text the model read, or why it could not (optional)
+      description: |
+        Optional capability. `{ pages: [{ page, text }] }` (text at most 20,000 characters per page) or `{ error }`
+        (`images_not_supported` the model cannot read images, `model_failed`, `too_large`). Only for a read this caller claimed and
+        that is still claimed. The business system never keeps the page images or the raw text in logs or audit (counts only).
+      x-invariants: []
+      x-optional: true
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: readId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocumentReadResult' }
+      responses:
+        '200':
+          description: Accepted.
+          headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+          content:
+            application/json:
+              schema: { type: object, required: [ok], properties: { ok: { const: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+components:
+  securitySchemes:
+    serviceToken:
+      type: apiKey
+      in: header
+      name: x-service-token
+      description: DSH (the AI plane) to the business system. A shared secret compared in constant time; the principal is "ai", never a person.
+    delegationToken:
+      type: apiKey
+      in: header
+      name: x-delegation-token
+      description: Used TOGETHER with x-service-token. The principal becomes the delegated employee (AI allow-list intersected with the employee role). Alone it is rejected (service_token_required).
+    bffSecret:
+      type: apiKey
+      in: header
+      name: x-bff-secret
+      description: Shared secret of the business web BFF. Required in addition to the employee session for BFF-only operations; the BFF never forwards it from browsers.
+    userSessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: The employee's own web session (cookie name is system defined).
+    userBearer:
+      type: http
+      scheme: bearer
+      description: The employee's own device session (mobile apps).
+  headers:
+    BridgeProtocol:
+      description: Protocol major version. Always "1" on every response, errors included.
+      schema: { type: string, const: '1' }
+  parameters:
+    IdentityId: { name: identityId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+    ApprovalId: { name: approvalId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+    ProposalId: { name: proposalId, in: path, required: true, schema: { type: string, minLength: 1, maxLength: 128 } }
+    ConnectorId: { name: connectorId, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9-]{0,39}$' } }
+    OperationId: { name: operationId, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9-]{0,39}$' } }
+    RuleId: { name: ruleId, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9-]{0,63}$' } }
+  responses:
+    BadRequest:
+      description: Invalid input (invalid_json, required / invalid_value with details.field, unknown_fields, platform not allowed, ...).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Unauthorized:
+      description: Missing or invalid credentials (authentication_required, invalid_service_token, service_token_required, invalid_delegation_token, invalid_assistant_ticket).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Forbidden:
+      description: Authenticated but not allowed (delegation_not_permitted, insufficient_role, role_not_permitted, human_required, bff_only, identity_mismatch, ...).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    NotFound:
+      description: Unknown or not visible to the caller (existence of other people's data is never disclosed).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Conflict:
+      description: State conflict (identity_already_linked, bot_already_registered, already_<status>, delivery_used, ...).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Gone:
+      description: Expired (link_code_expired, expired).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    PayloadTooLarge:
+      description: Body too large.
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    Unprocessable:
+      description: Well formed but refused by a business rule.
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    TooManyRequests:
+      description: Rate limit or lock-out (too_many_attempts, too_many_requests, delivery_locked).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    ServiceUnavailable:
+      description: Not configured or temporarily unavailable (bff_secret_not_configured).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+    BadGateway:
+      description: An external API the business system called failed (connector_failed).
+      headers: { bridge-protocol: { $ref: '#/components/headers/BridgeProtocol' } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [ok, error]
+      properties:
+        ok: { const: false }
+        error: { type: string, pattern: '^[a-z0-9_]+$', description: "Stable machine code (see x-error-codes)." }
+        message: { type: string, description: Text for people; not stable. }
+        details:
+          type: object
+          description: "Machine-readable context. `field` names the input a validation error is about (dotted path), never part of the code."
+          properties:
+            field: { type: string }
+          additionalProperties: true
+      additionalProperties: true
+    Health:
+      type: object
+      required: [ok]
+      properties:
+        ok: { const: true }
+        protocol: { const: 1 }
+        service: { type: string }
+        version: { type: string }
+      additionalProperties: true
+    Manifest:
+      type: object
+      description: "Conforms to schema/manifest.schema.json (validate with bridge-validate manifest)."
+      required: [bridge, system]
+      properties:
+        bridge: { const: 1 }
+      additionalProperties: true
+    Platform:
+      type: string
+      pattern: '^[a-z][a-z0-9_-]{1,31}$'
+      description: "IM platform name, lower case (slack, line, weixin, ...)."
+    ImSource:
+      type: object
+      description: "Trusted source of an inbound IM message (from the platform event, never from message text)."
+      required: [platform, userId]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        teamId: { type: string, maxLength: 128 }
+        userId: { type: string, minLength: 1, maxLength: 128 }
+        botId: { type: string, maxLength: 128, description: "The bot the message came through (informational; used by the personal-bot owner rule)." }
+      additionalProperties: true
+    ImIdentity:
+      type: object
+      required: [platform, externalId]
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        teamId: { type: string }
+        externalId: { type: string }
+        botId: { type: string }
+      additionalProperties: false
+    UserRef:
+      type: object
+      required: [id, role]
+      properties:
+        id: { type: string, minLength: 1, maxLength: 128 }
+        role: { type: string }
+        displayName: { type: [string, 'null'] }
+      additionalProperties: false
+    IdentityLookup:
+      type: object
+      required: [ok, linked]
+      properties:
+        ok: { const: true }
+        linked: { type: boolean }
+        orgId: { type: string }
+        user: { $ref: '#/components/schemas/UserRef' }
+      if: { properties: { linked: { const: false } } }
+      then: { not: { required: [user] } }
+      else: { required: [user] }
+    LinkRequest:
+      type: object
+      required: [code, source]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: '^[0-9]{6}$' }
+        source: { $ref: '#/components/schemas/ImSource' }
+    LinkResponse:
+      type: object
+      required: [ok, user]
+      properties:
+        ok: { const: true }
+        user: { $ref: '#/components/schemas/UserRef' }
+    IdentityStats:
+      type: object
+      required: [ok, linkedCount, linkedUsers, byPlatform]
+      properties:
+        ok: { const: true }
+        orgId: { type: string }
+        linkedCount: { type: integer, minimum: 0 }
+        linkedUsers: { type: integer, minimum: 0 }
+        byPlatform: { type: object, additionalProperties: { type: integer, minimum: 0 } }
+      additionalProperties: false
+    LinkCode:
+      type: object
+      required: [ok, code, expiresAt]
+      properties:
+        ok: { const: true }
+        code: { type: string, pattern: '^[0-9]{6}$' }
+        expiresAt: { type: string, format: date-time, description: "At most 10 minutes from now." }
+      additionalProperties: false
+    MyIdentity:
+      type: object
+      required: [id, platform, externalId]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        platform: { $ref: '#/components/schemas/Platform' }
+        teamId: { type: [string, 'null'] }
+        externalId: { type: string }
+        method: { type: string }
+        botId: { type: [string, 'null'] }
+        verifiedAt: { type: [string, 'null'] }
+        createdAt: { type: [string, 'null'] }
+      additionalProperties: true
+    MyIdentities:
+      type: object
+      required: [ok, identities]
+      properties:
+        ok: { const: true }
+        identities: { type: array, items: { $ref: '#/components/schemas/MyIdentity' } }
+    Deleted:
+      type: object
+      required: [ok, deleted, id]
+      properties:
+        ok: { const: true }
+        deleted: { const: true }
+        id: { type: string }
+        personalBotRevoked: { type: boolean }
+    IdentityBot:
+      type: object
+      required: [ok, identity]
+      properties:
+        ok: { const: true }
+        identity:
+          type: object
+          required: [id, platform]
+          properties:
+            id: { type: string }
+            platform: { $ref: '#/components/schemas/Platform' }
+            botId: { type: [string, 'null'] }
+    PersonalBot:
+      type: object
+      required: [id, platform, botId, kind]
+      properties:
+        id: { type: string }
+        platform: { $ref: '#/components/schemas/Platform' }
+        botId: { type: string }
+        kind: { const: personal }
+        createdAt: { type: string }
+    PersonalBots:
+      type: object
+      required: [ok, bots]
+      properties:
+        ok: { const: true }
+        bots: { type: array, items: { $ref: '#/components/schemas/PersonalBot' } }
+    RegisterPersonalBot:
+      type: object
+      required: [platform, botId]
+      additionalProperties: false
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        botId: { type: string, minLength: 1, maxLength: 128, pattern: '^[^\s]+$' }
+    RegisteredPersonalBot:
+      type: object
+      required: [ok, bot, created]
+      properties:
+        ok: { const: true }
+        bot: { $ref: '#/components/schemas/PersonalBot' }
+        created: { type: boolean }
+    NotificationPreferences:
+      type: object
+      required: [ok, preferences, types]
+      properties:
+        ok: { const: true }
+        preferences:
+          type: object
+          required: [types, quietHours]
+          properties:
+            types: { type: object, additionalProperties: { type: object, required: [im], properties: { im: { type: boolean } } } }
+            quietHours:
+              type: object
+              required: [enabled, start, end]
+              properties:
+                enabled: { type: boolean }
+                start: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+                end: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+              additionalProperties: true
+            updatedAt: { type: string }
+        types: { type: array, items: { type: string } }
+    NotificationPreferencesUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        types: { type: object, additionalProperties: { type: object, required: [im], additionalProperties: false, properties: { im: { type: boolean } } } }
+        quietHours: { type: object }
+    NotificationPreferencesSaved:
+      type: object
+      required: [ok, preferences]
+      properties:
+        ok: { const: true }
+        preferences: { type: object }
+    DelegationRequest:
+      type: object
+      description: "Exactly one of source (the employee behind a linked SNS account) or event (the person a business event names; optional per-event form)."
+      oneOf:
+        - { required: [source] }
+        - { required: [event] }
+      additionalProperties: false
+      properties:
+        source: { $ref: '#/components/schemas/ImSource' }
+        event:
+          type: object
+          required: [id]
+          additionalProperties: false
+          properties:
+            id: { type: integer, minimum: 1, description: "The id of a business event (GET /events) that triggered the automatic task." }
+    Delegation:
+      type: object
+      required: [ok, token, user, expiresAt]
+      properties:
+        ok: { const: true }
+        token: { type: string, minLength: 10, maxLength: 200, description: "Opaque; shown once; never put it in logs, events or LLM context." }
+        user: { $ref: '#/components/schemas/UserRef' }
+        expiresAt: { type: string, format: date-time, description: "At most 5 minutes from now." }
+      additionalProperties: false
+    EventEnvelope:
+      type: object
+      description: "See schema/event-envelope.schema.json (the normative definition)."
+      required: [id, type, aggregateType, aggregateId, payload, at]
+      properties:
+        id: { type: integer, minimum: 1 }
+        type: { type: string }
+        aggregateType: { type: string }
+        aggregateId: { type: string }
+        payload: { type: object }
+        at: { type: string, format: date-time }
+      additionalProperties: false
+    EventPage:
+      type: object
+      required: [ok, events, nextAfter]
+      properties:
+        ok: { const: true }
+        events: { type: array, items: { $ref: '#/components/schemas/EventEnvelope' } }
+        nextAfter: { type: integer, minimum: 0, description: "Id of the last event, or the request cursor when the page is empty." }
+      additionalProperties: false
+    NotificationRecipient:
+      type: object
+      required: [userId, identity, template, params]
+      properties:
+        userId: { type: string }
+        identity: { $ref: '#/components/schemas/ImIdentity' }
+        template: { type: string, pattern: '^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$', description: "A manifest template id." }
+        params:
+          type: object
+          description: "Numbers and short time / date strings only. Never names, free text, health data or contact details."
+          additionalProperties: { type: [number, string, boolean] }
+        link: { type: string, maxLength: 500 }
+        quietHours:
+          oneOf:
+            - { type: 'null' }
+            - { type: object, required: [start, end, timeZone], properties: { start: { type: string }, end: { type: string }, timeZone: { type: string } } }
+      additionalProperties: false
+    NotificationRecipients:
+      type: object
+      required: [ok, eventId, type, supported, recipients]
+      properties:
+        ok: { const: true }
+        eventId: { type: integer }
+        type: { type: string }
+        dedupeKey: { type: string }
+        supported: { type: boolean }
+        stale: { type: string, description: "The event no longer needs a notification (reason code)." }
+        alreadyNotified: { type: integer, minimum: 0 }
+        recipients: { type: array, items: { $ref: '#/components/schemas/NotificationRecipient' } }
+    DeliveryReport:
+      type: object
+      required: [userId, eventIds, status]
+      additionalProperties: false
+      properties:
+        userId: { type: string }
+        eventIds: { type: array, minItems: 1, maxItems: 500, items: { type: integer, minimum: 1 } }
+        status: { enum: [sent, failed, skipped, undeliverable] }
+        messageRef: { type: string, maxLength: 1000 }
+        errorCode: { type: string, maxLength: 60, pattern: '^[A-Za-z0-9_.:-]+$' }
+        channel: { $ref: '#/components/schemas/Platform' }
+    DeliveryReportResult:
+      type: object
+      required: [ok, updated, unchanged, unknown]
+      properties:
+        ok: { const: true }
+        updated: { type: integer, minimum: 0 }
+        unchanged: { type: integer, minimum: 0 }
+        unknown: { type: array, items: { type: integer } }
+    ApprovalDeliveriesRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        platforms: { type: array, minItems: 1, maxItems: 10, uniqueItems: true, items: { $ref: '#/components/schemas/Platform' }, description: "Priority order." }
+        platform: { $ref: '#/components/schemas/Platform' }
+    Card:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        fields: { type: array, items: { type: object, required: [label, value], properties: { label: { type: string }, value: { type: string } } } }
+        body: { type: string }
+        wording:
+          type: object
+          description: >-
+            Optional sentences of this approval kind for the IM plugin (each at most 300 characters, no names or amounts):
+            lead (after the greeting), ask (the request line after its label and deadline), what each button does, the reply after a button or a
+            text reply, and the body of the card updated after the decision. Without it the plugin's generic sentences are used.
+          properties:
+            lead: { type: string, maxLength: 300 }
+            ask: { type: string, maxLength: 300 }
+            buttons: { type: object, properties: { approve: { type: string, maxLength: 300 }, reject: { type: string, maxLength: 300 } } }
+            replies: { type: object, properties: { approved: { type: string, maxLength: 300 }, rejected: { type: string, maxLength: 300 } } }
+            statusBody:
+              type: object
+              properties:
+                approved: { type: string, maxLength: 300 }
+                rejected: { type: string, maxLength: 300 }
+                expired: { type: string, maxLength: 300 }
+                cancelled: { type: string, maxLength: 300 }
+    ApprovalDelivery:
+      type: object
+      required: [deliveryId, user, identity, token, replyCode, expiresAt, card]
+      properties:
+        deliveryId: { type: string }
+        user: { type: object, required: [id], properties: { id: { type: string }, displayName: { type: [string, 'null'] } } }
+        identity: { $ref: '#/components/schemas/ImIdentity' }
+        token: { type: string, minLength: 10 }
+        replyCode: { type: string, pattern: '^[0-9]{6}$' }
+        expiresAt: { type: string }
+        reused: { type: boolean }
+        card: { $ref: '#/components/schemas/Card' }
+        link: { type: string, format: uri, description: "Optional. The card's web link for THIS approver (e.g. a link that opens the approval page signed in as them). Used instead of the configured webUrl." }
+    ApprovalDeliveries:
+      type: object
+      required: [ok, deliveries]
+      properties:
+        ok: { const: true }
+        deliveries: { type: array, items: { $ref: '#/components/schemas/ApprovalDelivery' } }
+    ImDecisionRequest:
+      type: object
+      required: [action, source]
+      additionalProperties: false
+      properties:
+        token: { type: string, maxLength: 200 }
+        replyCode: { type: string, pattern: '^[0-9]{6}$' }
+        action: { enum: [approve, reject] }
+        comment: { type: string, maxLength: 1000, description: "Required for reject." }
+        source: { $ref: '#/components/schemas/ImSource' }
+        channelMessageId: { type: string, maxLength: 1000, description: "The IM message reference (dsh-im dshim:v1:…). Teams references are close to 300 characters." }
+    ImDecisionResult:
+      type: object
+      required: [ok, approval]
+      properties:
+        ok: { const: true }
+        approval: { type: object }
+        deliveryId: { type: string }
+      additionalProperties: true
+    AssistantTicket:
+      type: object
+      required: [ok, ticket, expiresAt, user]
+      properties:
+        ok: { const: true }
+        ticket: { type: string, minLength: 10, maxLength: 200, description: "Opaque; shown once." }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/UserRef' }
+      additionalProperties: false
+    Report:
+      type: object
+      required: [date, slot, kind, sections]
+      properties:
+        id: { type: [string, 'null'] }
+        date: { type: string }
+        slot: { type: string }
+        kind: { type: string }
+        attention: { type: integer }
+        generatedAt: { type: string }
+        sections: { type: object, description: "Counts per section; never names." }
+        checks: { type: array, items: { type: object } }
+      additionalProperties: true
+    ReportLatest:
+      type: object
+      required: [ok, report]
+      properties:
+        ok: { const: true }
+        report: { oneOf: [{ type: 'null' }, { $ref: '#/components/schemas/Report' }] }
+        source: { enum: [stored, live] }
+        scope: { type: object }
+        schedule: { type: object }
+      additionalProperties: true
+    ReportRun:
+      type: object
+      required: [ok, report, to]
+      properties:
+        ok: { const: true }
+        report: { type: object }
+        to: { enum: [recipients, me] }
+        recipients: { type: integer }
+        linkedRecipients: { type: integer }
+    HelpSection:
+      type: object
+      required: [id, title, canOpen]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        chapter: { type: string }
+        menu: { type: string }
+        summary: { type: string }
+        steps: { type: array, items: { type: string } }
+        qa: { type: array, items: { type: object, properties: { q: { type: string }, a: { type: string } } } }
+        notes: { type: array, items: { type: string } }
+        app: { type: [object, 'null'] }
+        canOpen: { type: boolean }
+        url: { type: [string, 'null'] }
+        manualUrl: { type: [string, 'null'] }
+        alt: { type: [string, 'null'] }
+        unconfirmed: { type: array, items: { type: string } }
+      additionalProperties: true
+    HelpAnswer:
+      type: object
+      required: [ok, found, results]
+      properties:
+        ok: { const: true }
+        query: { type: string }
+        found: { type: boolean }
+        results: { type: array, maxItems: 5, items: { $ref: '#/components/schemas/HelpSection' } }
+    Proposal:
+      type: object
+      required: [id, kind, status]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        status: { enum: [pending_review, accepted, rejected] }
+        payload: { type: object }
+      additionalProperties: true
+    ProposalCreate:
+      type: object
+      required: [kind, payload]
+      properties:
+        kind: { type: string }
+        payload: { type: object }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+      additionalProperties: false
+    AiProfile:
+      type: object
+      description: "The AI employee's profile (docs/AI_EMPLOYEE_PROFILE.md §2; limits AI_PROFILE_LIMITS, check validateAiProfile of @dsh-bridge/protocol)."
+      required: [nickname]
+      additionalProperties: false
+      properties:
+        nickname: { type: string, minLength: 1, maxLength: 20 }
+        firstPerson: { type: string, maxLength: 10 }
+        tone:
+          type: object
+          additionalProperties: false
+          properties:
+            preset: { enum: [polite, soft, concise] }
+            note: { type: string, maxLength: 100 }
+        company: { type: string, maxLength: 2000 }
+        personality: { type: string, maxLength: 300 }
+        background: { type: string, maxLength: 500 }
+        examples: { type: array, maxItems: 3, items: { type: string, maxLength: 100 } }
+        agents:
+          type: object
+          description: "Overrides per AI employee (DSH preset id): nickname / personality / background."
+          additionalProperties:
+            type: object
+            additionalProperties: false
+            properties:
+              nickname: { type: string, maxLength: 20 }
+              personality: { type: string, maxLength: 300 }
+              background: { type: string, maxLength: 500 }
+    AiProfileCurrent:
+      type: object
+      required: [ok, profile, version, updatedAt]
+      properties:
+        ok: { const: true }
+        profile: { oneOf: [{ $ref: '#/components/schemas/AiProfile' }, { type: 'null' }] }
+        version: { type: [integer, 'null'] }
+        updatedAt: { type: [string, 'null'] }
+      additionalProperties: true
+    AiProfileVersion:
+      type: object
+      required: [version, updatedAt]
+      properties:
+        version: { type: integer, minimum: 1 }
+        updatedAt: { type: string }
+        updatedBy: { type: [string, 'null'] }
+        reason: { type: [string, 'null'] }
+      additionalProperties: false
+    AiProfileAdmin:
+      type: object
+      required: [ok, profile, version, updatedAt, updatedBy, versions]
+      properties:
+        ok: { const: true }
+        profile: { oneOf: [{ $ref: '#/components/schemas/AiProfile' }, { type: 'null' }] }
+        version: { type: [integer, 'null'] }
+        updatedAt: { type: [string, 'null'] }
+        updatedBy: { type: [string, 'null'] }
+        versions: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/AiProfileVersion' } }
+      additionalProperties: true
+    AiProfileSaved:
+      type: object
+      required: [ok, version]
+      properties:
+        ok: { const: true }
+        version: { type: integer, minimum: 1 }
+      additionalProperties: true
+    AttachmentType:
+      type: string
+      enum: [image, pdf, docx, xlsx, csv, markdown, text]
+      description: image = PNG, JPEG, WebP, GIF.
+    AttachmentFile:
+      type: object
+      required: [name, mediaType]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200, description: "The file name (no path). Never stored or audited." }
+        mediaType: { type: string, maxLength: 200, description: "As the browser reported it; the extension and the leading bytes must agree." }
+        size: { type: integer, minimum: 1, maximum: 10485760, description: "Bytes after decoding (required without data; must match data when both are sent)." }
+        data: { type: string, contentEncoding: base64, description: "The file (documents: required; images: left out)." }
+    AttachmentDocument:
+      type: object
+      required: [name, kind, text, chars, truncated]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [pdf, docx, xlsx, csv, markdown, text] }
+        text: { type: string, description: "Markdown. Reference material for the AI, never instructions." }
+        chars: { type: integer, minimum: 0 }
+        truncated: { type: boolean }
+        pages: { type: integer, minimum: 0, description: "PDF: the number of pages." }
+        sheets: { type: integer, minimum: 0, description: "xlsx: the number of sheets read." }
+        ocr: { type: string, enum: [engine, model], description: "PDF pages without a text layer (scans) were read by OCR: engine = the business system's OCR engine (text only), model = sent as pageImages for a model that reads images." }
+        ocrPages: { type: integer, minimum: 1, maximum: 10, description: "How many scanned pages were read by OCR (all documents of one prepare together: at most 10)." }
+        pageImages:
+          type: array
+          maxItems: 10
+          description: "ocr = model: the scanned pages as JPEG (the page text says so). The BFF forwards them to the AI runtime as images; a model that cannot read images refuses them (images_not_supported, details.reason scanned_pdf)."
+          items:
+            type: object
+            required: [page, mediaType, data]
+            additionalProperties: false
+            properties:
+              page: { type: integer, minimum: 1 }
+              mediaType: { const: image/jpeg }
+              data: { type: string, contentEncoding: base64 }
+      additionalProperties: true
+    AttachmentsPrepared:
+      type: object
+      required: [ok, documents, images]
+      properties:
+        ok: { const: true }
+        documents: { type: array, items: { $ref: '#/components/schemas/AttachmentDocument' } }
+        images:
+          type: array
+          items:
+            type: object
+            required: [name, mediaType, size]
+            properties:
+              name: { type: string }
+              mediaType: { type: string, enum: [image/png, image/jpeg, image/webp, image/gif] }
+              size: { type: integer, minimum: 1 }
+      additionalProperties: true
+    AttachmentLimits:
+      type: object
+      required: [maxFiles, maxFileBytes, maxTotalBytes]
+      properties:
+        maxFiles: { type: integer, minimum: 1, maximum: 5 }
+        maxFileBytes: { type: integer, minimum: 1, maximum: 10485760 }
+        maxTotalBytes: { type: integer, minimum: 1, maximum: 20971520 }
+        maxCharsPerFile: { type: integer, minimum: 1, maximum: 30000 }
+        maxCharsTotal: { type: integer, minimum: 1, maximum: 60000 }
+      additionalProperties: true
+    AttachmentSettings:
+      type: object
+      required: [ok, enabled, roles, types, limits]
+      properties:
+        ok: { const: true }
+        enabled: { type: boolean }
+        roles: { type: array, items: { type: string } }
+        types: { type: array, items: { $ref: '#/components/schemas/AttachmentType' } }
+        limits: { $ref: '#/components/schemas/AttachmentLimits' }
+      additionalProperties: true
+    AttachmentAdminSettings:
+      type: object
+      required: [ok, roles, types, limits]
+      properties:
+        ok: { const: true }
+        roles: { type: array, items: { type: string } }
+        types: { type: array, items: { $ref: '#/components/schemas/AttachmentType' } }
+        limits: { $ref: '#/components/schemas/AttachmentLimits' }
+        updatedBy: { type: [string, 'null'] }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: true
+    OkOnly:
+      type: object
+      required: [ok]
+      properties: { ok: { const: true } }
+      additionalProperties: true
+    ConnectorInputSchema:
+      type: object
+      description: A flat object schema (string / number / integer / boolean values); also the AI tool's parameters.
+      properties:
+        type: { const: object }
+        properties: { type: object }
+        required: { type: array, items: { type: string } }
+        additionalProperties: { const: false }
+      additionalProperties: true
+    ConnectorOperation:
+      type: object
+      required: [id, name, path]
+      properties:
+        id: { type: string, pattern: '^[a-z][a-z0-9-]{0,39}$' }
+        name: { type: string, maxLength: 60 }
+        description: { type: string, maxLength: 300 }
+        method: { type: string, enum: [GET, POST, PUT, PATCH, DELETE] }
+        path: { type: string, description: 'Starts with /; {name} placeholders are input fields.' }
+        input: { $ref: '#/components/schemas/ConnectorInputSchema' }
+        responseFields: { type: array, maxItems: 50, items: { type: string }, description: 'Allow-list of response paths (a.b, items[].id); leaves only.' }
+        pii: { type: string, enum: [none, personal, financial, sensitive, health] }
+        effect: { type: string, enum: [read, write] }
+        idempotent: { type: boolean }
+        roles: { type: array, items: { type: string }, description: 'Roles whose employees the AI may act for with this operation (none = not given to the AI).' }
+        autoRun:
+          type: object
+          properties: { allowed: { type: boolean }, reason: { type: [string, 'null'], maxLength: 200 } }
+          description: An idempotent write the administrator allowed to run without approval (with a reason). Reads always may.
+      additionalProperties: true
+    Connector:
+      type: object
+      required: [name, baseUrl]
+      properties:
+        id: { type: string, pattern: '^[a-z][a-z0-9-]{0,39}$' }
+        name: { type: string, maxLength: 60 }
+        kind: { type: string, enum: [own, third_party] }
+        description: { type: string, maxLength: 300 }
+        baseUrl: { type: string, description: https only (http to localhost in development). }
+        allowedHosts: { type: array, maxItems: 10, items: { type: string } }
+        auth:
+          type: object
+          required: [type]
+          properties:
+            type: { type: string, enum: [none, api_key, bearer, basic, oauth2_client] }
+            headerName: { type: string }
+            username: { type: string }
+            tokenUrl: { type: string }
+            clientId: { type: string }
+            scope: { type: [string, 'null'] }
+          additionalProperties: false
+        timeoutMs: { type: integer, minimum: 1000, maximum: 10000 }
+        ratePerMinute: { type: integer, minimum: 1, maximum: 600 }
+        maxResponseBytes: { type: integer, minimum: 1024, maximum: 1048576 }
+        enabled: { type: boolean }
+        operations: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/ConnectorOperation' } }
+      additionalProperties: true
+    ConnectorAdmin:
+      allOf:
+        - { $ref: '#/components/schemas/Connector' }
+        - type: object
+          required: [hasSecret, secretHint]
+          properties:
+            hasSecret: { type: boolean }
+            secretHint: { type: [string, 'null'], description: The last 4 characters of the secret. }
+            updatedAt: { type: [string, 'null'], format: date-time }
+            updatedBy: { type: [string, 'null'] }
+    ConnectorState:
+      type: object
+      required: [stopped]
+      properties:
+        stopped: { type: boolean }
+        stoppedBy: { type: [string, 'null'] }
+        stoppedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: true
+    ConnectorAdminList:
+      type: object
+      required: [ok, connectors, state]
+      properties:
+        ok: { const: true }
+        connectors: { type: array, items: { $ref: '#/components/schemas/ConnectorAdmin' } }
+        state: { $ref: '#/components/schemas/ConnectorState' }
+        allowLocalhost: { type: boolean }
+        events: { type: array, items: { type: string } }
+        roles: { type: array, items: { type: string } }
+      additionalProperties: true
+    ConnectorSecretState:
+      type: object
+      required: [ok, hasSecret, secretHint]
+      properties:
+        ok: { const: true }
+        hasSecret: { type: boolean }
+        secretHint: { type: [string, 'null'] }
+      additionalProperties: true
+    ConnectorCatalog:
+      type: object
+      required: [ok, operations]
+      properties:
+        ok: { const: true }
+        operations:
+          type: array
+          items:
+            type: object
+            required: [connectorId, operationId, name, effect, roles, input]
+            properties:
+              connectorId: { type: string }
+              connectorName: { type: string }
+              operationId: { type: string }
+              name: { type: string }
+              description: { type: string }
+              effect: { type: string, enum: [read, write] }
+              pii: { type: string }
+              roles: { type: array, items: { type: string } }
+              input: { $ref: '#/components/schemas/ConnectorInputSchema' }
+            additionalProperties: true
+      additionalProperties: true
+    ConnectorRunResult:
+      type: object
+      required: [ok, connectorId, operationId, data]
+      properties:
+        ok: { const: true }
+        connectorId: { type: string }
+        operationId: { type: string }
+        status: { type: integer }
+        data: { type: object, description: The allow-listed response fields only. }
+      additionalProperties: true
+    ConnectorTestResult:
+      type: object
+      required: [ok, result]
+      properties:
+        ok: { const: true }
+        result:
+          type: object
+          required: [ok]
+          properties:
+            ok: { type: boolean }
+            code: { type: [string, 'null'] }
+            status: { type: [integer, 'null'] }
+            durationMs: { type: integer }
+            operationId: { type: string }
+            fields: { type: array, items: { type: string } }
+          additionalProperties: true
+      additionalProperties: true
+    ConnectorRule:
+      type: object
+      required: [name, trigger, action]
+      properties:
+        id: { type: string, pattern: '^[a-z][a-z0-9-]{0,63}$' }
+        name: { type: string, maxLength: 60 }
+        enabled: { type: boolean }
+        trigger: { type: object, properties: { event: { type: string }, cron: { type: string, format: cron5 } }, additionalProperties: false }
+        when:
+          type: [object, 'null']
+          properties:
+            all: { type: array, items: { $ref: '#/components/schemas/ConnectorCondition' } }
+            any: { type: array, items: { $ref: '#/components/schemas/ConnectorCondition' } }
+          additionalProperties: false
+        action:
+          type: object
+          required: [connector, operation]
+          properties:
+            connector: { type: string }
+            operation: { type: string }
+            input: { type: object }
+          additionalProperties: false
+        mode: { type: string, enum: [approval, auto, propose-by-ai] }
+        approvers: { type: [object, 'null'], properties: { role: { type: string } } }
+        notify: { type: object, properties: { onSuccess: { type: string, enum: [none, info, action] }, onFailure: { type: string, enum: [none, info, action] } } }
+        allowPii: { type: boolean }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        updatedBy: { type: [string, 'null'] }
+      additionalProperties: true
+    ConnectorCondition:
+      type: object
+      required: [field, op]
+      properties:
+        field: { type: string, description: 'event.x / payload.x / now.x' }
+        op: { type: string, enum: [eq, contains, gt, lt, exists] }
+        value: { type: [string, number, boolean] }
+      additionalProperties: false
+    ConnectorRun:
+      type: object
+      required: [id, connectorId, operationId, trigger, status]
+      properties:
+        id: { type: integer }
+        ruleId: { type: [string, 'null'] }
+        connectorId: { type: string }
+        operationId: { type: string }
+        trigger: { type: string, enum: [ai, event, cron, approval, test, manual] }
+        triggerRef: { type: [string, 'null'] }
+        actor: { type: [string, 'null'] }
+        status: { type: string, enum: [succeeded, failed, refused, pending_approval, proposed, rejected, skipped] }
+        code: { type: [string, 'null'] }
+        httpStatus: { type: [integer, 'null'] }
+        durationMs: { type: [integer, 'null'] }
+        proposalId: { type: [string, 'null'] }
+        at: { type: [string, 'null'], format: date-time }
+      additionalProperties: true
+    DocumentReadsClaimed:
+      type: object
+      required: [ok, reads]
+      properties:
+        ok: { const: true }
+        reads:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            required: [id, pages]
+            properties:
+              id: { type: string, format: uuid }
+              purpose: { type: string, description: "What the document is for, e.g. care_inbox (the business system's own word)." }
+              language: { type: string, description: "The document's language (BCP 47, e.g. ja)." }
+              hint: { type: string, maxLength: 200, description: "A short label of the form (e.g. ケアプラン 第2表). Never a person's name." }
+              pages:
+                type: array
+                minItems: 1
+                maxItems: 10
+                items:
+                  type: object
+                  required: [page, mediaType, data]
+                  additionalProperties: false
+                  properties:
+                    page: { type: integer, minimum: 1 }
+                    mediaType: { type: string, enum: [image/jpeg, image/png] }
+                    data: { type: string, contentEncoding: base64 }
+            additionalProperties: true
+      additionalProperties: true
+    DocumentReadResult:
+      oneOf:
+        - type: object
+          required: [pages]
+          additionalProperties: false
+          properties:
+            pages:
+              type: array
+              minItems: 1
+              maxItems: 10
+              items:
+                type: object
+                required: [page, text]
+                additionalProperties: false
+                properties:
+                  page: { type: integer, minimum: 1 }
+                  text: { type: string, maxLength: 20000 }
+        - type: object
+          required: [error]
+          additionalProperties: false
+          properties:
+            error: { type: string, enum: [images_not_supported, model_failed, too_large] }

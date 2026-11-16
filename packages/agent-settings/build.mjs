@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the settings app (web/) into dist/ (app.js + chunks + app.css), served by the plugin at /agent-settings/assets/.
-//   node build.mjs                       BIZ_AI_FRAMEWORK = the framework checkout (default ../../../framework)
+//   node build.mjs                       BIZ_AI_FRAMEWORK = another framework checkout (default: this repository, where it is synced in)
 //                                        DSH_IM_JA = a Japanese language pack for dsh-im (default: care-ai-native's dsh-lang-ja, if present)
 // The framework is needed at BUILD time only: web-kit (packages/web-kit/src) and dsh-im's settings components
 // (vendor/dsh-im/plugin-src/client) are bundled; a system that serves dist/ needs neither.
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import * as esbuild from 'esbuild'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const FRAMEWORK = resolve(process.env.BIZ_AI_FRAMEWORK || join(here, '..', '..', '..', 'framework'))
+const FRAMEWORK = resolve(process.env.BIZ_AI_FRAMEWORK || join(here, '..', '..'))
 const CLIENT = join(FRAMEWORK, 'vendor', 'dsh-im', 'plugin-src', 'client')
 const WEB_KIT = join(FRAMEWORK, 'packages', 'web-kit', 'src')
 for (const p of [CLIENT, WEB_KIT]) if (!existsSync(p)) { console.error(`not found: ${p} (set BIZ_AI_FRAMEWORK)`); process.exit(2) }

@@ -3,10 +3,11 @@
 // profile template + bridge-knowledge (tool module and citation guard) + bridge-graph, with a mock model and a mock LINE.
 // No real IM, no real model, no real keys (every secret is generated per run), no database.
 //
-//   node e2e/run.mjs [--keep]           (npm run e2e)    BIZ_AI_FRAMEWORK=<framework checkout> (default ../framework)
+//   node e2e/run.mjs [--keep] [--serve] (npm run e2e)    BIZ_AI_FRAMEWORK=<another framework checkout> (default: this repository)
 //
-// It reuses the framework's own e2e parts (packages/testing: the pinned DSH CLI in <framework>/.dsh-cli, the isolated home,
-// mock LLM / LINE; packages/gateway; profile/template and profile/scripts/install.mjs) exactly as framework/packages/testing/
+// The framework is IN this repository (scripts/sync-framework.mjs; `npm run vendor:install` once for the vendor forks). It uses its
+// e2e parts (packages/testing: the pinned DSH CLI in .dsh-cli, the isolated home,
+// mock LLM / LINE; packages/gateway; profile/template and profile/scripts/install.mjs) exactly as packages/testing/
 // e2e/run.mjs does, only with this repository's application and plugins:
 //   - @dsh-bridge/plugin-knowledge is installed into the profile as a file: dependency; its tool module and its citation guard
 //     (@dsh-bridge/plugin-knowledge/guard, a cordis plugin) load from that one copy, so they share the source ledger
@@ -30,9 +31,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(here, '..')
-const FRAMEWORK = resolve(process.env.BIZ_AI_FRAMEWORK || join(REPO, '..', 'framework'))
+const FRAMEWORK = resolve(process.env.BIZ_AI_FRAMEWORK || REPO)
 if (!existsSync(join(FRAMEWORK, 'profile', 'template', 'cordis.patch.yml'))) {
-  console.error(`the framework checkout was not found at ${FRAMEWORK} (set BIZ_AI_FRAMEWORK)`)
+  console.error(`the framework was not found at ${FRAMEWORK} (run npm run sync-framework, or set BIZ_AI_FRAMEWORK)`)
+  process.exit(2)
+}
+if (!existsSync(join(FRAMEWORK, 'vendor', 'dsh-im', 'node_modules'))) {
+  console.error(`the vendor forks have no dependencies yet: run npm run vendor:install`)
   process.exit(2)
 }
 const fw = (p) => import(pathToFileURL(join(FRAMEWORK, p)).href)

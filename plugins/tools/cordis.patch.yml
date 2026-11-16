@@ -1,0 +1,6 @@
+# bridge-tools: 委託 gate 付きの業務ツール（manifest の読み取りツールの生成・手書きの提案ツール）。各呼び出しは IM 発信者（連携済み職員）の委託トークンで行う。
+# 前提: bridge-identity（ctx.bridgeIdentity）。未連携・発信元なしは既定で拒否（unlinkedPolicy で ai-readonly に変更可）。
+# 業務固有の手書きツールは toolModules（パッケージ名・パス）か、別のプラグインから ctx.bridgeTools.register(...) で足す。
+- insert:
+    - id: bridge-tools
+      name: '@dsh-bridge/plugin-tools'

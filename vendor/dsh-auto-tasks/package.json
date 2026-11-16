@@ -1,0 +1,56 @@
+{
+  "name": "@care/dsh-auto-tasks",
+  "version": "0.2.0-care.1",
+  "private": true,
+  "description": "自动任务（care fork）— dsh-auto-tasks 0.2.0 + ctx.autoTasks 服务（list/trigger/emit）、事件触发、dedupeKey 去重、相对 URL。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime"
+      ],
+      "platform": "web"
+    },
+    "compatibility": {
+      "dsh": "0.2.2-rc.1",
+      "profiles": [
+        "web"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "files": [
+    "lib",
+    "src",
+    "scripts",
+    "test",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "FORK.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "node --check lib/index.js && node --check lib/client.js && node --check lib/mail.js && node --check lib/backends.js && node --check lib/config-schema.js && node --check lib/i18n.js && node --check lib/runs.js",
+    "test": "node --test --test-isolation=none \"test/*.test.mjs\"",
+    "ci": "npm run build && npm run typecheck && npm run check && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.2"
+  }
+}

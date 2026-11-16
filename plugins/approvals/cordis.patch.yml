@@ -1,0 +1,5 @@
+# bridge-approvals: 業務システムの承認依頼を IM（カード・ボタン・文字返信）で届けて決定する。
+# 前提: bridge fork の dsh-im（sendCard / updateCard / onAction / claimReplies）と bridge-events。
+- insert:
+    - id: bridge-approvals
+      name: '@dsh-bridge/plugin-approvals'

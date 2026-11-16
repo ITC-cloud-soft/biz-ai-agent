@@ -1,0 +1,1173 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Context } from "@deepseek-ai/cordis";
+import type { Agent } from "@deepseek-ai/dsh-agent";
+import { Session, deriveEventMessage, type EpochHeader } from "@deepseek-ai/dsh-session";
+import { ToolCallId, ReasoningEffortId, createAssistantMessage, createToolResultMessage, createUserMessage } from "@deepseek-ai/dsh-llm";
+import { WakeDriver, completedTurnCut, sessionLogOf, lastEventEpoch, type AgentHandleLike, type AgentPresetsPort, type AgentsFacade, type CreateFacadeOptions, type WakeFireResult } from "../src/wake.js";
+import type { WorkspaceWakePort } from "../src/workspace.js";
+import { ProactiveStore } from "../src/store.js";
+import { resolveConfig } from "../src/config.js";
+import type { Alarm } from "../src/domain.js";
+
+function alarm(id = "a1", target: Alarm["target"] = { mode: "resume", sessionId: "s1" }, overrides: Partial<Alarm> = {}): Alarm {
+  return {
+    id,
+    ownerSessionId: "s1",
+    target,
+    type: "once",
+    trigger: { at: "2026-09-02T00:00:00.000Z" },
+    prompt: "进水提醒",
+    respectQuietHours: false,
+    timeZone: "UTC",
+    status: "scheduled",
+    nextDueAt: "2026-09-01T00:00:00.000Z",
+    createdAt: "2026-09-01T00:00:00.000Z",
+    updatedAt: "2026-09-01T00:00:00.000Z",
+    runCount: 0,
+    lastRunAt: null,
+    ...overrides
+  };
+}
+
+interface FakeRecording {
+  messages: { message: unknown }[];
+  disposed: boolean;
+  resumed: boolean;
+  activeDuringFollowup: boolean | null;
+}
+
+function makeFakeAgent(rec: FakeRecording, opts: { busy?: boolean; failWhenIdle?: boolean; events?: Record<string, unknown>[] } = {}) {
+  const events: Record<string, unknown>[] = opts.events ?? [];
+  const agent = {
+    session: { id: "s1", events },
+    followup: (message: unknown) => {
+      rec.messages.push({ message });
+      rec.activeDuringFollowup = true; // driver must still count this wake as active
+      events.push({ type: "turn/start", data: { turn: 1 } });
+      events.push({ type: "tool/call", data: { turn: 1, step: 1, callId: ToolCallId("c1"), name: "proactive_reclaim", arguments: "{}" } });
+      events.push({ type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => {
+      if (opts.busy) throw new Error("busy: another turn is in flight");
+      await task();
+      return true;
+    },
+    whenIdle: async () => {
+      if (opts.failWhenIdle) throw new Error("idle wait failed");
+    }
+  };
+  return agent as unknown as Agent;
+}
+
+interface Harness {
+  driver: WakeDriver;
+  store: ProactiveStore;
+  rec: FakeRecording;
+  cfg: ReturnType<typeof resolveConfig>;
+  dir: string;
+}
+
+async function harness(opts: { live?: boolean; busy?: boolean; failWhenIdle?: boolean; events?: Record<string, unknown>[] } = {}): Promise<Harness> {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = true;
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const fakeAgent = makeFakeAgent(rec, opts);
+  const agents: AgentsFacade = {
+    get: () => (opts.live ? fakeAgent : undefined) as never,
+    resume: async () => {
+      rec.resumed = true;
+      const handle: AgentHandleLike = {
+        agent: fakeAgent,
+        dispose: async () => { rec.disposed = true; }
+      };
+      return handle;
+    },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({
+    agents,
+    modelSelection: () => ({ provider: "test", model: "x" }),
+    store,
+    config: cfg,
+    log: () => undefined
+  });
+  return { driver, store, rec, cfg, dir };
+}
+
+test("sessionLogOf reads the log through both Session lines", () => {
+  const old = { seq: 2, events: [{ seq: 0 }, { seq: 1 }] };
+  const modern = { seq: 1, snapshotEvents: () => [{ seq: 0 }] };
+  const bare = { seq: 0 };
+  assert.deepEqual(sessionLogOf(old), [{ seq: 0 }, { seq: 1 }]);
+  assert.deepEqual(sessionLogOf(modern), [{ seq: 0 }]);
+  assert.deepEqual(sessionLogOf(bare), []); // session still being created
+});
+
+test("lastEventEpoch takes the newest top-level event time and ignores unparseable ones", () => {
+  assert.equal(lastEventEpoch([]), undefined);
+  assert.equal(lastEventEpoch([{ type: "turn/start" }, { type: "turn/end" }]), undefined); // no time fields
+  const t1 = "2026-09-01T09:00:00.000Z";
+  const t2 = "2026-09-01T10:30:00.000Z";
+  assert.equal(lastEventEpoch([{ type: "a", time: t1 }, { type: "b", time: t2 }, { type: "c", time: "not-a-date" }]), Date.parse(t2));
+});
+
+test("cold wake resumes the session, frames the message, and can be silent", async () => {
+  const h = await harness();
+  try {
+    const fire = await h.driver.fire(alarm("cold1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") {
+      assert.equal(fire.analysis.decision, "no_reply");
+      assert.equal(fire.analysis.budgetDelta, 0);
+      assert.equal(fire.sessionId, "s1");
+    }
+    assert.equal(h.rec.resumed, true);
+    assert.equal(h.rec.disposed, true); // process-local handle released
+    assert.equal(h.rec.activeDuringFollowup, true); // inflight guard held during the wake
+    assert.equal(h.rec.messages.length, 1);
+    const text = extractText(h.rec.messages[0].message);
+    assert.ok(text.startsWith("[dsh-proactive wake cold1 once cold]"), "v3 minimal header expected, got: " + text.slice(0, 60));
+    assert.ok(text.includes("proactive_reclaim(reason) as your ONLY action"));
+    assert.ok(text.includes("进水提醒"));
+    assert.equal(h.driver.isActiveWake("s1"), false); // cleared after the wake
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("live wake reuses the agent and does not dispose an owned handle", async () => {
+  const h = await harness({ live: true });
+  try {
+    const fire = await h.driver.fire(alarm("live1"));
+    assert.equal(fire.outcome, "ok");
+    assert.equal(h.rec.resumed, false);
+    assert.equal(h.rec.disposed, false);
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("busy agents surface as busy for the scheduler to retry", async () => {
+  const h = await harness({ busy: true });
+  try {
+    const fire = await h.driver.fire(alarm("b1"));
+    assert.equal(fire.outcome, "busy");
+    assert.equal(h.rec.disposed, true); // owned handle released even on early exit
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("concurrent wakes for the same session are rejected as busy", async () => {
+  const h = await harness();
+  try {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const slowAgent = {
+      session: { id: "s1", events: [] },
+      followup: () => undefined,
+      runMaintenance: async (task: () => Promise<unknown>) => { await gate; await task(); return true; },
+      whenIdle: async () => undefined
+    };
+    const agents: AgentsFacade = {
+      get: () => slowAgent as never,
+      resume: async () => { throw new Error("unused"); },
+      create: async () => { throw new Error("unused"); }
+    };
+    const driver = new WakeDriver({ agents, modelSelection: () => undefined, store: h.store, config: h.cfg, log: () => undefined });
+    const first = driver.fire(alarm("c1"));
+    const second = await driver.fire(alarm("c2"));
+    assert.equal(second.outcome, "busy"); // inflight guard
+    release();
+    const firstResult = await first;
+    assert.equal(firstResult.outcome, "ok");
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("whenIdle failures surface as failed", async () => {
+  const h = await harness({ failWhenIdle: true });
+  try {
+    const fire = await h.driver.fire(alarm("f1"));
+    assert.equal(fire.outcome, "failed");
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("completedTurnCut mirrors the host fork boundary (last turn/end, cut to next turn/start)", () => {
+  const events = [
+    { seq: 0, type: "user/message" },
+    { seq: 1, type: "turn/start" },
+    { seq: 2, type: "assistant/message" },
+    { seq: 3, type: "turn/end" },
+    { seq: 4, type: "comment" },
+    { seq: 5, type: "user/message" },
+    { seq: 6, type: "turn/start" }
+  ];
+  // cut = last turn/end (seq 3) + 1 = 4, then the host-verbatim extend loop
+  // consumes trailing non-turn events until the next turn/start (seq 6) -> cut 6.
+  assert.equal(completedTurnCut(events), 6);
+  // No completed turn -> 0.
+  assert.equal(completedTurnCut([{ seq: 0, type: "user/message" }, { seq: 1, type: "turn/start" }]), 0);
+  assert.equal(completedTurnCut([]), 0);
+  // Trailing events after the LAST turn/end include everything until the following turn/start.
+  const withTail = [
+    { seq: 0, type: "turn/start" },
+    { seq: 1, type: "turn/end" },
+    { seq: 2, type: "comment" }
+  ];
+  assert.equal(completedTurnCut(withTail), 3);
+});
+
+test("fork target creates a child session seeded with the parent's completed history", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  (childAgent as unknown as { session: { id: string } }).session.id = "session-child";
+  const parentEvents = [
+    { type: "user/message", seq: 0 },
+    { type: "turn/start", seq: 1 },
+    { type: "assistant/message", seq: 2 },
+    { type: "turn/end", seq: 3, data: { reason: { kind: "completed" } } }
+  ];
+  const parentAgent = {
+    session: { id: "parent", events: parentEvents, header: { version: 0, id: "parent", createdAt: 0, cwd: "/work", agentPreset: "general" } }
+  } as unknown as Agent;
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: (id: string) => (id === "parent" ? parentAgent : undefined) as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      const handle: AgentHandleLike = { agent: childAgent, dispose: async () => undefined };
+      return handle;
+    }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "test", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("fork1", { mode: "fork", sessionId: "parent" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.seed?.length, 4); // whole completed prefix
+    assert.equal(captured.meta?.parentSession, "parent");
+    assert.equal(captured.meta?.seedLength, 4);
+    assert.equal(captured.meta?.cwd, "/work");
+    assert.equal(captured.meta?.agentPreset, "general"); // child inherits the parent's composition
+    assert.ok(captured.sessionId.startsWith("session-"));
+    // Bookkeeping: the fork child is recorded so workspace/preset resolvers
+    // never capture it (its human history is inherited, not adopted).
+    assert.equal(store.createdSessionKind(captured.sessionId), "fork");
+    if (fire.outcome === "ok") {
+      assert.equal(fire.sessionId, captured.sessionId);
+    }
+    assert.equal(driver.isActiveWake(captured.sessionId), false); // child cleared after the wake
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("fork target fails when the parent has no completed turn", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const emptyParent = { session: { id: "parent", events: [{ type: "user/message", seq: 0 }], header: { version: 0, id: "parent", createdAt: 0 } } } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: (id: string) => (id === "parent" ? emptyParent : undefined) as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("must not be called"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("fork0", { mode: "fork", sessionId: "parent" }));
+    assert.equal(fire.outcome, "failed");
+    if (fire.outcome === "failed") assert.ok(fire.error.includes("no completed turn"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("fork from a cold parent reads the persisted log for the seed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  const persistedEvents = [
+    { type: "user/message", seq: 0 },
+    { type: "turn/start", seq: 1 },
+    { type: "turn/end", seq: 2, data: { reason: { kind: "completed" } } }
+  ];
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: childAgent, dispose: async () => undefined };
+    }
+  };
+  const driver = new WakeDriver({
+    agents,
+    sessionPersistence: {
+      inspect: async () => ({ events: persistedEvents as never, meta: { version: 0, id: "parent" as never, createdAt: 0, cwd: "/persisted", agentPreset: "general" } } as never)
+    },
+    modelSelection: () => undefined,
+    store,
+    config: cfg,
+    log: () => undefined
+  });
+  try {
+    const fire = await driver.fire(alarm("forkcold", { mode: "fork", sessionId: "parent" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.seed?.length, 3);
+    assert.equal(captured.meta?.seedLength, 3);
+    assert.equal(captured.meta?.cwd, "/persisted");
+    assert.equal(captured.meta?.agentPreset, "general"); // cold parent's preset survives into the child
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("new target creates an empty child session and wakes it there", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: childAgent, dispose: async () => undefined };
+    }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("new1", { mode: "new" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.seed, undefined);
+    assert.equal(captured.meta, undefined);
+    assert.ok(captured.sessionId.startsWith("session-"));
+    if (fire.outcome === "ok") assert.equal(fire.sessionId, captured.sessionId);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("new target without a workspace inherits the owner session's cwd", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: childAgent, dispose: async () => undefined };
+    }
+  };
+  const driver = new WakeDriver({
+    agents,
+    sessionPersistence: {
+      inspect: async () => ({ events: [] as never, meta: { version: 0, id: "s1" as never, createdAt: 0, cwd: "/root/agents/luna", agentPreset: "standard" } } as never)
+    },
+    modelSelection: () => undefined,
+    store,
+    config: cfg,
+    log: () => undefined
+  });
+  try {
+    const fire = await driver.fire(alarm("newcwd", { mode: "new" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.seed, undefined);
+    assert.equal(captured.meta?.cwd, "/root/agents/luna");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("new target stays workspace-less when the owner session has no readable cwd", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: childAgent, dispose: async () => undefined };
+    }
+  };
+  const driver = new WakeDriver({
+    agents,
+    // Cold owner whose persisted header carries no cwd; inspect throwing is
+    // the same shape (parentLog folds it to undefined).
+    sessionPersistence: {
+      inspect: async () => ({ events: [] as never, meta: { version: 0, id: "s1" as never, createdAt: 0, agentPreset: "standard" } } as never)
+    },
+    modelSelection: () => undefined,
+    store,
+    config: cfg,
+    log: () => undefined
+  });
+  try {
+    const fire = await driver.fire(alarm("newnocwd", { mode: "new" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.meta?.cwd, undefined);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cold resume passes the host default as AgentOptions and installs the host's model selection", async () => {
+  // DSH 0.2.2: the Agent owns its model choice (agent.model: a recorded selection, then the session's last request,
+  // then the live AgentOptions). The wake passes agentDefaultModel as AgentOptions and installs the same model-selection
+  // setup as the web host; the session's own committed request header then wins inside the Agent.
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  let capturedOptions: { agentOptions?: unknown; setup?: unknown } = {};
+  const header: EpochHeader = { config: { provider: "cpa", model: "gemini-3-flash" } };
+  const wakeAgent = makeWakeAgent(header);
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async (options) => {
+      capturedOptions = options;
+      const handle: AgentHandleLike = { agent: wakeAgent, dispose: async () => undefined };
+      return handle;
+    },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({
+    agents,
+    modelSelection: () => ({ provider: "cpa", model: "medium" }),
+    store,
+    config: cfg,
+    log: () => undefined
+  });
+  try {
+    const fire = await driver.fire(alarm("c1"));
+    assert.equal(fire.outcome, "ok");
+    assert.deepEqual(capturedOptions.agentOptions, { provider: "cpa", model: "medium" });
+    assert.equal(typeof capturedOptions.setup, "function", "cold resume must carry a setup hook");
+
+    // the real setup against a real cordis Context: installModelSelection registers its scoped listener
+    const agentCtx = new Context();
+    Object.defineProperty(agentCtx, "agent", { value: wakeAgent, configurable: true });
+    const applied = (capturedOptions.setup as (ctx: Context, agent: Agent) => unknown)(agentCtx, wakeAgent);
+    if (applied && typeof (applied as { then?: unknown }).then === "function") await applied;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cold resume mounts the session's preset, newest selection winning", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  let capturedOptions: { setup?: unknown } = {};
+  const header: EpochHeader = { config: { provider: "cpa", model: "gemini-3-flash" } };
+  // header names "general"; a later agent-preset/selected event switched to "dev"
+  const wakeAgent = {
+    session: {
+      id: "s1",
+      events: [
+        { type: "agent-preset/selected", seq: 0, data: { agentPreset: "general" } },
+        { type: "agent-preset/selected", seq: 1, data: { agentPreset: "dev" } }
+      ],
+      header: { version: 0, id: "s1", createdAt: 0, agentPreset: "general" },
+      requestHeader: () => header
+    },
+    followup: () => undefined,
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const mounted: Array<{ ctx: unknown; id: string | undefined }> = [];
+  const agentPresets: AgentPresetsPort = {
+    defaultId: "standard",
+    mount: async (ctx, id) => { mounted.push({ ctx, id }); }
+  };
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async (options) => {
+      capturedOptions = options;
+      return { agent: wakeAgent, dispose: async () => undefined };
+    },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, agentPresets, modelSelection: () => ({ provider: "cpa", model: "medium" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("coldp"));
+    assert.equal(fire.outcome, "ok");
+    assert.equal(typeof capturedOptions.setup, "function", "cold resume must carry a setup hook");
+
+    // execute the real setup: the roster mount must receive the agent's scope
+    // context and the LAST recorded selection, not the creation header
+    const agentCtx = new Context();
+    Object.defineProperty(agentCtx, "agent", { value: wakeAgent, configurable: true });
+    const applied = (capturedOptions.setup as (ctx: Context, agent: Agent) => unknown)(agentCtx, wakeAgent);
+    if (applied && typeof (applied as { then?: unknown }).then === "function") await applied;
+
+    assert.equal(mounted.length, 1);
+    assert.equal(mounted[0].ctx, agentCtx, "mount must receive the agent's scoped context");
+    assert.equal(mounted[0].id, "dev", "the newest agent-preset/selected event must win over the header");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cold resume without a roster composes no preset (rosterless deployments)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  let capturedOptions: { setup?: unknown } = {};
+  const wakeAgent = makeWakeAgent({ config: { provider: "cpa", model: "gemini-3-flash" } });
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async (options) => {
+      capturedOptions = options;
+      return { agent: wakeAgent, dispose: async () => undefined };
+    },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("coldnp"));
+    assert.equal(fire.outcome, "ok");
+    const agentCtx = new Context();
+    Object.defineProperty(agentCtx, "agent", { value: wakeAgent, configurable: true });
+    // No roster -> the setup must settle WITHOUT touching any preset service.
+    // makeWakeAgent's session deliberately has no `header`, so a regression
+    // that drops the rosterless guard rejects right here (reading
+    // `header.agentPreset` off the fake session).
+    await (capturedOptions.setup as (ctx: Context, agent: Agent) => Promise<void>)(agentCtx, wakeAgent);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("new target records the default preset in the child's creation meta", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const childAgent = makeFakeAgent(rec);
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: childAgent, dispose: async () => undefined };
+    }
+  };
+  const agentPresets: AgentPresetsPort = {
+    defaultId: "standard",
+    mount: async () => undefined
+  };
+  const driver = new WakeDriver({ agents, agentPresets, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("newp", { mode: "new" }));
+    assert.equal(fire.outcome, "ok");
+    assert.ok(captured !== undefined);
+    assert.equal(captured.meta?.agentPreset, "standard");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function makeWakeAgent(header: EpochHeader) {
+  const events: Record<string, unknown>[] = [];
+  const agent = {
+    session: { id: "s1", events, requestHeader: () => header },
+    followup: () => {
+      events.push({ type: "turn/start", data: { turn: 1 } });
+      events.push({ type: "tool/call", data: { turn: 1, step: 1, callId: ToolCallId("c1"), name: "proactive_reclaim", arguments: "{}" } });
+      events.push({ type: "turn/end", data: { turn: 1, reason: { kind: "completed" } } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  };
+  return agent as unknown as Agent;
+}
+
+test("silent wake collapses on the model surface after the turn settles", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = true;
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "tool-call", id: ToolCallId("c1"), name: "proactive_reclaim", arguments: JSON.stringify({ reason: "没事" }) }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("tool/call", { turn: 1, step: 1, callId: ToolCallId("c1"), name: "proactive_reclaim", arguments: "{}" });
+      session.append("tool/result", {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({ callId: ToolCallId("c1"), content: [{ type: "text", text: JSON.stringify({ accepted: true, silent: true }) }], isError: false })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("silent1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") assert.equal(fire.analysis.decision, "no_reply");
+    // Compaction landed: the model surface derives ONLY the tombstone from
+    // the whole wake exchange (framing + assistant + tool result erased).
+    const derived = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null);
+    assert.equal(derived.length, 1);
+    const [only] = derived;
+    const block = only.content[0] as { type: string; text: string };
+    assert.equal(block.type, "text");
+    assert.ok(block.text.startsWith("[dsh-proactive silent wake silent1 "), "tombstone expected, got: " + block.text);
+    assert.ok(Buffer.byteLength(block.text) < 90, "tombstone must stay tiny, was " + Buffer.byteLength(block.text));
+    // The raw log keeps the full exchange for the human transcript.
+    assert.ok(session.snapshotEvents().some((event) => event.type === "assistant/message"));
+    assert.ok(session.snapshotEvents().some((event) => event.type === "tool/result"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("silent wake is NOT compacted when silentWakeCompaction is off", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = false; // gate off: the silent exchange stays on the surface
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "tool-call", id: ToolCallId("c1"), name: "proactive_reclaim", arguments: JSON.stringify({ reason: "没事" }) }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("tool/call", { turn: 1, step: 1, callId: ToolCallId("c1"), name: "proactive_reclaim", arguments: "{}" });
+      session.append("tool/result", {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({ callId: ToolCallId("c1"), content: [{ type: "text", text: JSON.stringify({ accepted: true, silent: true }) }], isError: false })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("silentoff1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") assert.equal(fire.analysis.decision, "no_reply");
+    const derived = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null);
+    const texts = derived.map((m) => (m.content[0] as { text?: string }).text ?? "");
+    assert.ok(texts.some((t) => t.startsWith("[dsh-proactive wake silentoff1 ")), "framing must stay on the surface (no compaction)");
+    assert.ok(!texts.some((t) => t.startsWith("[dsh-proactive silent wake ")), "no tombstone may appear when the gate is off");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a host 'no_reply' silence keeps the work in context (NOT compacted, even with the gate on)", async () => {
+  // Compaction is explicit opt-in: only proactive_reclaim reclaims. A
+  // "no_reply" tool silence (e.g. dsh-im's) keeps the exchange on the surface
+  // even with silentWakeCompaction on.
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = true;
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      // The model did work (a tool call) then stayed silent via a host
+      // "no_reply" tool — no visible chat text.
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "tool-call", id: ToolCallId("c1"), name: "no_reply", arguments: "{}" }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("tool/call", { turn: 1, step: 1, callId: ToolCallId("c1"), name: "no_reply", arguments: "{}" });
+      session.append("tool/result", {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({ callId: ToolCallId("c1"), content: [{ type: "text", text: JSON.stringify({ acknowledged: true }) }], isError: false })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("keepwork1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") assert.equal(fire.analysis.decision, "no_reply");
+    // No tombstone: the wake exchange (framing + the model's tool work) stays
+    // on the model surface so later turns can see what was done.
+    const texts = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null)
+      .map((m) => (m.content[0] as { text?: string }).text ?? "");
+    assert.ok(texts.some((t) => t.startsWith("[dsh-proactive wake keepwork1 ")), "framing must stay (no compaction)");
+    assert.ok(!texts.some((t) => t.startsWith("[dsh-proactive silent wake ")), "no tombstone may appear for a no_reply silence");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an implicit silence (no tool, no text) is NOT compacted — reclaim needs an explicit proactive_reclaim", async () => {
+  // The model just ended the turn with no output and no tool call. Even with
+  // silentWakeCompaction on, nothing is erased without the model's explicit
+  // reclaim assertion.
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = true;
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("implicit1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") assert.equal(fire.analysis.decision, "no_reply");
+    const texts = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null)
+      .map((m) => (m.content[0] as { text?: string }).text ?? "");
+    assert.ok(texts.some((t) => t.startsWith("[dsh-proactive wake implicit1 ")), "framing must stay (no compaction)");
+    assert.ok(!texts.some((t) => t.startsWith("[dsh-proactive silent wake ")), "no tombstone may appear for an implicit silence");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("visible-reply wakes are never compacted", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "text", text: "到点了，喝水！" }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("reply1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") {
+      assert.equal(fire.analysis.decision, "reply");
+      assert.equal(fire.analysis.budgetDelta, 1);
+    }
+    const derived = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null);
+    assert.equal(derived.length, 2); // framing + visible reply, untouched
+    const reply = derived[1].content[0] as { type: string; text: string };
+    assert.equal(reply.text, "到点了，喝水！");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("raced user turn cannot make a visible wake reply compactable (P1 regression)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      // Real drain order: wake turn (visible reply), then a user turn that
+      // raced in within the same whenIdle window and ended with no text.
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "text", text: "到点了，该喝水了！" }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+      session.append("turn/start", { turn: 2 });
+      session.append("user/message", createUserMessage({ content: [{ type: "text", text: "用户竞态消息" }], source: { kind: "user" } }), { surfaceOp: "append" });
+      session.append("turn/end", { turn: 2, reason: { kind: "error", error: { code: "X", message: "boom" } } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("raced1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") {
+      assert.equal(fire.analysis.decision, "reply"); // judges the WAKE turn, not the raced one
+      assert.equal(fire.analysis.budgetDelta, 1);
+    }
+    const derived = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null);
+    const texts = derived.map((m) => (m.content[0] as { text?: string }).text ?? "");
+    assert.ok(texts.some((t) => t.includes("到点了，该喝水了！")), "visible reply must stay on the model surface");
+    assert.ok(texts.some((t) => t.startsWith("[dsh-proactive wake ")), "framing must stay (reply turns are never compacted)");
+    assert.ok(!texts.some((t) => t.startsWith("[dsh-proactive silent wake ")), "no tombstone may appear for a reply turn");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("raced user turn with text does not block compaction of a SILENT wake", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  cfg.silentWakeCompaction = true;
+  const store = new ProactiveStore(dir);
+  const session = Session.create("s1" as never);
+  const agent = {
+    session,
+    followup: (message: unknown) => {
+      // Silent wake turn, then a raced user turn that carried text within
+      // the same whenIdle window. The decision must judge the wake turn
+      // (no_reply) and the wake exchange must still collapse; the raced
+      // user turn's text stays on the surface untouched.
+      session.append("turn/start", { turn: 1 });
+      session.append("user/message", message as never, { surfaceOp: "append" });
+      session.append("assistant/message", {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({
+          content: [{ type: "tool-call", id: ToolCallId("c1"), name: "proactive_reclaim", arguments: JSON.stringify({ reason: "没事" }) }],
+          source: { provider: "cpa", model: "gemini-3-flash" }
+        })
+      }, { surfaceOp: "append" });
+      session.append("tool/call", { turn: 1, step: 1, callId: ToolCallId("c1"), name: "proactive_reclaim", arguments: "{}" });
+      session.append("tool/result", {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({ callId: ToolCallId("c1"), content: [{ type: "text", text: JSON.stringify({ accepted: true, silent: true }) }], isError: false })
+      }, { surfaceOp: "append" });
+      session.append("turn/end", { turn: 1, reason: { kind: "completed" } });
+      session.append("turn/start", { turn: 2 });
+      session.append("user/message", createUserMessage({ content: [{ type: "text", text: "竞态用户回合的内容" }], source: { kind: "user" } }), { surfaceOp: "append" });
+      session.append("turn/end", { turn: 2, reason: { kind: "completed" } });
+    },
+    runMaintenance: async (task: () => Promise<unknown>) => { await task(); return true; },
+    whenIdle: async () => undefined
+  } as unknown as Agent;
+  const agents: AgentsFacade = {
+    get: () => agent,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("unused"); }
+  };
+  const driver = new WakeDriver({ agents, modelSelection: () => ({ provider: "cpa", model: "x" }), store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("silentraced1"));
+    assert.equal(fire.outcome, "ok");
+    if (fire.outcome === "ok") assert.equal(fire.analysis.decision, "no_reply");
+    const texts = session.surface.nodes
+      .map((seq) => deriveEventMessage(session.snapshotEvents()[seq] as never))
+      .filter((message) => message !== null)
+      .map((m) => (m.content[0] as { text?: string }).text ?? "");
+    assert.ok(texts.some((t) => t.startsWith("[dsh-proactive silent wake silentraced1 ")), "silent wake still collapsed to a tombstone");
+    assert.ok(texts.some((t) => t.includes("竞态用户回合的内容")), "raced user turn text stays on the surface");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function extractText(message: unknown): string {
+  const msg = message as { content?: { type?: string; text?: string }[] };
+  return (msg.content ?? []).map((b) => b.text ?? "").join("");
+}
+
+/* --------------------------------------------- workspace target wakes ---- */
+
+test("workspace alarm without a port fails loudly (headless host)", async () => {
+  const h = await harness();
+  try {
+    const fire = await h.driver.fire(alarm("ws1", { mode: "workspace", workspaceId: "ws-a" }));
+    assert.equal(fire.outcome, "failed");
+    if (fire.outcome === "failed") assert.ok(fire.error.includes("unavailable on this host"));
+    assert.equal(h.rec.messages.length, 0); // nothing delivered
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("workspace alarm with a failing port surfaces the closed error", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const port: WorkspaceWakePort = {
+    resolveTarget: async () => ({ error: "workspace ws-a no longer exists (deleted in the GUI?); cancel or edit this alarm" }),
+    attach: async () => { throw new Error("must not be called"); },
+    cwdOf: async () => { throw new Error("must not be called"); }
+  };
+  const agents: AgentsFacade = { get: () => undefined, resume: async () => { throw new Error("unused"); }, create: async () => { throw new Error("unused"); } };
+  const driver = new WakeDriver({ agents, workspaces: port, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("ws2", { mode: "workspace", workspaceId: "ws-a" }));
+    assert.equal(fire.outcome, "failed");
+    if (fire.outcome === "failed") assert.ok(fire.error.includes("no longer exists"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("workspace alarm lands in the resolved session via the resume path", async () => {
+  const h = await harness();
+  const attached: string[] = [];
+  const port: WorkspaceWakePort = {
+    resolveTarget: async () => ({ kind: "session", sessionId: "s1" }),
+    attach: async (_workspaceId, sessionId) => { attached.push(sessionId); },
+    cwdOf: async () => { throw new Error("must not be called"); }
+  };
+  const driver = new WakeDriver({
+    agents: {
+      get: () => undefined as never,
+      resume: async () => {
+        h.rec.resumed = true;
+        return { agent: makeFakeAgent(h.rec), dispose: async () => { h.rec.disposed = true; } };
+      },
+      create: async () => { throw new Error("unused"); }
+    },
+    workspaces: port,
+    modelSelection: () => ({ provider: "test", model: "x" }),
+    store: h.store,
+    config: h.cfg,
+    log: () => undefined
+  });
+  try {
+    const fire = await driver.fire(alarm("ws3", { mode: "workspace", workspaceId: "ws-a" }));
+    assert.equal(fire.outcome, "ok");
+    assert.equal(h.rec.resumed, true);
+    assert.equal(h.rec.messages.length, 1);
+    if (fire.outcome === "ok") assert.equal(fire.sessionId, "s1");
+    assert.deepEqual(attached, []); // session arm never attaches
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("workspace alarm with nothing eligible SKIPS the fire (no create, no delivery)", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const port: WorkspaceWakePort = {
+    // Nothing eligible: only archived/subagent/plugin-created sessions, or an
+    // empty workspace. The old arm created a session here — that minted a
+    // fresh top-ranked candidate every fire and the next wake landed inside
+    // the plugin's own echo.
+    resolveTarget: async () => ({ kind: "none" }),
+    attach: async () => { throw new Error("must not be called"); },
+    cwdOf: async () => { throw new Error("must not be called"); }
+  };
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async () => { throw new Error("must not be called"); }
+  };
+  const driver = new WakeDriver({ agents, workspaces: port, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("ws4", { mode: "workspace", workspaceId: "ws-a" }));
+    assert.equal(fire.outcome, "skipped");
+    if (fire.outcome === "skipped") {
+      assert.ok(fire.skipReason.includes("no eligible session"), "the reason must explain the skip");
+      assert.ok(fire.skipReason.includes("target_mode new"), "the reason must point at target_mode new");
+    }
+    assert.equal(rec.messages.length, 0); // nothing delivered, nothing created
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("new mode with a workspace: failing attach never delivers the wake, the session stays bookkept", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "dsh-proactive-wake-"));
+  const cfg = resolveConfig(dir);
+  const store = new ProactiveStore(dir);
+  const rec: FakeRecording = { messages: [], disposed: false, resumed: false, activeDuringFollowup: null };
+  const port: WorkspaceWakePort = {
+    resolveTarget: async () => { throw new Error("unused in new mode"); },
+    attach: async () => { throw new Error("attach failed: registry rejected"); },
+    cwdOf: async () => "/repos/alpha"
+  };
+  let captured: CreateFacadeOptions | undefined;
+  const agents: AgentsFacade = {
+    get: () => undefined as never,
+    resume: async () => { throw new Error("unused"); },
+    create: async (options) => {
+      captured = options;
+      return { agent: makeFakeAgent(rec), dispose: async () => undefined };
+    }
+  };
+  const driver = new WakeDriver({ agents, workspaces: port, modelSelection: () => undefined, store, config: cfg, log: () => undefined });
+  try {
+    const fire = await driver.fire(alarm("ws5", { mode: "new", workspaceId: "ws-a" }));
+    assert.equal(fire.outcome, "failed");
+    if (fire.outcome === "failed") assert.ok(fire.error.includes("attach failed"));
+    assert.equal(rec.messages.length, 0); // no wake delivered into the ungrouped session
+    // Bookkeeping happens BEFORE attach: the orphaned session must still be
+    // excluded from later "most recently active" resolutions.
+    assert.ok(captured !== undefined);
+    assert.equal(captured.meta?.cwd, "/repos/alpha");
+    assert.equal(store.createdSessionKind(captured.sessionId), "new");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("min_idle_seconds defers a live destination that was active too recently", async () => {
+  const now = Date.now();
+  const h = await harness({
+    live: true,
+    events: [{ type: "turn/end", seq: 3, time: new Date(now - 60_000).toISOString(), data: {} }]
+  });
+  try {
+    const fire = await h.driver.fire(alarm("idle1", { mode: "resume", sessionId: "s1" }, { minIdleSeconds: 600 }));
+    assert.equal(fire.outcome, "defer");
+    if (fire.outcome === "defer") {
+      // idle gate = last event (now-60s) + 600s, floored at now + 60s
+      const expected = now - 60_000 + 600_000;
+      assert.ok(Math.abs(fire.deferUntilMs - expected) < 5000, "deferUntilMs " + fire.deferUntilMs + " ~ " + expected);
+    }
+    assert.equal(h.rec.messages.length, 0, "nothing delivered while the gate holds");
+    assert.equal(h.rec.resumed, false, "no resume either — the gate precedes acquisition");
+  } finally {
+    rmSync(h.dir, { recursive: true, force: true });
+  }
+});
+
+test("min_idle_seconds lets a quiet-enough live destination and a cold session through", async () => {
+  const now = Date.now();
+  const quiet = await harness({
+    live: true,
+    events: [{ type: "turn/end", seq: 3, time: new Date(now - 3_600_000).toISOString(), data: {} }]
+  });
+  try {
+    const fire = await quiet.driver.fire(alarm("idle2", { mode: "resume", sessionId: "s1" }, { minIdleSeconds: 600 }));
+    assert.equal(fire.outcome, "ok");
+    assert.equal(quiet.rec.messages.length, 1);
+  } finally {
+    rmSync(quiet.dir, { recursive: true, force: true });
+  }
+  // A cold session is idle by definition: the gate never blocks it.
+  const cold = await harness({});
+  try {
+    const fire = await cold.driver.fire(alarm("idle3", { mode: "resume", sessionId: "s1" }, { minIdleSeconds: 600 }));
+    assert.equal(fire.outcome, "ok");
+    assert.equal(cold.rec.resumed, true);
+  } finally {
+    rmSync(cold.dir, { recursive: true, force: true });
+  }
+});

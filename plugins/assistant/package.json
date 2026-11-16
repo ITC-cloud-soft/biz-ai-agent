@@ -1,0 +1,57 @@
+{
+  "name": "@dsh-bridge/plugin-assistant",
+  "version": "0.1.1",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge plugin bridge-assistant: business-web side panel AI assistant RPC (ticket to delegation, per application x employee x agent sessions, loopback-only)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/plugins/assistant#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "plugins/assistant"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

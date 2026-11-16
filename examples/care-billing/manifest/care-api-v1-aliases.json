@@ -1,0 +1,691 @@
+[
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/health",
+    "operationId": "getHealth",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/manifest",
+    "operationId": "getManifest",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/bridge/v1/manifest",
+        "status": "exact",
+        "note": "Served by care-api from services/care-api/bridge/care-billing.manifest.yaml (validated at start-up and in CI)."
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/identity",
+    "operationId": "lookupIdentity",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/identity",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/identities/link",
+    "operationId": "linkIdentity",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/sns-identities/link",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/identities/stats",
+    "operationId": "identityStats",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/identity/stats",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/me/link-codes",
+    "operationId": "createLinkCode",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/sns-identities/link-codes",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/me/identities",
+    "operationId": "listMyIdentities",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/sns-identities",
+        "status": "shape",
+        "note": "The /api route returns snake_case fields (user_id, team_id, external_id, verified_at, created_at); /bridge/v1 answers camelCase (response adapter in routes/bridge.mjs)."
+      }
+    ]
+  },
+  {
+    "method": "DELETE",
+    "v1": "/bridge/v1/me/identities/{identityId}",
+    "operationId": "deleteMyIdentity",
+    "aliases": [
+      {
+        "method": "DELETE",
+        "path": "/api/sns-identities/{identityId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/me/identities/{identityId}/bot",
+    "operationId": "getMyIdentityBot",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/sns-identities/{identityId}/bot",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/me/personal-bots",
+    "operationId": "listMyPersonalBots",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/me/im-bots",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/me/personal-bots",
+    "operationId": "registerMyPersonalBot",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/me/im-bots",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/me/notification-preferences",
+    "operationId": "getMyNotificationPreferences",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/me/notification-preferences",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/me/notification-preferences",
+    "operationId": "updateMyNotificationPreferences",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/me/notification-preferences",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/delegations",
+    "operationId": "issueDelegation",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/delegations",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/events",
+    "operationId": "listEvents",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/events",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/notifications/for-event/{eventId}",
+    "operationId": "resolveNotificationRecipients",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/notifications/for-event/{eventId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/notifications/deliveries",
+    "operationId": "recordNotificationDelivery",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/notifications/deliveries",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/approvals/{approvalId}/deliveries",
+    "operationId": "createApprovalDeliveries",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/approvals/{approvalId}/deliveries",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/approvals/{approvalId}/deliveries/{deliveryId}/sent",
+    "operationId": "markApprovalDeliverySent",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/approvals/{approvalId}/deliveries/{deliveryId}/sent",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/approvals/{approvalId}/im-decision",
+    "operationId": "imDecision",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/approvals/{approvalId}/im-decision",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/approvals/im-decisions",
+    "operationId": "imDecisionByReplyCode",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/im-decisions",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/assistant/tickets",
+    "operationId": "issueAssistantTicket",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/assistant/tickets",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/assistant/delegations",
+    "operationId": "exchangeAssistantTicket",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/assistant/delegations",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/assistant/attachments/prepare",
+    "operationId": "prepareAssistantAttachments",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/assistant/attachments/prepare",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/assistant/attachment-settings",
+    "operationId": "getAssistantAttachmentSettings",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/assistant/attachment-settings",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/admin/assistant/attachment-settings",
+    "operationId": "getAdminAssistantAttachmentSettings",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/admin/assistant/attachment-settings",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/assistant/attachment-settings",
+    "operationId": "putAdminAssistantAttachmentSettings",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/admin/assistant/attachment-settings",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/reports/latest",
+    "operationId": "getLatestReport",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/business-reports/latest",
+        "for": [
+          "user"
+        ],
+        "status": "exact"
+      },
+      {
+        "method": "GET",
+        "path": "/api/ai/business-report",
+        "for": [
+          "delegated"
+        ],
+        "query": {
+          "mode": "latest"
+        },
+        "status": "shape",
+        "note": "Delegated read has its own path and adds source / scope / schedule."
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/reports/run",
+    "operationId": "runReport",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/settings/business-report/test",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/proposals",
+    "operationId": "listProposals",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/proposals",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/proposals",
+    "operationId": "createProposal",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/proposals",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/proposals/{proposalId}/accept",
+    "operationId": "acceptProposal",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/proposals/{proposalId}/accept",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/proposals/{proposalId}/reject",
+    "operationId": "rejectProposal",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/proposals/{proposalId}/reject",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/pii-scan",
+    "operationId": "piiScan",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/pii-scan",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/help/search",
+    "operationId": "searchHelp",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/help/search",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/help/public",
+    "operationId": "searchPublicHelp",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/help/public",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/help/sections/{sectionId}",
+    "operationId": "getHelpSection",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/help/sections/{sectionId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/ai-profile",
+    "operationId": "getAiProfile",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/ai-profile",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/admin/ai-profile",
+    "operationId": "getAdminAiProfile",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai-profile",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/ai-profile",
+    "operationId": "putAdminAiProfile",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/ai-profile",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/admin/ai-profile/versions/{version}/restore",
+    "operationId": "restoreAiProfileVersion",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai-profile/versions/{version}/restore",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/connectors/catalog",
+    "operationId": "getConnectorCatalog",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/connectors/catalog",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/connectors/{connectorId}/operations/{operationId}/run",
+    "operationId": "runConnectorOperation",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/connectors/{connectorId}/operations/{operationId}/run",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/admin/connectors",
+    "operationId": "listAdminConnectors",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/admin/connectors",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/connectors/{connectorId}",
+    "operationId": "putAdminConnector",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/admin/connectors/{connectorId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "DELETE",
+    "v1": "/bridge/v1/admin/connectors/{connectorId}",
+    "operationId": "deleteAdminConnector",
+    "aliases": [
+      {
+        "method": "DELETE",
+        "path": "/api/admin/connectors/{connectorId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/connectors/{connectorId}/secret",
+    "operationId": "putAdminConnectorSecret",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/admin/connectors/{connectorId}/secret",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "DELETE",
+    "v1": "/bridge/v1/admin/connectors/{connectorId}/secret",
+    "operationId": "deleteAdminConnectorSecret",
+    "aliases": [
+      {
+        "method": "DELETE",
+        "path": "/api/admin/connectors/{connectorId}/secret",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/admin/connectors/{connectorId}/test",
+    "operationId": "testAdminConnector",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/admin/connectors/{connectorId}/test",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/admin/connector-rules",
+    "operationId": "listAdminConnectorRules",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/admin/connector-rules",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/connector-rules/{ruleId}",
+    "operationId": "putAdminConnectorRule",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/admin/connector-rules/{ruleId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "DELETE",
+    "v1": "/bridge/v1/admin/connector-rules/{ruleId}",
+    "operationId": "deleteAdminConnectorRule",
+    "aliases": [
+      {
+        "method": "DELETE",
+        "path": "/api/admin/connector-rules/{ruleId}",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/admin/connector-runs",
+    "operationId": "listAdminConnectorRuns",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/admin/connector-runs",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "PUT",
+    "v1": "/bridge/v1/admin/connector-settings",
+    "operationId": "putAdminConnectorSettings",
+    "aliases": [
+      {
+        "method": "PUT",
+        "path": "/api/admin/connector-settings",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "GET",
+    "v1": "/bridge/v1/document-reads",
+    "operationId": "claimDocumentReads",
+    "aliases": [
+      {
+        "method": "GET",
+        "path": "/api/ai/document-reads",
+        "status": "exact"
+      }
+    ]
+  },
+  {
+    "method": "POST",
+    "v1": "/bridge/v1/document-reads/{readId}/result",
+    "operationId": "answerDocumentRead",
+    "aliases": [
+      {
+        "method": "POST",
+        "path": "/api/ai/document-reads/{readId}/result",
+        "status": "exact"
+      }
+    ]
+  }
+]

@@ -1,0 +1,304 @@
+# Biz Assistant Framework (@dsh-bridge/*) — product profile template: the patch layer (applied after the bundle layer).
+#
+# Copy profile/template/ into your product (or install it as is for a trial) and replace every <placeholder>.
+# Policy (docs/GUIDELINE.md):
+#   - bundles are only the allow-list in package.json (DSH itself, the dsh-im / proactive / auto-tasks forks, @dsh-bridge/*).
+#     No community plugins (skins, pets, DSH's community memory, browser bridge, migration ...). Long-term memory is the
+#     framework's own @dsh-bridge/plugin-memory (bridge-memory, below), the AI employee's profile @dsh-bridge/plugin-persona.
+#   - AI employee presets carry no bash / pwsh / fs / browser / web fetch / subagent / skill tools: business tools only.
+#   - DSH's bundled coding presets are disabled; plugin management and the marketplace are closed in the settings UI.
+#   - No real model keys or service tokens here: $DSH_HOME/.credentials.yaml or environment variables, read with !!js.
+#   - Closed by default (docs/ARCHITECTURE.md §7.2 / §7.4, docs/GUIDELINE.md d.8): each account receives over IM only what the
+#     business system decided for it. The values below are the product values; the plugin / fork defaults are the upstream
+#     (open) ones, so keep these lines. A system that wants an open setting opts in by changing the line explicitly:
+#       dsh-im forwardPluginSources []            (opt in: [dsh-proactive] = copy proactive wake answers into the conversation)
+#       dsh-proactive modelTools reclaim          (opt in: all / own = the model may set alarms with any deliver_to)
+#       dsh-proactive deliveryGuard required      (opt in: optional = send without the bridge-notify guard)
+#       dsh-auto-tasks restrictDelivery true      (opt in: false = fixed delivery targets, test sends, reports from any conversation)
+#       dsh-auto-tasks mail false                 (opt in: true = auto_task_mail to any address, IMAP polling, mail digests)
+#       bridge-identity / bridge-tools groupChat deny  (opt in: allow = the AI answers in group conversations)
+#       bridge-notify audienceFallback none       (opt in: channels = an unresolved automatic-task report goes to the fixed targets)
+#       bridge-notify audienceText template       (opt in: summary = the AI's free text reaches the recipients)
+#       bridge-notify proactiveDelivery deny      (opt in: allow = business alarms other than the AI report may push to IM)
+#       bridge-notify aiReportGuard screen        (template = always the fixed text; off = opt out of the screening)
+#     install.mjs refuses --auto-task-session / --auto-task-bot / --auto-task-target (fixed delivery targets).
+#
+# Environment (set by the BFF that supervises DSH, see @dsh-bridge/gateway README):
+#   BRIDGE_DSH_WORKSPACE    workspace of IM / assistant conversations (default: DSH's cwd)
+#   BRIDGE_WEB_PUBLIC_URL   public URL of the business web (links in notifications and approval cards)
+#   <APP>_API_URL / <APP>_SERVICE_TOKEN   per application, named in the bridge-apps registry below
+
+# ── Display language ──────────────────────────────────────────────────────────
+# DSH ships zh / en. A Japanese UI needs a language pack bundle (not part of the framework); with one, set:
+# - id: locale
+#   name: '@deepseek-ai/dsh-client-locale'
+#   config:
+#     preference: ja
+
+# Mark the first-run "Preview Notice" as read (the settings UI is embedded in the business web).
+# Value = WELCOME_NOTICE_VERSION of dsh-client-ui-settings-models for the pinned DSH CLI.
+- id: ui-settings-general
+  name: '@deepseek-ai/dsh-client-ui-settings-general'
+  config:
+    welcomeNoticeVersion: 2026-09-28.1
+
+# ── Close plugin management and the marketplace ───────────────────────────────
+- id: ui-plugin-manager
+  disabled: true
+- id: tool-plugin-manager
+  disabled: true
+
+# ── Close host operations (shell, open-in-app) ───────────────────────────────
+- id: ui-sidebar-terminal
+  disabled: true
+- id: terminal-controller
+  disabled: true
+- id: ui-open-in-app
+  disabled: true
+- id: open-in-app
+  disabled: true
+
+# ── Disable the bundled coding presets ───────────────────────────────────────
+- id: preset-standard
+  disabled: true
+- id: preset-ptc
+  disabled: true
+- id: preset-minimal
+  disabled: true
+- id: preset-cordis
+  disabled: true
+
+- id: agent-preset-registry
+  name: '@deepseek-ai/dsh-agent-preset-registry'
+  config:
+    default: business-assistant
+
+# ── dsh-im (fork: vendor/dsh-im, package @care/dsh-im) ───────────────────────
+# The id stays the upstream one (xmanrui-dsh-im) so that the settings UI and its storage keep working.
+# Access is denied by default; bridge-identity sets the resolver and lets linked employees through.
+- id: xmanrui-dsh-im
+  name: '@care/dsh-im'
+  config:
+    workspace: !!js process.env.BRIDGE_DSH_WORKSPACE || process.cwd()
+    # do not copy the answer of a dsh-proactive wake turn into the IM conversation: the AI report reaches IM only through
+    # dsh-proactive's deliver_to (the employee's own 1:1, text screened by bridge-notify). Opt in: [dsh-proactive]
+    forwardPluginSources: []
+    # WeCom self-built app (wecom-app) callbacks arrive on dsh-im's own listener (30987); the BFF forwards
+    # /wecom-app-callback/* to it (DSH_PUBLIC_HOOK_PATHS). callbackBaseUrl = the public URL of the business web.
+    wecomApp:
+      callbackListenHost: !!js process.env.DSH_WECOM_APP_LISTEN_HOST || process.env.DSH_BIND_HOST || '127.0.0.1'
+      callbackBaseUrl: !!js process.env.BRIDGE_WEB_PUBLIC_URL || ''
+
+# ── dsh-proactive / dsh-auto-tasks (forks: vendor/dsh-proactive, vendor/dsh-auto-tasks) ─────────────────────
+# dsh-proactive: the model sees proactive_reclaim only (no deliver_to to any target, no changing other conversations' alarms; the AI
+# report alarm is created by bridge-notify). A business wake pushes to IM only through the bridge-notify guard (none = not sent).
+- id: dsh-proactive
+  name: '@care/dsh-proactive'
+  config:
+    modelTools: reclaim
+    deliveryGuard: required
+# dsh-auto-tasks: a report goes only to the recipients the business system resolved (bridge-notify audience); never to a fixed
+# botId + targetId, no test sends, auto_task_report / auto_task_silent only from the task's own conversation. No mail at all.
+- id: dsh-auto-tasks
+  name: '@care/dsh-auto-tasks'
+  config:
+    restrictDelivery: true
+    mail: false
+
+# ── Business application registry (@dsh-bridge/dsh-core plugin bridge-apps → ctx.bridgeApps) ──────────
+# Which business applications this DSH hosts, their bots (dsh-im bot ids), API and manifest. Bot → application is decided
+# here only. URL and service token are read per call from the environment variables named here (never write a token here).
+# A single application without `bots` is the default and receives every bot. With several applications list every bot
+# (or strict: true). See packages/dsh-core/README.md.
+- id: bridge-apps
+  name: '@dsh-bridge/dsh-core'
+  config:
+    strict: false
+    manifestRefreshSeconds: 600
+    aiProfileRefreshSeconds: 60          # the AI employee profile of each application (paths.aiProfile; etag / 304)
+    applications:
+      - id: <application-id>                 # = manifest system.id, e.g. equipment-inspection
+        name: <アプリ名>                      # shown in 【アプリ名】 and the signature "— <アプリ名> AI 秘書" ("— <呼び名>（<アプリ名> AI 秘書）" with a profile)
+        namespace: <namespace>               # tool names <namespace>_* (default: id with - → _). equipment-inspection: facility
+        default: true
+        paths: v1
+        apiUrlEnv: <APP>_API_URL             # e.g. INSPECTION_API_URL
+        serviceTokenEnv: <APP>_SERVICE_TOKEN # e.g. INSPECTION_SERVICE_TOKEN
+        manifestUrl: /bridge/v1/manifest
+        # manifestFile: <path or pkg:<package>/<file>>   bundled fallback (validated in CI)
+        generateTools: true                  # read tools generated from the manifest
+        bots: []                             # [{ platform: wecom-app, botId: <dsh-im bot id> }, { platform: weixin, botId: <id>, multiApp: true }]
+        # aliases: [<短い名前>]               # 「#<名前>」 on a shared personal WeChat bot
+        # delegation:                        # automatic tasks of this application (no IM sender)
+        #   unattendedPolicy: delegate
+        #   unattendedOnBehalfOf: { platform: <platform>, userId: <IM user id of the employee> }
+    # compat: [care-billing-paths]           # only for a system still on ケアビリング's pre-v1 routes
+
+# ── Bridge plugins (@dsh-bridge/plugin-*; each bundle inserts its own entry, configured here) ───────────
+# Link codes and the access check (unlinked: denied with a guide). A group conversation (not 1:1) never runs the AI and never asks
+# the business system: only the fixed guide (@dsh-bridge/dsh-core GROUP_CHAT_GUIDE). Opt in per application: registry
+# applications[].groupChat: allow.
+- id: bridge-identity
+  name: '@dsh-bridge/plugin-identity'
+  config:
+    groupChat: deny
+    messages:
+      groupChat: '業務の内容は個別チャットでお尋ねください。'
+    # Link guard (the AI's answers may only link the business web's screens of the manifest web.routes). Write the URL for EVERY
+    # application: an application without one gets no link check (fail open; bridge-identity warns once, at its first AI answer).
+    # linkGuard:
+    #   webUrl: <business web URL of the default application>          # e.g. https://app.example.com
+    #   webUrls: { <second-application-id>: <its business web URL> }
+
+- id: bridge-approvals
+  name: '@dsh-bridge/plugin-approvals'
+  config:
+    # every platform dsh-im supports (the ones with a bot, top 10, go to the business API). email is notify-only.
+    platformPriority: [slack, line, teams, weixin, telegram, wecom-app, wecom, dingtalk, feishu, qq, discord, matrix, whatsapp, imessage]
+    webUrl: !!js (process.env.BRIDGE_WEB_PUBLIC_URL || 'http://127.0.0.1:3010') + '/approvals?id={id}'   # <the approval screen of your web>
+
+# Which events are notified: the manifest's events.<type>.notify (recommended; equipment-inspection declares
+# inspection.overdue) plus notifyTypes. Nothing is notified for an event that neither lists. When the manifest does not
+# declare notify (e.g. a system still on its own routes), list the types here:
+#     notifyTypes: [report.overdue]          # notify these event types (in addition to the manifest)
+#     digestTypes: [report.submitted]        # realtime digest: same person + type within 15 s (at most 2 min) → one message
+#     digestWindows: { report.overdue: 60 }  # fixed digest window per type in minutes (0 = never merge); overrides the manifest
+- id: bridge-notify
+  name: '@dsh-bridge/plugin-notify'
+  config:
+    platformPriority: [slack, line, teams, weixin, telegram, wecom-app, wecom, dingtalk, feishu, qq, discord, matrix, whatsapp, imessage]
+    webUrl: !!js process.env.BRIDGE_WEB_PUBLIC_URL || 'http://127.0.0.1:3010'
+    digestMinutes: 30   # UPPER BOUND (minutes) of the fixed digest windows (manifest notify.digestMinutes / digestWindows); 0 = never merge
+    aiReport: true      # 「定時報告 オン / オフ / テスト」 in a direct chat: scheduled business report from the manifest reports
+    # the AI report text is screened (amounts, honorific names, contacts, URLs outside the web, long text, health words → the
+    # fixed text); business alarms other than the AI report never push to IM
+    aiReportGuard: screen
+    proactiveDelivery: deny
+    # automatic-task reports (every application; applications.<id> overrides): no recipient resolved → nothing is sent (never the
+    # fixed targets of auto-tasks); the text is the fixed 【対応のお願い】/【ご報告】 + task name + link, never the AI's free text
+    audienceFallback: none
+    audienceText: template
+
+# The business web's assistant panel: the BFF calls POST /api/bridge-assistant/assistant (method bridge-assistant/assistant)
+# through @dsh-bridge/gateway, allow-list { plugin: 'bridge-assistant', channel: '/assistant', methods: [...] }.
+- id: bridge-assistant
+  name: '@dsh-bridge/plugin-assistant'
+  config:
+    workspace: !!js process.env.BRIDGE_DSH_WORKSPACE || process.cwd()
+    rpcAuthority: loopback
+    agents:
+      - id: business-assistant
+        preset: business-assistant
+        name: AI アシスタント
+        description: 業務の質問に、あなたの権限の範囲で答えます。確定・承認はしません。
+
+# bridge-tools: read tools are generated from the manifest; hand-written tools (mainly propose tools) are loaded as tool
+# modules (equipment-inspection: facility_propose_reschedule, POST /bridge/v1/proposals kind inspection_reschedule — uncomment
+# toolModules). In a group conversation no business tool runs (bridge-identity stops the AI there too: two guards).
+# Automatic tasks (auto-tasks/, and the manifest playbooks that bridge-events deploys as pb_<application-id>_<playbook>) have
+# no IM sender, so bridge-tools refuses them by default (unattendedPolicy: deny). The value is per deployment (one linked
+# employee), so it is not part of the product default:
+#   node profile/scripts/install.mjs --enable-auto-tasks [<ids>] --auto-task-delegate <platform>:<userId>
+# writes the delegation into the INSTALLED patch (into this bridge-tools entry) and keeps it on reinstall (auto-tasks/README.md):
+#     unattendedPolicy: delegate
+#     unattendedOnBehalfOf: { platform: <platform>, userId: <IM user id of that employee> }
+# These top-level values apply to the DEFAULT application only. Every other application writes its own:
+#     applications:
+#       <second-application-id>: { unattendedPolicy: delegate, unattendedOnBehalfOf: { platform: <platform>, userId: <IM user id> } }
+# A manifest playbook is enabled by name (--enable-auto-tasks pb_<application-id>_<playbook>, after DSH deployed it); its
+# `agent` becomes the preset of its dedicated conversation, so define that preset below (equipment-inspection: facility-inspection).
+- id: bridge-tools
+  name: '@dsh-bridge/plugin-tools'
+  config:
+    groupChat: deny
+    # toolModules:
+    #   - { module: '@dsh-bridge/plugin-tools/examples/equipment-inspection', application: equipment-inspection }
+
+# bridge-persona (bundle inserts its own entry): the AI employee's profile that the administrator sets in the business web (nickname,
+# tone, company introduction, personality, background; GET /bridge/v1/ai-profile, read by bridge-apps at start-up and every 60 s,
+# aiProfileRefreshSeconds) becomes a system prompt section AFTER the fixed rules: it can never change rules, permissions or tools.
+# Fixed per conversation (a change applies from the next conversation; the IM signature 「— <呼び名>（<アプリ名> AI 秘書）」 at once).
+# The preset persona below stays as it is (the fixed rules are repeated by bridge-persona). Options: rules (default true).
+#   - id: bridge-persona
+#     name: '@dsh-bridge/plugin-persona'
+#     config:
+#       rules: true
+
+# bridge-reader (bundle inserts its own entry): scanned documents the business system could not read (images, PDFs without a text
+# layer) wait at GET /bridge/v1/document-reads as page images; bridge-reader has the image-reading model transcribe each page in one
+# request (no conversation) and answers with the text (docs/DOCUMENT_READS.md). The pages go to the model provider: the business system
+# decides which documents are offered. Options: intervalSeconds (30), provider / model (default: DSH's default model), enabled.
+#   - id: bridge-reader
+#     name: '@dsh-bridge/plugin-reader'
+#     config:
+#       intervalSeconds: 30
+
+# bridge-memory (bundle inserts its own entry): long-term memory of the AI employee — personal memory (only the owner), organization
+# memory, conversation recall (90 days). Before saving, every text is screened locally and by the business system's
+# POST /bridge/v1/pii-scan (paths.piiScan; unreachable = not saved). Never in group chats; business data is never kept.
+# Tools memory_save / memory_search / memory_list / memory_delete / memory_recall / memory_forget_conversations. Options: toolPrefix,
+# defaultScope, retentionDays, adminRoles, unlinkedPolicy, screen, recall, prompt (plugins/memory/README.md).
+#   - id: bridge-memory
+#     name: '@dsh-bridge/plugin-memory'
+#     config:
+#       prompt: { personal: 5, org: 3, recent: 3 }
+
+# ── AI employee presets ──────────────────────────────────────────────────────
+# A manifest playbook's `agent` (e.g. agent: business-reporter) needs a preset of that id: copy preset-business-assistant below,
+# change id / name / description, and narrow its instructions to that playbook (same tools rule: business tools only).
+#   - id: preset-business-reporter
+#     name: '@deepseek-ai/dsh-agent-preset'
+#     config: { id: business-reporter, name: <アプリ名> 報告（AI社員）, description: ..., order: 2, plugins: [ ...as below... ] }
+# Tools: the business tools (<namespace>_*, registered by bridge-tools / bridge-apps; the manifest's help.tool = the manual search),
+# the long-term memory tools of bridge-memory (memory_*), todo, time only. bridge-persona adds the profile section to the system prompt.
+# Not included: tool-bash / tool-pwsh / tool-fs / tool-fs-search / tool-jobs / terminal / tool-web / tool-subagent* /
+#               workflow / skill-filesystem / tool-skill / tool-cordis / plugin-manager / plugin-market / browser tools.
+- insert:
+    - id: preset-business-assistant
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: business-assistant
+        name: <アプリ名> アシスタント（AI社員）
+        description: <アプリ名> の状況を本人の権限で調べて説明し、必要なら提案する。確定・承認はしない。
+        order: 1
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              complete: false
+              prefix: |-
+                あなたは「<アプリ名>」の AI 社員です（モデル: {{model}}）。
+                役割：<アプリ名> の状況を <namespace>_* ツールで調べて説明し、必要なら「提案」を作る。
+
+                必ず守る方針：
+                1. 読むだけ・提案するだけ。業務データを作成・修正・提出・承認・確定・削除しない。必要な操作は「どの画面で、誰が何をするか」を案内する。
+                2. 金額・数量などの確定は業務システムと人間の承認が行う。
+                3. 個人情報（氏名・住所・連絡先など）を記憶・メモ・予定・外部サービスに残さない。回答には ID と状態だけを使う。
+                4. 業務データには <namespace>_* ツールでのみアクセスする。シェル・ファイル・ブラウザ・Web 検索は使えない。
+                5. 分からないこと・データに無いことは推測しない。ツールの結果に無い数字を作らない。
+                6. 返答は日本語で、簡潔に。
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          # no tool-ask-user: the business web's assistant panel (bridge-assistant) cannot answer DSH questions.
+          # Add it to a separate IM-only preset if you want the AI to ask back in chat.
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: false
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024

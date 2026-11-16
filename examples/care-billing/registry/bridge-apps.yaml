@@ -1,0 +1,101 @@
+# ケアビリング (care-billing) in a DSH product profile: the bridge-apps registry entry of @dsh-bridge/dsh-core plus the
+# care-specific settings and extension modules of the generic plugins. It mirrors the product profile of care-ai-native
+# (dsh/runtime-profile/cordis.patch.yml is the source of truth; its dsh/runtime-profile/test/profile-config.test.mjs checks the
+# values). The product profile carries ケアビリング alone (no bots, strict off); the bots below show a DSH that also carries a
+# second application. No URLs with credentials, no tokens: the API URL and the service token are read per call from the named
+# variables.
+#
+# The business code (care-api, care-web, the care_* tool module, the wording of the notifications) stays in the
+# care-ai-native repository; see ../README.md for where each framework part is implemented there.
+
+- id: bridge-apps
+  name: '@dsh-bridge/dsh-core'
+  config:
+    compat: [care-billing-paths]              # care-api's /api/ai/* routes (paths: legacy) and the old service names careIdentity / careAssistant
+    strict: true                              # several applications: a bot nobody lists is served by nobody
+    applications:
+      - id: care-billing                      # = manifest system.id
+        name: ケアビリング
+        label: care-api                       # name used in error messages
+        aliases: [介護, 請求]                  # 「#介護」 on a shared (personal WeChat) bot
+        namespace: care                       # the tools are care_*
+        default: true
+        paths: legacy                         # care-api's /api/ai/* routes (the product profile). care-api also serves /bridge/v1 (paths: v1)
+        apiUrlEnv: CARE_API_URL               # e.g. http://127.0.0.1:8788 — read per call
+        apiUrl: http://127.0.0.1:8788
+        serviceTokenEnv: CARE_SERVICE_TOKEN   # the value care-api was started with; never written here
+        manifestUrl: /bridge/v1/manifest      # etag / 304
+        manifestFile: pkg:@dsh-bridge/example-care-billing/manifest/care-billing.manifest.yaml   # fallback when the URL is unreachable
+        generateTools: false                  # the care_* tools are a hand-written module (care-ai-native plugins/care-tools)
+        agents: [care-billing, care-assistant]
+        delegation:
+          unattendedPolicy: deny              # automatic tasks: per office, `install.mjs --enable-auto-tasks --auto-task-delegate <platform>:<userId>`
+        bots:
+          - { platform: slack, botId: <bot id of the ケアビリング Slack app> }
+          - { platform: line, botId: <dsh-im bot id of the LINE official account> }
+          - { platform: wecom-app, botId: <dsh-im bot id of the ケアビリング WeCom self-built app> }
+          - { platform: weixin, botId: <personal WeChat bot>, multiApp: true }   # shared with other applications (multiApp in EVERY listing)
+
+# The care-specific settings of the generic plugins (see ../extensions/README.md). stateDomain / actionPrefix /
+# aiReportTargetPrefix / switchStatePath keep the state of the deployments that ran the earlier care-* plugins.
+- id: bridge-tools
+  name: '@dsh-bridge/plugin-tools'
+  config:
+    toolModules:
+      - { module: '@care/dsh-care-tools', application: care-billing }   # care-ai-native plugins/care-tools: the care_* tools (23)
+    generate: false
+    applications:
+      care-billing:
+        toolKind: care tools
+        denyHints: { linked: '<the hint naming 個人設定 › SNS 連携（自分の分）>', noSender: '<…>' }   # CARE_BILLING_DENY_HINTS of compat/care-billing-paths
+        unattendedTools: [care_propose_visit_care_plan, care_propose_wording_alternatives, care_propose_record_structuring, care_propose_invoice_draft]
+        unattendedDefaultTools: [care_propose_visit_care_plan, care_propose_wording_alternatives]
+
+- id: bridge-notify
+  name: '@dsh-bridge/plugin-notify'
+  config:
+    stateDomain: care_notify
+    templateModules:
+      - { module: '@care/dsh-care-notify', application: care-billing }  # care-ai-native plugins/care-notify: render() = the care wording
+    notifyTypes: ['<ALL_NOTIFY_TYPES of plugins/care-notify>']
+    digestTypes: ['<DEFAULT_DIGEST_TYPES of plugins/care-notify>']        # realtime digest (15 s / 2 min)
+    webUrl: http://127.0.0.1:3010                                         # the care-web origin (CARE_WEB_PUBLIC_URL in the profile)
+    digestMinutes: 30
+    aiReport: true
+    aiReportTargetPrefix: care-report
+    aiReportMessages: { notLinked: '<…>', role: '<…>', noTimes: '<…>' }   # AI_REPORT_MESSAGES of plugins/care-notify
+    applications:
+      care-billing: { apiErrorPrefix: care_api, audienceSource: resolve, aiReportPrompt: '<DEFAULT_AI_REPORT_PROMPT of plugins/care-notify>' }
+
+- id: bridge-events
+  name: '@dsh-bridge/plugin-events'
+  config:
+    stateDomain: care_events
+    manifestNotify: others
+    deployPlaybooks: others
+    notifyEvents: ['<EVENT_NOTIFY_TYPES of plugins/care-notify>']
+
+- id: bridge-approvals
+  name: '@dsh-bridge/plugin-approvals'
+  config:
+    stateDomain: care_approvals_im
+    actionPrefix: care_approval
+    webUrl: 'http://127.0.0.1:3010/approvals?id={id}'   # the approval screen of care-web
+    messages: { identity_not_linked: '<the text naming 個人設定 › SNS 連携（自分の分）>' }
+    applications:
+      care-billing: { showBusinessBody: false }
+
+- id: bridge-identity
+  name: '@dsh-bridge/plugin-identity'
+  config:
+    unlinkedReply: '<the 「個人設定 › SNS 連携（自分の分）」 guide text>'
+    switchStatePath: '<$DSH_HOME/integrations/care-identity/app-switch.json>'
+    switchMessages: { helpExample: '#介護' }
+
+- id: bridge-assistant
+  name: '@dsh-bridge/plugin-assistant'
+  config:
+    rpcName: care-assistant                     # care-web's BFF calls /api/care-assistant/assistant
+    errorCodes: { api-unavailable: care-api-unavailable }
+    agents:
+      - { id: care-assistant, preset: care-assistant, name: AI アシスタント, sessionTitle: 'AIアシスタント（職員 {user}）' }

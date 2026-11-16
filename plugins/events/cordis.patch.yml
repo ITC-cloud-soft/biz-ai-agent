@@ -1,0 +1,5 @@
+# bridge-events: 各業務アプリケーションのイベントの流れ（GET /bridge/v1/events）を取り込み、bridge-* プラグインと ctx.autoTasks へ配る。
+# カーソルは DSH のストレージサービス（domain bridge_events）にアプリケーションごとに保存する。manifest の playbooks を自動タスクとしてデプロイする。
+- insert:
+    - id: bridge-events
+      name: '@dsh-bridge/plugin-events'

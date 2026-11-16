@@ -6,3 +6,6 @@ node_modules/
 .dsh-home-e2e/
 e2e/.work/
 .data/
+.dsh-cli/
+.dsh-home*/
+.work/

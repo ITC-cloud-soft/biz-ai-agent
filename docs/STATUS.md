@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 221 个全部通过（knowledge 20、agent-settings 11、plugin-knowledge 5、graph 5、plugin-graph 2、试点 91、equipment-loans 87），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：15 / 15**（见下）。
+测试：全仓库 899 个，0 失败（8 个 skip 都是没给数据库 URL 的 PostgreSQL / MySQL 部分）。其中 biz-ai-agent 自己的 221 个（knowledge 20、agent-settings 11、plugin-knowledge 5、graph 5、plugin-graph 2、试点 91、equipment-loans 87），其余是拷进来的 framework 的包、插件、profile 和示例；四个示例都是一致性 52 / 52。**真实 DSH 上的 e2e：15 / 15**（用的是仓库内的 framework）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -53,6 +53,15 @@
 - **它发现的 skill 和包的问题，已经修了**：
   - 包：`createKnowledgeService` 加了 `fillers`、`stopWords` 选项；同义词现在也算「内容词」（能把「没找到」变成找到）；中文提问词补了 哪些 / 有没有 / 怎么知道 / 怎么办；evals 加了 `forbid`。
   - skill：定义了 `<ns>`；知识的一致性检查 probe 要用「整份都看不到」的文档；关系名必须用 `requested_by` 等（即使业务上叫「借用人」）；复制测试时要改名的清单；时间类事件在一致性 fixture 里怎么处理；**一致性 52/52 证明不了业务规则**（让借用人自己审批照样 52/52，只有业务测试抓得到）；app 和 evals 必须共用同一个选项对象。
+
+## framework 整体拷入（2026-11-16）
+
+用户的要求：biz-ai-agent 要自己成为完整的 agent framework，Biz Assistant Framework 有的都拷进来。
+- `scripts/sync-framework.mjs`（`npm run sync-framework`）：把 framework 已提交的文件拷进来 —— `packages/`（dsh-core、gateway、help、protocol、server-kit、telemetry、testing、web-kit）、`plugins/`（approvals、assistant、events、identity、memory、notify、persona、reader、tools）、`profile/`、`vendor/`（dsh-im、dsh-auto-tasks、dsh-proactive）、`examples/`（care-billing、equipment-inspection、leave-requests）、LICENSE、NOTICE。共 1515 个文件，来源 commit 记在 `framework.sync.json`（当前 `9a86b0f`）。
+- pnpm 的 `workspace:` 写法换成普通版本号，所有 `@dsh-bridge/*` 都链接到仓库内（不再从 npm 取）。vendor 各自用自己的 lock：`npm run vendor:install`。
+- e2e、设置画面的构建默认都用仓库内的 framework（`BIZ_AI_FRAMEWORK` 只在想用别的 checkout 时设）。DSH CLI 放 `.dsh-cli/`（git 忽略）。
+- 规则：framework 的代码在 framework 里改，再同步；在这里直接改拷贝过来的文件，下次同步会被覆盖。
+- framework 的 `docs/`（约 16 MB，多是营销幻灯片）没有拷。
 
 ## 设置插件 `@dsh-bridge/agent-settings` v0.1（2026-11-15）
 

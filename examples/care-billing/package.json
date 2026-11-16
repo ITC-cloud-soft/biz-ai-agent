@@ -1,0 +1,22 @@
+{
+  "name": "@dsh-bridge/example-care-billing",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "ケアビリング (care-billing), the first user of the DSH Business Bridge framework: manifest, registry entry and the map of where each framework part is implemented in care-ai-native (no business code)",
+  "type": "module",
+  "files": [
+    "manifest",
+    "registry",
+    "extensions",
+    "README.md"
+  ],
+  "scripts": {
+    "validate": "node ../../packages/protocol/bin/bridge-validate.mjs manifest manifest/care-billing.manifest.yaml",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1",
+    "@dsh-bridge/protocol": "0.1.1"
+  }
+}

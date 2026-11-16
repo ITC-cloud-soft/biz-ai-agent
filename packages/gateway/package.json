@@ -1,0 +1,48 @@
+{
+  "name": "@dsh-bridge/gateway",
+  "version": "0.1.1",
+  "license": "Apache-2.0",
+  "description": "Authenticating gateway that a business web BFF embeds to show the DSH settings UI under /dsh/* (launch token exchange, hidden DSH cookies, WebSocket relay, public webhook paths, server-side RPC allow-list, DSH supervision)",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/packages/gateway#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "packages/gateway"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./launch-token": "./src/launch-token.mjs",
+    "./config": "./src/config.mjs",
+    "./assistant-attachments": "./src/assistant-attachments.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs",
+    "example": "node examples/trial-server.mjs"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

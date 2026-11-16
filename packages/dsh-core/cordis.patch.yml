@@ -1,0 +1,5 @@
+# bridge-apps: この DSH が載せる業務アプリケーションのレジストリ（ctx.bridgeApps）。
+# applications は製品 profile の cordis.patch.yml で設定する（README「アプリケーションの追加」）。空なら各プラグインは互換の単一構成で動く。
+- insert:
+    - id: bridge-apps
+      name: '@dsh-bridge/dsh-core'

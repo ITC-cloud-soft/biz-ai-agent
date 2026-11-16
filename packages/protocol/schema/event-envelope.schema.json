@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dsh-bridge.dev/schema/event-envelope.schema.json",
+  "title": "Bridge event envelope (protocol v1)",
+  "description": "One entry of GET /bridge/v1/events. Events are written by the business system in the SAME transaction as the business change (transactional outbox) and carry only IDs, dates, counts and status values. The payload key whitelist per event type comes from the manifest (events.<type>.payload); checkPayloadWhitelist() enforces it. Never put names, free text, health data or contact details in a payload.",
+  "type": "object",
+  "required": ["id", "type", "aggregateType", "aggregateId", "payload", "at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Strictly increasing, committed in order: a consumer cursor (`after`) never skips an event."
+    },
+    "type": {
+      "type": "string",
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "description": "<aggregate>.<fact>, lower snake case, e.g. visit_record.submitted. Declared in manifest.events."
+    },
+    "aggregateType": { "type": "string", "maxLength": 60, "pattern": "^[a-z][a-z0-9_]*$" },
+    "aggregateId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "payload": { "$ref": "#/$defs/payload" },
+    "at": { "type": "string", "format": "date-time", "description": "Commit time (ISO 8601 with offset)." }
+  },
+  "$defs": {
+    "scalar": { "type": ["string", "number", "boolean", "null"], "maxLength": 200 },
+    "payload": {
+      "type": "object",
+      "maxProperties": 24,
+      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]{0,39}$" },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/scalar" },
+          { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/scalar" } },
+          { "type": "object", "maxProperties": 40, "additionalProperties": { "$ref": "#/$defs/scalar" } }
+        ]
+      },
+      "description": "camelCase keys; values are scalars, arrays of scalars, or flat objects of scalars (counts)."
+    }
+  }
+}

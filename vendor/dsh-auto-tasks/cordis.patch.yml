@@ -1,0 +1,11 @@
+# @care/dsh-auto-tasks bundle patch: inserts the host row into the profile roster.
+# (care fork of dsh-auto-tasks 0.2.0 — see CARE_FORK.md)
+# The browser half rides the package `dsh.client` manifest (the client registry
+# serves lib/client.js; its ModuleLoader id equals the package name).
+# The row id stays `dsh-auto-tasks` (same as upstream) so existing profile
+# patches that address the row by id keep working; `name` is the package.
+# The bundle patch is applied automatically — do NOT insert this row again in
+# the profile patch (duplicate ids crash the loader).
+- insert:
+    - id: dsh-auto-tasks
+      name: '@care/dsh-auto-tasks'

@@ -1,0 +1,10 @@
+Biz Assistant Framework (packages @dsh-bridge/*)
+Copyright 2026 The Biz Assistant Framework Authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository includes third-party software under vendor/, each under its own license:
+- vendor/dsh-im          fork of @xmanrui/dsh-im 5.6.0 (MIT)          https://github.com/xmanrui/dsh-im
+- vendor/dsh-proactive   fork of dsh-proactive 0.3.1 (MIT)            https://github.com/john-walks-slow/dsh-proactive
+- vendor/dsh-auto-tasks  fork of dsh-auto-tasks 0.2.0 (MIT)
+See vendor/*/LICENSE and vendor/*/FORK.md.

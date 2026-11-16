@@ -1,0 +1,59 @@
+{
+  "name": "@dsh-bridge/plugin-tools",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "DSH Business Bridge plugin bridge-tools: delegation gate, manifest-generated read tools, propose-tool registration and automatic-task proposal restrictions",
+  "keywords": [
+    "biz-assistant",
+    "ai-employee",
+    "ai-agent",
+    "business-systems",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin"
+  ],
+  "homepage": "https://github.com/ITC-cloud-soft/biz-ai/tree/main/plugins/tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ITC-cloud-soft/biz-ai.git",
+    "directory": "plugins/tools"
+  },
+  "bugs": {
+    "url": "https://github.com/ITC-cloud-soft/biz-ai/issues"
+  },
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./propose": "./src/propose.js",
+    "./examples/equipment-inspection": "./src/examples/equipment-inspection.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@dsh-bridge/dsh-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@dsh-bridge/dsh-core": "0.1.1"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,5 @@
+# bridge-persona: AI 社員のプロフィール（業務システムの GET /bridge/v1/ai-profile。呼び名・口調・会社の紹介・性格・背景）を system prompt の節にする。
+# 固定の規則が先、プロフィールは「人物の設定」（規則・権限・ツールは変えられない）。会話ごとに固定。設定：rules（既定 true）。
+- insert:
+    - id: bridge-persona
+      name: '@dsh-bridge/plugin-persona'

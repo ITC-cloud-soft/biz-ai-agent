@@ -1,0 +1,6 @@
+# bridge-reader: 業務システムが読めなかった文書（画像・文字の層の無い PDF）のページの画像を GET /bridge/v1/document-reads で受け取り、
+# 画像を読めるモデルに 1 回ずつ読ませて文字を POST .../result で返す（会話は作らない。読んだ画像はその後に消す）。
+# 設定：intervalSeconds（既定 30）、model（既定は DSH の既定のモデル）、enabled（既定 true）。
+- insert:
+    - id: bridge-reader
+      name: '@dsh-bridge/plugin-reader'

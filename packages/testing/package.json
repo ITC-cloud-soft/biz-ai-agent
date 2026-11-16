@@ -1,0 +1,27 @@
+{
+  "name": "@dsh-bridge/testing",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Test helpers for DSH Business Bridge: mock OpenAI-compatible LLM, mock LINE / iLink (personal WeChat) / WeCom APIs, isolated DSH home and process helpers, a DSH host client, auto-task template installer",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./mock-llm": "./src/mock-llm.mjs",
+    "./mock-line": "./src/mock-line.mjs",
+    "./mock-ilink": "./src/mock-ilink.mjs",
+    "./mock-wecom": "./src/mock-wecom.mjs",
+    "./procs": "./src/procs.mjs",
+    "./dsh-host": "./src/dsh-host.mjs",
+    "./dsh-home": "./src/dsh-home.mjs",
+    "./auto-task-templates": "./src/auto-task-templates.mjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/*.test.mjs"
+  }
+}

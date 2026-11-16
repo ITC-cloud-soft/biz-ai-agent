@@ -1,0 +1,5 @@
+# bridge-memory: AI 社員の長期記憶（個人の記憶・組織の記憶・会話の振り返り）。保存の前に個人情報を検査する（業務システムの pii-scan）。
+# ツール: memory_save / memory_search / memory_list / memory_delete / memory_recall / memory_forget_conversations（AI 社員のプリセットで許可する）。
+- insert:
+    - id: bridge-memory
+      name: '@dsh-bridge/plugin-memory'

@@ -1,0 +1,72 @@
+/* dsh-im settings components (vendor/dsh-im fork) drawn with the web-kit variables. The fork reads its colours from CSS
+ * variables `var(--dsh-im-*, <original>)` (vendor/dsh-im FORK.md, colour tokens); inside .dbw-im-embed only, they are mapped
+ * to the --dbw-* variables of styles.css, so a host theme (light / dark) applies without overriding the fork's classes.
+ * Dark: an ancestor with data-dsh-im-theme="dark" (ImEmbed sets it with `dark`). */
+
+/* DSH's own tokens (--dsw-alias-*): borders, backgrounds and text of the components. */
+.dbw-im-embed {
+  --dsw-alias-label-primary: var(--dbw-text);
+  --dsw-alias-label-secondary: var(--dbw-text-2);
+  --dsw-alias-label-tertiary: var(--dbw-text-3);
+  --dsw-alias-text-secondary: var(--dbw-text-2);
+  --dsw-alias-border: var(--dbw-border);
+  --dsw-alias-border-l1: var(--dbw-border);
+  --dsw-alias-border-l2: var(--dbw-border-strong);
+  --dsw-alias-border-l3: var(--dbw-border-strong);
+  --dsw-alias-bg-base: var(--dbw-bg);
+  --dsw-alias-bg-layer-1: var(--dbw-surface);
+  --dsw-alias-bg-layer-2: var(--dbw-surface-2);
+  --dsw-alias-bg-layer-3: var(--dbw-surface-3);
+  --dsw-alias-bg-module-platform: var(--dbw-surface-2);
+  --dsw-alias-interactive-bg-hover: var(--dbw-surface-3);
+  --dsw-alias-brand-primary: var(--dbw-primary);
+  --dsw-alias-state-business-primary: var(--dbw-primary);
+  --dsw-alias-state-success-primary: var(--dbw-success);
+  --dsw-alias-state-warn-primary: var(--dbw-warning);
+  --dsw-alias-state-error-primary: var(--dbw-danger);
+  --dsw-alias-state-danger-primary: var(--dbw-danger);
+  --dsw-alias-state-error-secondary: var(--dbw-danger-soft);
+  --dsw-static-neutral-bluish-1000: var(--dbw-text);
+  --dsw-specific-menu: var(--dbw-surface);
+  --dsw-shadow-lv1: var(--dbw-shadow);
+  --ds-ease-in-out: ease-in-out;
+  --ds-ease-out: ease-out;
+  --ds-font-family-code: var(--dbw-font-mono);
+  color: var(--dbw-text);
+  font-size: var(--dbw-fs-body);
+
+  /* the fork's common tokens: primary buttons, progress, switches, focus rings */
+  --dsh-im-accent: var(--dbw-primary);
+  --dsh-im-accent-strong: var(--dbw-primary-hover);
+  --dsh-im-accent-text: var(--dbw-primary-soft-text);
+  --dsh-im-accent-muted: var(--dbw-primary);
+  --dsh-im-on-accent: var(--dbw-on-primary);
+  --dsh-im-border-strong: var(--dbw-border-strong);
+  --dsh-im-status-idle: var(--dbw-text-3);
+  --dsh-im-input-border: var(--dbw-border-strong);
+  --dsh-im-input-border-strong: var(--dbw-text-3);
+  --dsh-im-track: var(--dbw-surface-3);
+  --dsh-im-logo-border: var(--dbw-border);
+  --dsh-im-brand-feishu: var(--dbw-primary);
+
+  /* per-channel brand colours follow the host's primary colour (dark brand colours become unreadable in dark mode) */
+  --dsh-im-brand-weixin: var(--dbw-primary); --dsh-im-brand-weixin-strong: var(--dbw-primary-hover); --dsh-im-brand-weixin-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-dingtalk: var(--dbw-primary); --dsh-im-brand-dingtalk-strong: var(--dbw-primary-hover); --dsh-im-brand-dingtalk-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-qq: var(--dbw-primary); --dsh-im-brand-qq-strong: var(--dbw-primary-hover); --dsh-im-brand-qq-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-wecom: var(--dbw-primary); --dsh-im-brand-wecom-strong: var(--dbw-primary-hover); --dsh-im-brand-wecom-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-wecom-app: var(--dbw-primary); --dsh-im-brand-wecom-app-strong: var(--dbw-primary-hover); --dsh-im-brand-wecom-app-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-slack: var(--dbw-primary); --dsh-im-brand-slack-strong: var(--dbw-primary-hover); --dsh-im-brand-slack-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-telegram: var(--dbw-primary); --dsh-im-brand-telegram-strong: var(--dbw-primary-hover); --dsh-im-brand-telegram-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-discord: var(--dbw-primary); --dsh-im-brand-discord-strong: var(--dbw-primary-hover); --dsh-im-brand-discord-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-whatsapp: var(--dbw-primary); --dsh-im-brand-whatsapp-strong: var(--dbw-primary-hover); --dsh-im-brand-whatsapp-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-email: var(--dbw-primary); --dsh-im-brand-email-strong: var(--dbw-primary-hover); --dsh-im-brand-email-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-imessage: var(--dbw-primary); --dsh-im-brand-imessage-strong: var(--dbw-primary-hover); --dsh-im-brand-imessage-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-matrix: var(--dbw-primary); --dsh-im-brand-matrix-strong: var(--dbw-primary-hover); --dsh-im-brand-matrix-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-line: var(--dbw-primary); --dsh-im-brand-line-strong: var(--dbw-primary-hover); --dsh-im-brand-line-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-teams: var(--dbw-primary); --dsh-im-brand-teams-strong: var(--dbw-primary-hover); --dsh-im-brand-teams-wash: var(--dbw-primary-soft);
+  --dsh-im-brand-dingtalk-light: var(--dbw-primary);
+}
+
+/* the components' own page-width limit follows the host page */
+.dbw-im-embed .dim-page, .dbw-im-embed .ddt-page, .dbw-im-embed .dim-channelPage { max-width: none; width: 100%; padding-top: 0; }
+.dbw-im-embed code, .dbw-im-embed pre { font-family: var(--dbw-font-mono); }

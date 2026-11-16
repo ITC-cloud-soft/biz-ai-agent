@@ -1,7 +1,10 @@
 # biz-ai-agent
 
-Exploring a **general AI agent framework** on top of the **Biz Assistant Framework** (`@dsh-bridge/*`, the private
-`assistanted-it` repository, public snapshot [ITC-cloud-soft/biz-ai](https://github.com/ITC-cloud-soft/biz-ai)).
+A complete **AI agent framework**: the whole **Biz Assistant Framework** (`@dsh-bridge/*`: DSH core, the dsh-im fork for 13 SNS,
+memory, approvals, notify, identity, tools, events, assistant, persona, reader, the gateway, server-kit, web-kit, the DSH profile)
+is in this repository, plus the agent layer on top of it (knowledge, graph, settings). Upstream is the private `assistanted-it`
+repository (public snapshot [ITC-cloud-soft/biz-ai](https://github.com/ITC-cloud-soft/biz-ai)); `npm run sync-framework` copies
+it in again (see below).
 
 The Biz Assistant Framework already gives an agent four of its five layers: the manifest is the schema (ontology), the business
 system is the data (system of record), proposals and approvals are the governed actions, and DSH runs the agents, with bridge-memory
@@ -33,13 +36,27 @@ conformance suite, tests, evals and traces.
 
 ```sh
 npm install
-npm test
+npm run vendor:install   # once: the vendor forks' own dependencies
+npm test                 # every package, plugin and example (about 900 tests)
 cd examples/leave-requests-knowledge && npm run evals    # the retrieval evals as a Markdown table
-npm run e2e     # the pilot on a REAL DSH (pinned CLI from ../framework/.dsh-cli, mock model and LINE; no database; framework d8b3538 or later)
+npm run e2e     # the pilot on a REAL DSH (pinned CLI in .dsh-cli, mock model and LINE; no database; needs npm run vendor:install once)
 ```
 
-The packages come from npm (`@dsh-bridge/protocol` and `server-kit` 0.1.1, `help` / `dsh-core` / `plugin-tools` 0.1.0). Nothing
-here changes the framework. The new packages are `private` and have not been published.
+## The framework in this repository
+
+| path | what |
+|---|---|
+| `packages/` dsh-core, gateway, help, protocol, server-kit, telemetry, testing, web-kit | the protocol (Bridge v1 + conformance), the business-side kit, the DSH core, the DSH gateway, the screens' kit, the test harness |
+| `plugins/` approvals, assistant, events, identity, memory, notify, persona, reader, tools | the DSH plugins: approvals on IM, the web assistant, business events, SNS identity and link codes, memory, notifications, persona, document reader, the business tools |
+| `profile/` | the DSH product profile template and its installer |
+| `vendor/` dsh-im, dsh-auto-tasks, dsh-proactive | the forks (MIT; own npm setup each: `npm run vendor:install` once) — dsh-im is the IM gateway for the 13 SNS |
+| `examples/` care-billing, equipment-inspection, leave-requests | the framework's reference business systems |
+
+These are **copies** of the framework's committed files at the commit in [`framework.sync.json`](framework.sync.json), made by
+[`scripts/sync-framework.mjs`](scripts/sync-framework.mjs) (`npm run sync-framework`, from `../framework` or `--from <checkout>`;
+pnpm's `workspace:` ranges become plain versions for npm workspaces). Fix framework code in the framework and sync again: a
+local edit to a copied file is overwritten by the next sync. Everything links inside this repository (no `@dsh-bridge/*` from
+npm). The DSH CLI the e2e pins goes to `.dsh-cli/` (git-ignored; about 900 MB on first use).
 
 All data in the documents, tests and evals is fictional. No embedding model is chosen (BM25F by default; the embedder interface
 takes any OpenAI-compatible endpoint once the owner picks one).
