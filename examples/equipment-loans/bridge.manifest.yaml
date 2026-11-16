@@ -18,6 +18,7 @@ web:
     - /equipment
     - /equipment/:id
     - /handbook/:docId
+    - /agent-settings
 
 roles:
   admin:
@@ -42,6 +43,7 @@ entities:
   approval: { label: Approval, pii: none }
   proposal: { label: AI proposal, pii: none }
   sns_identity: { label: Chat link, pii: personal }
+  knowledge_document: { label: Knowledge document, pii: none, link: "/handbook/{id}" }
 
 audienceRules:
   borrower_and_managers:
@@ -73,6 +75,14 @@ events:
     payload: [approvalId, subjectType, subjectId, decision, status, channel, decidedByUserId]
     severity: info
     internal: approvals_im
+  knowledge.updated:
+    label: Knowledge updated
+    description: The AI's knowledge was rebuilt (a document published or withdrawn, the search method or a model changed). Counts only.
+    aggregate: knowledge_document
+    payload: [buildId, documents, chunks, rejected, failed]
+    severity: info
+    audience: { roles: [admin, manager] }
+    notify: { template: knowledge.updated }
   sns_identity.unlinked:
     label: Chat link removed
     aggregate: sns_identity
@@ -81,6 +91,10 @@ events:
     internal: identity
 
 templates:
+  knowledge.updated:
+    intent: info
+    description: "The AI's knowledge was rebuilt: {documents} document(s), {chunks} section(s); {rejected} left out for personal data, {failed} problem(s)."
+    params: { documents: { type: integer }, chunks: { type: integer }, rejected: { type: integer }, failed: { type: integer } }
   loan.overdue:
     intent: action
     action: Return the item, or agree a new due date in Equipment Loans.

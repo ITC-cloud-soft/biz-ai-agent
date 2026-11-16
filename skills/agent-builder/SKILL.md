@@ -25,6 +25,7 @@ What you produce:
 | knowledge | `knowledge/*.md` with per-section visibility, indexed at start, `GET /bridge/v1/knowledge/search`, the handbook screen | the permission property, no side channel, K-01…K-08 |
 | graph | `canRead` + `neighbors` hooks, `GET /bridge/v1/graph/neighbors` | G-01…G-07, the "why did this reach me?" e2e |
 | evals | `evals/knowledge.evals.json`: fixed questions, askers, expected sources | written BEFORE tuning, run on every change, a floor test |
+| settings | `@dsh-bridge/agent-settings` on the system: the screen `/agent-settings` (models, documents and the search method BM25F / RAG on pgvector / knowledge graph, SNS approvals and reports) | admins only, the document approval through the framework's cards, the report to the report roles; its tests |
 | AI plane | bridge-tools `toolModules`: `@dsh-bridge/plugin-knowledge`, `@dsh-bridge/plugin-graph` | listed in the README (a real DSH run is a separate step) |
 
 **The reference implementations are in this repository**: `examples/leave-requests-knowledge` (one-file app, every part above)
@@ -151,6 +152,26 @@ Start from the reference manifest. For each part, keep the reference's style:
 - Done: every language ≥ 80 % hit@3, **0 leaks** (a leak fails the case and the test). `test/evals.test.mjs` (copy) asserts the
   measured floor so a later change cannot lower it silently.
 
+## 5b. Add the settings plugin
+
+`@dsh-bridge/agent-settings` gives the administrators one screen for the models, the knowledge documents (upload, approval,
+search method) and the SNS approvals and reports. Copy the wiring of the reference (`src/app.mjs`, search `createAgentSettings`):
+
+1. Before `createBridgeApp`: `const agent = createAgentSettings({ dataDir, env, fetch, now, log, vectorDb })`, then
+   `hooks.approvals = agent.approvals(hooks.approvals)` and `hooks.recipientsFor = agent.recipientsFor(hooks.recipientsFor)`
+   (the documents' approvals and the `knowledge.updated` report first, everything else to the system's own hooks).
+2. After it: `await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions, screen })` and
+   `registerKnowledge(bridge, agent.knowledge)` — the plugin builds the knowledge service; do not create your own.
+   `knowledgeOptions` is the ONE options object (synonyms …) that `evals/run.mjs` uses too.
+3. Manifest: entity `knowledge_document` (`link: "/handbook/{id}"`), event `knowledge.updated` (aggregate `knowledge_document`,
+   payload `[buildId, documents, chunks, rejected, failed]`, `notify: { template: knowledge.updated }`), the template with four
+   integer params, and `/agent-settings` in `web.routes`. Copy them from the reference manifest.
+4. `dataDir` holds settings and uploaded documents: git-ignore it. Keys: environment variable NAMES; a key typed on the screen
+   is stored only with `AGENT_SETTINGS_KEY`. pgvector: pass the system's own pg pool as `vectorDb`, or set
+   `AGENT_VECTOR_DB_URL` — never a connection string in a file in git.
+5. Approvals need a second person: the uploader never approves. With one administrator, managers must be approver roles
+   (`sns.approverRoles`), or nobody can publish — write that down as a "to confirm" decision.
+
 ## 6. Verify — the definition of done
 
 Run each and report the command with a summary of its output. Write "not verified" for anything you did not run.
@@ -166,6 +187,7 @@ Run each and report the command with a summary of its output. Write "not verifie
 | why e2e | the bridge-graph tool through dsh-core `guardTool` with real delegations: the decider, the requester, another employee (`found: false`) |
 | plugin e2e | the bridge-knowledge tool the same way; delegation × role refused with 403 |
 | evals | `npm run evals` meets the floor; `test/evals.test.mjs` passes |
+| settings plugin | `test/agent-settings.test.mjs` (copy): admins only and no delegation; upload → approval card for another person (never the uploader) → published → found by its roles only → `knowledge.updated` to the report roles; other events still reach the system's own `recipientsFor` |
 | whole repo | `npm test` at the repository root |
 
 ## 7. Rules
@@ -189,3 +211,6 @@ the eval numbers (first run and final), the test count, and the AI plane configu
       - { module: '@dsh-bridge/plugin-knowledge', application: <system-id> }
       - { module: '@dsh-bridge/plugin-graph', application: <system-id> }
 ```
+
+and the citation guard through the plugin-knowledge bundle (`dsh.profile.bundles` after `@dsh-bridge/plugin-identity`; see
+`plugins/knowledge/README.md` and `e2e/run.mjs`).

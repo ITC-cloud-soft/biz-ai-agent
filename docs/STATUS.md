@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 214 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
+测试：全仓库 216 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 86），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -56,7 +56,7 @@
 
 ## 设置插件 `@dsh-bridge/agent-settings` v0.1（2026-11-15）
 
-设计见 [`AGENT_SETTINGS.md`](AGENT_SETTINGS.md)。挂在业务系统上的插件，画面是 `/agent-settings`（只给管理员，日 / 英 / 中三种语言），AI（委托）碰不到任何一个设置接口。
+设计见 [`AGENT_SETTINGS.md`](AGENT_SETTINGS.md)。两个示例（试点和 equipment-loans）都已经接上（2026-11-16）；agent-builder skill 的 §5b 写了接法。挂在业务系统上的插件，画面是 `/agent-settings`（只给管理员，日 / 英 / 中三种语言），AI（委托）碰不到任何一个设置接口。
 
 | 标签页 | 内容 |
 |---|---|

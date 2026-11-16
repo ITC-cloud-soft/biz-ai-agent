@@ -134,3 +134,10 @@ list, which a system cannot extend — see the skill report).
 ```
 
 The tools then appear as `loan_knowledge_search` and `loan_graph_why` (namespace `loan`). Not run in a real DSH home yet.
+
+## Settings plugin (added 2026-11-16)
+
+`@dsh-bridge/agent-settings` is wired in the same way as in the leave-requests pilot: the screen `/agent-settings` (admins only), document
+upload with an approval through the framework's cards, the search method (BM25F / RAG on pgvector / knowledge graph), the
+`knowledge.updated` report. With only one administrator, managers must be approver roles before an admin's upload can be
+published (`test/agent-settings.test.mjs`).
