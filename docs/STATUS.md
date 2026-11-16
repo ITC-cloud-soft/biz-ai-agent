@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 213 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 89、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
+测试：全仓库 214 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -80,7 +80,17 @@
 - 连接方式二选一：业务系统传入自己的连接池（`vectorDb`），或者设置 `AGENT_VECTOR_DB_URL`。有数据库时默认就用 pgvector，没有时用文件型。
 - 测试用的是 **PGlite**（进程内运行的 PostgreSQL + pgvector 0.8.0，SQL 和真正的服务器相同）。
 - 权限有两层：数据库只拿到能看的块，服务又对结果再查一遍。只去掉其中一层时测试仍然通过（另一层拦住了）；两层都去掉，「管理职拿到了只给 admin 的块」这个测试就失败了。
-- **还没在真正的 PostgreSQL 服务器上跑过**：本机只有不带 pgvector 的 `postgres:16` 镜像，要跑需要先下载 `pgvector/pgvector` 镜像。
+- **在真正的 PostgreSQL 服务器上验证过（2026-11-16）**：`pgvector/pgvector:pg17`（PostgreSQL 17.12），只绑定在本机的测试容器上。设置了 `AGENT_TEST_PG_URL` 后，全部 214 个测试都在这台服务器上通过，包括插件通过 `AGENT_VECTOR_DB_URL` 自己连接数据库的情况：连接串不会出现在回答里，也不会写进设置文件。
+
+## 本地试用（2026-11-16）
+
+1. 向量库：`docker run -d --name biz-ai-agent-pgvector-test -e POSTGRES_PASSWORD=<随机> -e POSTGRES_DB=agent_vectors_test -p 127.0.0.1:55433:5432 pgvector/pgvector:pg17`
+2. `examples/leave-requests-knowledge/.env.local`（git 忽略）：`AGENT_VECTOR_DB_URL=postgres://postgres:<密码>@127.0.0.1:55433/agent_vectors_test`、`MOCK_MODEL_KEY=<任意>`
+3. 假模型：`node examples/leave-requests-knowledge/dev/mock-model.mjs`（端口 19760，**不是 AI**，只为了在没有真实模型和 key 的情况下，让 RAG 和知识图谱的流程能跑起来）
+4. 试点：`node examples/leave-requests-knowledge/src/server.mjs`（端口 19750）。打开 `http://127.0.0.1:19750/login`，虚构的员工有 admin / admin2 / manager / staff1 / staff2，开发用密码 `leave-dev`。设置画面是 `/agent-settings`。
+5. 在设置画面里把模型指向 `http://127.0.0.1:19760/v1`（API key 的环境变量名填 `MOCK_MODEL_KEY`），然后切换检索方式。
+
+本地试过的流程：admin 上传文档（等待审批）→ admin 自己不能批（403）→ admin2 批准 → 只给新块做了 embedding（2 个；pgvector 里一共 31 个向量）→ manager 能拿到只给管理职的节，staff1 拿不到 → 切到知识图谱：21 个实体、14 个关系。
 
 ## 真实 DSH 上的 e2e（2026-11-15）
 
