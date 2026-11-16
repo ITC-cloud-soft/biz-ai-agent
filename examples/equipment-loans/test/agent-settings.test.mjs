@@ -30,6 +30,15 @@ test('administrators only; the AI acting as one gets nothing', async () => {
   assert.deepEqual([s.knowledge.mode, s.knowledge.vectorStore, s.vectorDb.available], ['bm25f', 'file', false])
 })
 
+test('the sign-in page in the screen look; a browser without a session goes there and comes back', async () => {
+  const page = await env.call('GET', '/login?lang=en')
+  assert.equal(page.status, 200)
+  assert.match(page.body, /<title>Sign in — Equipment Loans<\/title>/)
+  const r = await fetch(`${env.srv.base}/me/sns`, { headers: { accept: 'text/html' }, redirect: 'manual' })
+  assert.equal(r.status, 302)
+  assert.equal(r.headers.get('location'), '/login?next=%2Fme%2Fsns')
+})
+
 test('upload by the only admin → no approver until managers may approve → a manager approves → found by its roles only → report', async () => {
   const text = '## Borrowing a tablet {#tablet}\nTablets are lent for at most 3 days from the equipment desk.\n\n## Tablet stock {#stock roles=admin,manager}\nKeep two tablets in reserve for urgent requests.'
   const up = await env.call('POST', '/api/agent/documents', { headers: admin(), body: { title: 'Tablet lending', roles: ['admin', 'manager', 'staff'], keywords: ['tablet'], text } })

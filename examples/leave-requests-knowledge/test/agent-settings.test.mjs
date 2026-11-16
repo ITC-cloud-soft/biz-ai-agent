@@ -122,6 +122,17 @@ test('only administrators reach the settings; no delegation does; the screen is 
   assert.equal((await env.call('GET', '/api/agent/settings', { headers: admin() })).body.settings.knowledge.mode, 'bm25f')
 })
 
+test('the sign-in page in the screen look; a browser without a session goes there and comes back', async () => {
+  const page = await env.call('GET', '/login?lang=ja&next=%2Fme%2Fsns')
+  assert.equal(page.status, 200)
+  assert.match(page.body, /<title>サインイン — Leave Requests<\/title>/)
+  assert.match(page.headers.get('content-security-policy'), /script-src 'nonce-/)
+  const r = await fetch(`${env.srv.base}/agent-settings?lang=zh`, { headers: { accept: 'text/html' }, redirect: 'manual' })
+  assert.equal(r.status, 302)
+  assert.equal(r.headers.get('location'), '/login?lang=zh&next=%2Fagent-settings%3Flang%3Dzh')
+  assert.equal((await env.call('GET', '/agent-settings')).status, 401, 'not a browser: still a 401')
+})
+
 test('models: keys as variable names or sealed, never shown; connection test; the DSH overlay names the variable', async () => {
   const r = await put({ llm: { base: { baseUrl: modelUrl, model: 'mock-chat', apiKeyEnv: 'TEST_LLM_KEY' }, embedding: { enabled: true, baseUrl: modelUrl, model: 'mock-emb', apiKey: 'sk-stored-test-7777' } } })
   assert.equal(r.status, 200)

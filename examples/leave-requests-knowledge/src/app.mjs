@@ -20,7 +20,7 @@ import {
   addDays, createBridgeApp, createMemoryStore, DATE_RE, DUMMY_PASSWORD_HASH, fail, hashPassword, header, listen, newToken, POLICY,
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
-import { createAgentSettings } from '@dsh-bridge/agent-settings'
+import { createAgentSettings, signInPage, redirectToSignIn } from '@dsh-bridge/agent-settings'
 import { createDshGateway } from '@dsh-bridge/gateway'
 import { registerGraph } from '@dsh-bridge/graph'
 import { bridgePiiScreen, buildKnowledgeIndex, canSee, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
@@ -261,14 +261,11 @@ export async function createLeaveApp({
     return { status: 200, body: { ok: true, user: { id: u.id, role: u.role } }, headers: { 'set-cookie': sessionCookie(token, SESSION_TTL_MS / 1000) } }
   })
 
-  // A minimal sign-in page for trying the pilot in a browser (the business system's own login; the kit never sees passwords).
-  router.add('GET', '/login', POLICY.PUBLIC, async ({ res, query }) => {
-    const next = /^\/[A-Za-z0-9/_?=&.-]*$/.test(query.get('next') ?? '') ? query.get('next') : '/agent-settings'
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY' })
-    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leave Requests — sign in</title>
-<style>body{font:15px system-ui,sans-serif;max-width:360px;margin:60px auto;padding:0 16px}input,button{font:inherit;width:100%;padding:8px;margin:6px 0;box-sizing:border-box}</style>
-<h1>Leave Requests</h1><form id="f"><input name="loginId" placeholder="login id" autocomplete="username" required><input name="password" type="password" placeholder="password" autocomplete="current-password" required><button>Sign in</button></form><p id="m"></p>
-<script>document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));const r=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)});if(r.ok)location.href=${JSON.stringify(next)};else document.getElementById('m').textContent='Sign-in failed ('+r.status+')'}</script>`)
+  // The sign-in page (the agent-settings plugin's look) for trying the pilot in a browser (the business system's own login; the kit never sees passwords).
+  router.add('GET', '/login', POLICY.PUBLIC, async ({ req, res, query }) => {
+    const page = signInPage({ lang: query.get('lang'), acceptLanguage: req.headers['accept-language'], system: kit.manifest.system ?? {}, next: query.get('next') })
+    res.writeHead(200, page.headers)
+    res.end(page.html)
     return null
   })
 
@@ -432,7 +429,12 @@ export async function createLeaveApp({
     return null
   }, { patterns: { docId: '[a-z0-9][a-z0-9-]{0,62}' } })
 
-  const handler = gateway ? async (req, res) => { if (await gateway.handleRequest(req, res)) return; return bridge.handler(req, res) } : bridge.handler
+  // a browser without a session on a screen goes to /login (and back); the DSH gateway's paths; then the Bridge
+  const handler = async (req, res) => {
+    if (await redirectToSignIn(req, res, { authenticate: hooks.authenticate })) return
+    if (gateway && await gateway.handleRequest(req, res)) return
+    return bridge.handler(req, res)
+  }
   return { ...bridge, handler, kit, router, store, data, createUser, requestLeave, scanUnanswered, knowledge, rebuildKnowledge, agent, gateway }
 }
 

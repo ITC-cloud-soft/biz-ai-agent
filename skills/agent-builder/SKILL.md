@@ -176,6 +176,8 @@ search method) and the SNS approvals and reports. Copy the wiring of the referen
    `isAllowed` = administrators, `getSessionUser` = your own session): wrap your handler with `gateway.handleRequest` and pass
    `gateway: { rpcBase: '/dsh/api/dsh-im' }` to `register`. Copy the reference's `dsh` option. Without it the page says DSH is
    not connected (everything else works).
+   No sign-in screen of your own yet? Serve `signInPage(...)` at `/login` and call `redirectToSignIn(req, res, { authenticate })`
+   first in your handler (copy the reference). It posts to YOUR login API; a system with its own sign-in screen keeps it.
 7. Approvals need a second person: the uploader never approves. With one administrator, managers must be approver roles
    (`sns.approverRoles`), or nobody can publish — write that down as a "to confirm" decision.
 

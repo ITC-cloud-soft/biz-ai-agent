@@ -359,4 +359,5 @@ export { createChat, createEmbedder, dshOverlay, testConnection, endpointOf, Llm
 export { MASTER_KEY_ENV, masterKeyFrom, seal, unseal, resolveKey, keyStatus } from './secrets.mjs'
 export { MODES, KINDS, SettingsError, applySettingsPatch, defaultSettings, publicSettings } from './settings.mjs'
 export { createFileVectorStore, createDocumentStore } from './stores.mjs'
+export { signInPage, safeNext, redirectToSignIn } from './sign-in.mjs'
 export { createPgVectorStore, digestOf } from './pgvector.mjs'

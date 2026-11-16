@@ -9,7 +9,9 @@ SNS; Japanese / English / Chinese, light / dark, phone widths. The SNS page's or
 **dsh-im's own settings components** — the same screen as DSH and care-web: the 13 SNS an employee can link plus e-mail, each with
 its own connect flow (credentials, QR, manual). They reach dsh-im through the system's **DSH gateway** (`@dsh-bridge/gateway` at
 `/dsh`, admins only): pass `gateway: { rpcBase: '/dsh/api/dsh-im' }` to `register`. Every employee also gets `/me/sns`
-(web-kit's `SnsLinkPage`: their own links only, the link code, unlink, notification preferences — server-kit's Bridge v1 `/me/*`). The build needs a framework checkout
+(web-kit's `SnsLinkPage`: their own links only, the link code, unlink, notification preferences — server-kit's Bridge v1 `/me/*`). For a system without a sign-in screen of its own, `signInPage({ system, next, lang })` is one in
+the same look (it posts to the system's own login API and never sees a session) and `redirectToSignIn(req, res, { authenticate })`
+sends a browser without a session from a screen to it and back. The build needs a framework checkout
 (`BIZ_AI_FRAMEWORK`, default `../framework`); `dist/` is committed, so a system serving it needs no bundler.
 
 | tab | settings |

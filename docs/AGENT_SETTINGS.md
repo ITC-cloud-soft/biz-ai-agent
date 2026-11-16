@@ -18,6 +18,7 @@ biz-ai-agent 的设置界面。和 knowledge、graph 一样，它是**挂到任�
 - **SNS 页的「组织的 IM 机器人」= web-kit 的 `ImBotsShell`**，里面是 **dsh-im 自己的设置组件**（framework 的 `vendor/dsh-im/plugin-src/client`），和 DSH 的 IM 机器人画面、care-web 的「IM ボット接続」完全一样。13 种可以连携的 SNS（Slack、LINE、Teams、Telegram、企业微信应用、企业微信、钉钉、飞书、QQ、Discord、Matrix、WhatsApp、iMessage）加邮箱，各自原有的接入方式都照样能用：填凭据、扫二维码、手动设置。
 - 这些组件通过业务系统的 **DSH 网关**（`@dsh-bridge/gateway`，挂在 `/dsh`，只给管理员）调用 dsh-im 的管理 RPC（`/dsh/api/dsh-im/<channel>`）。系统在 `register(bridge, { gateway: { rpcBase } })` 里告诉插件有网关；没有网关时，SNS 页会说明怎么接。
 - **员工本人的页面 `/me/sns`**（所有员工）：web-kit 的 `SnsLinkPage`。本人的连携一览、向组织的机器人发送连携码、解除、通知设置（种类、免打扰时间）；只显示本人的连携，管理员也看不到别人的。用的都是 server-kit 原有的 Bridge v1 `/me/*`。
+- **登录页**（2026-11-16）：`signInPage()`，和设置画面同样的外观（品牌标记、亮/暗、ja/en/zh、显示密码、错误提示）。只是业务系统自己登录 API 的外壳，插件不碰会话；CSP 用每次响应的 nonce，跳转目标只允许本站路径。`redirectToSignIn()` 让没登录的浏览器打开画面时先去登录、再回来（API 照样 401）。已有登录画面的系统继续用自己的。
 - 构建：`npm run build -w @dsh-bridge/agent-settings`（esbuild；构建时需要 framework 的 checkout：web-kit 和 dsh-im 组件；日文用 dsh-lang-ja 语言包）。产物 `dist/` 会提交，使用这个插件的系统不需要构建工具。
 
 ## 2. 设置项（v0.1）

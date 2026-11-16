@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 216 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 90、equipment-loans 86），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：15 / 15**（见下）。
+测试：全仓库 221 个全部通过（knowledge 20、agent-settings 11、plugin-knowledge 5、graph 5、plugin-graph 2、试点 91、equipment-loans 87），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：15 / 15**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -91,6 +91,7 @@
 - **SNS 页 = web-kit 的 `ImBotsShell` + dsh-im 自己的设置组件**，经业务系统的 DSH 网关（`/dsh`，只给管理员）调用，和 DSH、care-web 的画面完全一样。13 种 SNS 加邮箱，扫码接入、填凭据、手动设置都照原样。
 - **员工本人的 SNS 连携页 `/me/sns`**（2026-11-16 追加）：web-kit 的 `SnsLinkPage`。本人的连携、连携码、解除、通知设置；e2e 检查了 staff1 只看到自己的 LINE 连携。概要页的「我的 SNS 连携」现在按真实连携状态显示。
 - **equipment-loans** 也加了同样的登录页和 DSH 网关。
+- **登录页改成设置画面的风格**（2026-11-16）：插件提供 `signInPage()` / `redirectToSignIn()`，两个示例都换上了；未登录打开 `/agent-settings`、`/me/sns` 会先到登录页，登录后回到原画面。
 - 在真实 DSH 上看过：LINE「1/1 接続中」、「bridge test bot 接続済み」、钉钉的「QR コードをスキャン / 手動で設定」、Slack 的接入卡片；e2e 里也检查了：管理员能通过网关拿到 dsh-im 的状态，staff 得到 403，未登录得到 401。
 
 ## 本地试用（2026-11-16）
