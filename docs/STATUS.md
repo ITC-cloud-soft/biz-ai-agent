@@ -59,6 +59,10 @@
 - `docs/MANUAL.md`（中文手册，15 章）和 `docs/MANUAL.pptx`（35 页，生成脚本和截图在 `docs/manual-deck/`）。
 - framework 的 GUIDELINE（日 / 英 / 中）、ARCHITECTURE 等文档和接入 skill（`skills/biz-assistant-integration`）也同步进来了（同步脚本扩展）。
 - `skills/agent-builder` 按"仓库就是完整的 framework"重写：基线、决策、IT 系统、manifest、知识、图谱、评测、设置插件（画面、SNS、登录、DSH 网关）、AI 面的 profile、完成条件、以往的坑。
+- **审查（两路）**：
+  - 逐条核对（只读 agent 对照代码）：32 处（错误 6、有歧义 14、遗漏 12），全部修正（`5edffe2`）。最严重的：示例文档的行尾注释会被当成值（id 坏掉、节的权限限制悄悄失效）；`generateTools: true` 和知识检索模块的工具同名。
+  - 实地试用：全新的 agent 只拿 skill 和一段需求（经费报销：两级审批、AI 提修正由申请人接受），在本地分支 `trial/expense-claims`（未推送）造出 `examples/expense-claims`：manifest 和一致性 52 / 52 首次通过，90 个测试，evals 76–79 % → 93 %，0 泄漏，10 次故意破坏规则都被测试抓到。它报告的 20 个问题已写进 skill（`d6a666e`），其中仓库层面的修复：`.gitattributes` 强制 LF（Windows 上全新克隆原来有 4 个测试失败）；`redirectToSignIn` 支持正则，手册画面也会跳登录。
+  - 框架层面的空白（记录，未改）：提案只能按角色审，不能指定"申请人本人接受"；提案工具在 DSH 上要手写工具模块。
 
 ## framework 整体拷入（2026-11-16）
 
