@@ -20,22 +20,42 @@ import { createChat, createEmbedder, dshOverlay, testConnection } from './llm.mj
 import { masterKeyFrom, resolveKey } from './secrets.mjs'
 import { SettingsError, applySettingsPatch, defaultSettings, loadSettings, publicSettings, writeJson } from './settings.mjs'
 import { createDocumentStore, createFileVectorStore } from './stores.mjs'
+import { createPgVectorStore, digestOf } from './pgvector.mjs'
 import { settingsScreen } from './screen.mjs'
 
 export const SUBJECT_TYPE = 'knowledge_document'
 export const REPORT_EVENT = 'knowledge.updated'
 export const MAX_DOCUMENT_BYTES = 200_000
+export const VECTOR_DB_URL_ENV = 'AGENT_VECTOR_DB_URL'
 const APPROVAL_TTL_DAYS = 7
 
 export function createAgentSettings({
   dataDir, env = process.env, adminRoles = ['admin'], linkPrefix = '/handbook/', fetch = globalThis.fetch, now = () => new Date(), log = () => {},
+  vectorDb = null, vectorTable = 'agent_vectors',
 } = {}) {
   if (!dataDir) throw new TypeError('createAgentSettings: dataDir is required')
   const masterKey = masterKeyFrom(env)
   const files = { settings: join(dataDir, 'agent-settings.json'), vectors: join(dataDir, 'vectors.json'), graph: join(dataDir, 'knowledge-graph.json') }
   const docs = createDocumentStore(join(dataDir, 'documents'))
   const vectors = createFileVectorStore(files.vectors)
-  let settings = loadSettings(files.settings, defaultSettings({ adminRoles }))
+  // pgvector: the system's own database (vectorDb: a pg Pool / Client / PGlite …) or AGENT_VECTOR_DB_URL (a pg Pool is made on
+  // first use; the URL with its password stays in the environment, never in the settings file)
+  const vectorDbSource = vectorDb ? 'injected' : env?.[VECTOR_DB_URL_ENV] ? 'env' : null
+  let pgStore = null
+  async function pgvector() {
+    if (pgStore) return pgStore
+    let db = vectorDb
+    if (!db) {
+      if (!env?.[VECTOR_DB_URL_ENV]) throw Object.assign(new Error('no vector database'), { code: 'no_vector_db' })
+      let pg
+      try { pg = await import('pg') } catch { throw Object.assign(new Error('pg is not installed'), { code: 'pg_not_installed' }) }
+      db = new (pg.default?.Pool ?? pg.Pool)({ connectionString: env[VECTOR_DB_URL_ENV], max: 4 })
+    }
+    pgStore = createPgVectorStore({ db, table: vectorTable })
+    await pgStore.init()
+    return pgStore
+  }
+  let settings = loadSettings(files.settings, defaultSettings({ adminRoles, vectorStore: vectorDbSource ? 'pgvector' : 'file' }))
   let kit = null
   let ctx = null // { baseDocuments, buildIndex, webBase, knowledgeOptions }
   let current = null
@@ -64,14 +84,28 @@ export function createAgentSettings({
     if (mode === 'rag') {
       try {
         const embedder = createEmbedder(settings.llm.embedding, keyOf(settings.llm.embedding), { fetch })
-        const cache = vectors.cache()
-        const svc = createKnowledgeService(index, { ...options, embedder, vectorCache: cache, onError: (e, x) => failed.push(`${x.stage}:${e?.code ?? e?.message ?? 'error'}`.slice(0, 80)) })
+        const store = settings.knowledge.vectorStore === 'pgvector' ? await pgvector() : vectors
+        const keys = index.chunks.map((c) => `${embedder.id}\u0000${embeddingTextOf(c)}`)
+        const cache = await store.cache(keys)
+        // pgvector searches in SQL, among the asker's visible chunks only (the service hands over nothing else)
+        const vectorSearch = store.kind === 'pgvector'
+          ? async (query, visible, limit) => {
+            const byDigest = new Map()
+            for (const c of visible) {
+              const d = digestOf(embeddingTextOf(c))
+              byDigest.set(d, [...(byDigest.get(d) ?? []), c.id])
+            }
+            const hits = await store.search(embedder.id, query, [...byDigest.keys()], limit)
+            return hits.flatMap((h) => (byDigest.get(h.digest) ?? []).map((chunkId) => ({ chunkId, sim: h.sim })))
+          }
+          : null
+        const svc = createKnowledgeService(index, { ...options, embedder, vectorCache: cache, vectorSearch, onError: (e, x) => failed.push(`${x.stage}:${e?.code ?? e?.message ?? 'error'}`.slice(0, 80)) })
         await svc.ready()
         if (failed.length) throw new Error(failed[0])
-        stats = { vectors: vectors.save(cache, index.chunks.map((c) => `${embedder.id}\u0000${embeddingTextOf(c)}`)), embedded: cache.added.size }
+        stats = { store: store.kind, vectors: await store.save(cache, keys), embedded: cache.added.size }
         current = svc
       } catch (error) {
-        if (!failed.length) failed.push(`embedding:${error?.code ?? 'failed'}`)
+        if (!failed.length) failed.push(`${error?.code === 'no_vector_db' || error?.code === 'pg_not_installed' ? 'vector_db' : 'embedding'}:${error?.code ?? 'failed'}`.slice(0, 80))
         current = createKnowledgeService(index, options) // BM25F until the embedder works again
       }
     } else if (mode === 'graph') {
@@ -218,7 +252,7 @@ export function createAgentSettings({
     const ADMIN = { allow: ['user'], roles: adminRoles }
     const PEOPLE = { allow: ['user'] }
     const { router } = bridge
-    const pub = () => publicSettings(settings, { env, masterKey })
+    const pub = () => ({ ...publicSettings(settings, { env, masterKey }), vectorDb: { available: Boolean(vectorDbSource), source: vectorDbSource, table: vectorTable } })
 
     router.add('GET', '/agent-settings', ADMIN, async ({ req, res, query }) => {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'content-security-policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'" })
@@ -229,7 +263,7 @@ export function createAgentSettings({
     router.add('PUT', '/api/agent/settings', ADMIN, async ({ body }) => {
       let next
       try {
-        next = applySettingsPatch(settings, body ?? {}, { roles: kit.declaredRoles, masterKey })
+        next = applySettingsPatch(settings, body ?? {}, { roles: kit.declaredRoles, masterKey, vectorDbAvailable: Boolean(vectorDbSource) })
       } catch (error) {
         if (error instanceof SettingsError) fail(400, error.code, error.message)
         throw error
@@ -302,3 +336,4 @@ export { createChat, createEmbedder, dshOverlay, testConnection, endpointOf, Llm
 export { MASTER_KEY_ENV, masterKeyFrom, seal, unseal, resolveKey, keyStatus } from './secrets.mjs'
 export { MODES, KINDS, SettingsError, applySettingsPatch, defaultSettings, publicSettings } from './settings.mjs'
 export { createFileVectorStore, createDocumentStore } from './stores.mjs'
+export { createPgVectorStore, digestOf } from './pgvector.mjs'

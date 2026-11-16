@@ -40,12 +40,13 @@ const MANAGERS = ['admin', 'manager']
  * manifest: { file } (default bridge.manifest.yaml) or { manifest } (tests); webBase: the business web's URL in sources ('' = paths)
  * knowledgeOptions: passed to createKnowledgeService (embedder, rerank, minCoverage …; none = BM25F, the default)
  * dataDir: the settings plugin's data (settings, uploaded documents, vector store, knowledge graph); default a new temp directory
- *   (like the memory store: nothing kept). agentEnv: where the plugin reads API keys and AGENT_SETTINGS_KEY (default process.env)
+ *   (like the memory store: nothing kept). agentEnv: where the plugin reads API keys, AGENT_SETTINGS_KEY and AGENT_VECTOR_DB_URL
+ *   (default process.env). vectorDb: a database for the pgvector store (a pg Pool, PGlite …); a real system passes its own pool
  */
 export async function createLeaveApp({
   serviceToken, bffSecret, orgId = 'example-org', now = () => new Date(), log = () => {},
   manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR, knowledgeOptions = {},
-  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch,
+  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch, vectorDb = null,
 }) {
   const store = createMemoryStore({ now })
   const data = { users: new Map(), sessions: new Map(), leave: new Map(), approvals: new Map() }
@@ -223,7 +224,7 @@ export async function createLeaveApp({
 
   // biz-ai-agent settings (@dsh-bridge/agent-settings): the approvals of uploaded documents and the knowledge.updated report go
   // first, everything else to this system's own hooks
-  const agent = createAgentSettings({ dataDir: dataDir ?? mkdtempSync(join(tmpdir(), 'leave-agent-')), env: agentEnv, fetch: agentFetch, now, log })
+  const agent = createAgentSettings({ dataDir: dataDir ?? mkdtempSync(join(tmpdir(), 'leave-agent-')), env: agentEnv, fetch: agentFetch, now, log, vectorDb })
   hooks.approvals = agent.approvals(hooks.approvals)
   hooks.recipientsFor = agent.recipientsFor(hooks.recipientsFor)
 

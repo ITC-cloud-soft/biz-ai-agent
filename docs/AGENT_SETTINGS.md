@@ -61,10 +61,10 @@ biz-ai-agent 的设置界面。和 knowledge、graph 一样，它是**挂到任�
 | 设置（不含密钥） | 数据目录的 `agent-settings.json` |
 | 保存的 key（只有设置了主密钥时） | 同一个文件里，加密存放（AES-256-GCM） |
 | 上传的文档 | 数据目录的 `documents/<id>.md` + `documents/<id>.json`（元数据、状态） |
-| **向量库** | **v0.1：文件型向量库**（数据目录的 `vectors.json`，以「模型 + 正文的 SHA-256」为键）。没有外部服务，单进程 |
+| **向量库** | **PostgreSQL + pgvector**（2026-11-16 决定，v0.2）：表 `agent_vectors`（模型、正文的 SHA-256、维度、向量；不存正文）。检索在 SQL 里做，**只在提问者能看的块里搜**（`WHERE digest = ANY(可见块)`）。连接：业务系统把自己的连接池传进来（`vectorDb`），或者设置 `AGENT_VECTOR_DB_URL`（连接串只放在环境变量里，不写进设置文件）。没有数据库时退回**文件型**（`vectors.json`，单进程） |
 | 知识图谱 | 数据目录的 `knowledge-graph.json`（以「模型 + 块正文的 SHA-256」缓存每块的抽取结果，正文不变就不重新抽取） |
 
-向量库是一个接口（`load()` / `save()`），后面可以换成 **PostgreSQL + pgvector**（server-kit 已经有 PostgreSQL store，可以和业务数据放在同一个库里）、TiDB Vector（官网 biz-ai-web 在用 TiDB）、Qdrant 等。正式环境用哪一种需要你决定；我推荐 pgvector。
+向量库是一个接口（`cache()` / `save()` / `search()`）：pgvector 和文件型两种实现。v0.2 是精确检索（不建 ANN 索引），几千个块没有问题；块数多了以后，固定维度时可以加 HNSW 索引（`packages/agent-settings/src/pgvector.mjs` 的注释里有 SQL）。
 
 ## 4. 接口（业务系统一侧，都只给人，管理员角色）
 

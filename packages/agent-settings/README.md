@@ -1,4 +1,4 @@
-# @dsh-bridge/agent-settings (v0.1)
+# @dsh-bridge/agent-settings (v0.2)
 
 The settings of biz-ai-agent, as a plugin for any Bridge v1 business system built on server-kit. Design and rationale:
 [`docs/AGENT_SETTINGS.md`](../../docs/AGENT_SETTINGS.md) (Chinese).
@@ -6,7 +6,7 @@ The settings of biz-ai-agent, as a plugin for any Bridge v1 business system buil
 | tab | settings |
 |---|---|
 | Models | base model (knowledge-graph extraction) and embedding model (RAG): OpenAI-compatible or Azure OpenAI, base URL, model / deployment, API key as an **environment variable name** (recommended) or stored sealed (AES-256-GCM, only with `AGENT_SETTINGS_KEY`). Keys are write-only. Connection test (codes only). The DSH overlay for the AI plane's conversation model (variable names only) |
-| Knowledge | search method **BM25F** (default, no model) / **RAG** (BM25F + vectors in the vector store; v0.1: a file, `vectors.json`) / **semantic knowledge graph** (the base model extracts entities and relations per chunk into `knowledge-graph.json`: names, types, chunk IDs — no text). Document upload (Markdown / text, roles, keywords), status, withdraw, rebuild |
+| Knowledge | search method **BM25F** (default, no model) / **RAG** (BM25F + vectors in the vector store: **PostgreSQL + pgvector** when the system passes a database (`vectorDb`) or `AGENT_VECTOR_DB_URL` is set — the vector search runs in SQL among the asker's visible chunks only; otherwise a file, `vectors.json`) / **semantic knowledge graph** (the base model extracts entities and relations per chunk into `knowledge-graph.json`: names, types, chunk IDs — no text). Document upload (Markdown / text, roles, keywords), status, withdraw, rebuild |
 | SNS | publishing needs an approval (the framework's approval cards on SNS; the uploader never approves), approver roles, report roles (`knowledge.updated`, counts only, through bridge-notify), report triggers, the employee's own link code |
 
 ```js

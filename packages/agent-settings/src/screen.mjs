@@ -13,6 +13,7 @@ const T = {
     modeRag: 'RAG（ベクトルデータベース）', modeRagHelp: 'BM25F ＋ embedding のベクトル。ベクトルはベクトルストアに保存します（v0.1 はファイル）。',
     modeGraph: '意味的知識グラフ（JSON）', modeGraphHelp: '基本モデルで文書を実体と関係のグラフにして JSON ファイルに保存し、BM25F と合わせて検索します。',
     sentNote: 'RAG・知識グラフでは、文書の本文が選んだモデルに送られます（個人情報の検査を通った部分だけ）。',
+    vstore: 'ベクトルストア（RAG）', vstoreFile: 'ファイル（単一プロセス）', vstorePg: 'PostgreSQL + pgvector', vstoreNone: 'pgvector：データベースが未設定です（業務システムが渡すか、AGENT_VECTOR_DB_URL）',
     status: '状態', rebuild: '索引を作り直す', upload: '文書のアップロード', docTitle: 'タイトル', docRoles: '読める役割', docKeywords: 'キーワード（カンマ区切り）',
     docFile: 'ファイル（.md / .txt、200 KB まで）', docText: '本文', submit: 'アップロード', documents: '文書',
     stPending: '承認待ち', stPublished: '公開中', stRejected: '却下', stPersonal: '個人情報あり（保存していません）', stWithdrawn: '取り下げ',
@@ -32,6 +33,7 @@ const T = {
     modeRag: 'RAG (vector database)', modeRagHelp: 'BM25F + embedding vectors, kept in the vector store (v0.1: a file).',
     modeGraph: 'Semantic knowledge graph (JSON)', modeGraphHelp: 'The base model turns the documents into a graph of entities and relations, saved as a JSON file and searched together with BM25F.',
     sentNote: 'With RAG or the knowledge graph, document text is sent to the chosen model (only parts that passed the personal-data check).',
+    vstore: 'Vector store (RAG)', vstoreFile: 'File (one process)', vstorePg: 'PostgreSQL + pgvector', vstoreNone: 'pgvector: no database configured (passed by the system, or AGENT_VECTOR_DB_URL)',
     status: 'Status', rebuild: 'Rebuild the index', upload: 'Upload a document', docTitle: 'Title', docRoles: 'Roles that may read it', docKeywords: 'Keywords (comma separated)',
     docFile: 'File (.md / .txt, up to 200 KB)', docText: 'Text', submit: 'Upload', documents: 'Documents',
     stPending: 'waiting for approval', stPublished: 'published', stRejected: 'rejected', stPersonal: 'personal data (not kept)', stWithdrawn: 'withdrawn',
@@ -51,6 +53,7 @@ const T = {
     modeRag: 'RAG（向量数据库）', modeRagHelp: 'BM25F + embedding 向量，向量存在向量库里（v0.1 是文件）。',
     modeGraph: '语义知识图谱（JSON）', modeGraphHelp: '用基础模型把文档转成实体和关系的图谱，存成 JSON 文件，和 BM25F 一起检索。',
     sentNote: '使用 RAG 或知识图谱时，文档正文会发给所选的模型（只发送通过个人信息检查的部分）。',
+    vstore: '向量库（RAG）', vstoreFile: '文件（单进程）', vstorePg: 'PostgreSQL + pgvector', vstoreNone: 'pgvector：没有配置数据库（由业务系统传入，或设置 AGENT_VECTOR_DB_URL）',
     status: '状态', rebuild: '重建索引', upload: '上传文档', docTitle: '标题', docRoles: '可以阅读的角色', docKeywords: '关键词（逗号分隔）',
     docFile: '文件（.md / .txt，最大 200 KB）', docText: '正文', submit: '上传', documents: '文档',
     stPending: '等待审批', stPublished: '已发布', stRejected: '已驳回', stPersonal: '含个人信息（未保存）', stWithdrawn: '已撤下',
@@ -132,6 +135,8 @@ pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; pad
       <label class="mode"><input type="radio" name="mode" value="rag">${esc(t.modeRag)}<small>${esc(t.modeRagHelp)}</small></label>
       <label class="mode"><input type="radio" name="mode" value="graph">${esc(t.modeGraph)}<small>${esc(t.modeGraphHelp)}</small></label>
     </div>
+    <div class="grid" style="margin-top:12px"><label>${esc(t.vstore)}<select id="vstore"><option value="file">${esc(t.vstoreFile)}</option><option value="pgvector">${esc(t.vstorePg)}</option></select></label></div>
+    <p class="help" id="vstore-note" hidden>${esc(t.vstoreNone)}</p>
     <p class="note" style="margin-top:12px">${esc(t.sentNote)}</p>
     <div class="row"><button data-act="save-mode">${esc(t.save)}</button><button class="ghost" data-act="rebuild">${esc(t.rebuild)}</button><span class="msg" id="mode-msg"></span></div>
     <h2 style="margin-top:14px">${esc(t.status)}</h2><dl id="status"></dl>
@@ -176,6 +181,7 @@ function fill(s) {
     $('.keystate', card).textContent = T.keyState + ': ' + (m.key.set ? T.keySet + ' (' + m.key.source + (m.key.hint ? ' ' + m.key.hint : '') + ')' : T.keyUnset) + (s.settings.keyStorage ? '' : ' — ' + T.keyNoStorage);
   }
   for (const r of $$('input[name=mode]')) r.checked = r.value === s.settings.knowledge.mode;
+  $('#vstore').value = s.settings.knowledge.vectorStore; $('#vstore option[value=pgvector]').disabled = !s.settings.vectorDb.available; $('#vstore-note').hidden = s.settings.vectorDb.available;
   const sns = s.settings.sns;
   $('#s-approval').checked = sns.requireApproval; $('#s-rebuilt').checked = sns.reportOn.rebuilt; $('#s-failures').checked = sns.reportOn.failures;
   for (const c of $$('input[name=s-approvers]')) c.checked = sns.approverRoles.includes(c.value);
@@ -214,7 +220,7 @@ for (const card of $$('[data-model]')) {
   $('[data-act=test]', card).onclick = async () => { try { const { result } = await api('POST', '/api/agent/settings/test', { target: card.dataset.model }); say(msg, (result.ok ? 'OK' : T.failed + ': ' + result.error) + ' · ' + result.ms + ' ms', result.ok); } catch (e) { say(msg, T.failed + ': ' + e.message, false); } };
 }
 $('[data-act=overlay]').onclick = async () => { const res = await fetch('/api/agent/settings/dsh-overlay', { credentials: 'same-origin' }); const pre = $('#overlay'); pre.textContent = await res.text(); pre.hidden = false; };
-$('[data-act=save-mode]').onclick = async () => { const mode = $('input[name=mode]:checked')?.value; try { fill(await api('PUT', '/api/agent/settings', { knowledge: { mode } })); say($('#mode-msg'), T.saved); } catch (e) { say($('#mode-msg'), T.failed + ': ' + e.message, false); } };
+$('[data-act=save-mode]').onclick = async () => { const mode = $('input[name=mode]:checked')?.value; try { fill(await api('PUT', '/api/agent/settings', { knowledge: { mode, vectorStore: $('#vstore').value } })); say($('#mode-msg'), T.saved); } catch (e) { say($('#mode-msg'), T.failed + ': ' + e.message, false); } };
 $('[data-act=rebuild]').onclick = async () => { try { const { knowledge } = await api('POST', '/api/agent/knowledge/rebuild'); status(knowledge); say($('#mode-msg'), T.saved); } catch (e) { say($('#mode-msg'), T.failed + ': ' + e.message, false); } };
 $('#d-file').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; if (f.size > 200000) { say($('#up-msg'), T.failed + ': > 200 KB', false); return; } $('#d-text').value = await f.text(); if (!$('#d-title').value) $('#d-title').value = f.name.replace(/\\.[^.]+$/, ''); };
 $('[data-act=upload]').onclick = async () => {

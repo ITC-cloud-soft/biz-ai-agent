@@ -1,6 +1,6 @@
 // The knowledge service of a business system: an index and its searcher, for the route (routes.mjs) or the system's own code.
 import { candidatesFor, createKnowledgeSearcher, resultsOf } from './search.mjs'
-import { embedChunks, embedQuery } from './hybrid.mjs'
+import { DEFAULT_MIN_SIMILARITY, embedChunks, embedQuery } from './hybrid.mjs'
 import { checkKnowledgeGraph, kgRank } from './kg.mjs'
 
 export const RERANK_POOL = 20
@@ -19,13 +19,16 @@ export const RERANK_POOL = 20
  *   swapped in even then: its visibility is what counts.
  * vectorCache (optional): a Map the vectors are cached in (keyed by embedder id + text): load it from a vector store before and save
  *   it after (await ready()), so unchanged chunks are never embedded again.
+ * vectorSearch (optional): async (queryVector, visibleChunks, limit) -> [{ chunkId, sim }] — a vector database does the vector side
+ *   (pgvector: @dsh-bridge/agent-settings). It is handed ONLY the asker's visible chunks; whatever it returns is checked again.
+ *   Without it the vector side is computed in memory over the same visible chunks.
  * graph (optional): a knowledge graph (kg.mjs: names, types, chunk IDs); its ranking (kgRank, permissions first) is fused with
  *   BM25F (and the vectors) by RRF.
  * rerank (optional): async (question, candidates[{ chunk, score }]) -> candidates in a new order. It sees only the asker's
  *   permitted candidates (at most RERANK_POOL) and may reorder or drop them, never add: anything else it returns is ignored.
  */
 export function createKnowledgeService(index, {
-  webBase = '', synonyms = [], fillers, stopWords, minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null, vectorCache = null, graph = null,
+  webBase = '', synonyms = [], fillers, stopWords, minCoverage, minScore, perDocument, embedder = null, minSimilarity, rerank = null, onError = null, vectorCache = null, graph = null, vectorSearch = null,
 } = {}) {
   const cache = embedder ? (vectorCache ?? new Map()) : null
   const kg = graph ? checkKnowledgeGraph(graph) : null
@@ -52,13 +55,31 @@ export function createKnowledgeService(index, {
       return null
     }
   }
+  /** The vector database's ranking of the asker's visible chunks (permissions first: it never sees another chunk). */
+  async function vectorDbList(question, searcher, asker) {
+    const visible = searcher.visible(asker)
+    if (!visible.length) return []
+    try {
+      const query = await embedQuery(embedder, question)
+      const hits = await vectorSearch(query, visible, 50)
+      const byId = new Map(visible.map((c) => [c.id, c]))
+      const min = minSimilarity ?? DEFAULT_MIN_SIMILARITY
+      return (Array.isArray(hits) ? hits : []).filter((h) => byId.has(h?.chunkId) && Number(h.sim) >= min).map((h) => ({ chunk: byId.get(h.chunkId), sim: Number(h.sim) }))
+    } catch (error) {
+      onError?.(error, { stage: 'vector_search' })
+      return []
+    }
+  }
 
   return {
     async search(question, { asker, limit } = {}) {
       await pending
       const { searcher } = current
-      const more = kg ? [kgRank(kg, searcher, String(question ?? '').slice(0, 200), asker)] : []
-      let list = candidatesFor(searcher, question, { asker, minCoverage, minScore, vector: await vectorFor(question), more })
+      const q = String(question ?? '').slice(0, 200)
+      const more = kg ? [kgRank(kg, searcher, q, asker)] : []
+      const useDb = embedder && current.vectors && typeof vectorSearch === 'function'
+      if (useDb) more.unshift(await vectorDbList(q, searcher, asker))
+      let list = candidatesFor(searcher, question, { asker, minCoverage, minScore, vector: useDb ? null : await vectorFor(question), more })
       if (typeof rerank === 'function' && list.length > 1) {
         const pool = list.slice(0, RERANK_POOL)
         const allowed = new Map(pool.map((x) => [x.chunk.id, x]))

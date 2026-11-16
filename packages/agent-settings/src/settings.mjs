@@ -5,6 +5,7 @@ import { keyStatus, seal } from './secrets.mjs'
 
 export const MODES = Object.freeze(['bm25f', 'rag', 'graph'])
 export const KINDS = Object.freeze(['openai', 'azure-openai'])
+export const VECTOR_STORES = Object.freeze(['file', 'pgvector'])
 const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$/
 const ENV_RE = /^[A-Z][A-Z0-9_]{1,63}$/
 
@@ -12,12 +13,12 @@ export class SettingsError extends Error {
   constructor(code, message = code) { super(message); this.code = code; this.status = 400 }
 }
 
-export function defaultSettings({ adminRoles = ['admin'] } = {}) {
+export function defaultSettings({ adminRoles = ['admin'], vectorStore = 'file' } = {}) {
   const model = () => ({ kind: 'openai', baseUrl: '', model: '', apiKeyEnv: '', apiKey: null })
   return {
     version: 1,
     llm: { base: model(), embedding: { enabled: false, ...model(), dimensions: null } },
-    knowledge: { mode: 'bm25f' },
+    knowledge: { mode: 'bm25f', vectorStore },
     sns: { requireApproval: true, approverRoles: [...adminRoles], reportRoles: [...adminRoles], reportOn: { rebuilt: true, failures: true } },
   }
 }
@@ -66,7 +67,7 @@ function applyModel(cur, patch, where, { masterKey, embedding = false }) {
 }
 
 /** current + a change (PUT body) → the new settings. Throws SettingsError (400). */
-export function applySettingsPatch(current, patch, { roles, masterKey = null } = {}) {
+export function applySettingsPatch(current, patch, { roles, masterKey = null, vectorDbAvailable = false } = {}) {
   keys(patch, ['llm', 'knowledge', 'sns'], 'settings')
   const next = structuredClone(current)
   if (patch.llm !== undefined) {
@@ -75,7 +76,12 @@ export function applySettingsPatch(current, patch, { roles, masterKey = null } =
     if (patch.llm.embedding !== undefined) next.llm.embedding = applyModel(next.llm.embedding, patch.llm.embedding, 'llm.embedding', { masterKey, embedding: true })
   }
   if (patch.knowledge !== undefined) {
-    keys(patch.knowledge, ['mode'], 'knowledge')
+    keys(patch.knowledge, ['mode', 'vectorStore'], 'knowledge')
+    if (patch.knowledge.vectorStore !== undefined) {
+      if (!VECTOR_STORES.includes(patch.knowledge.vectorStore)) throw new SettingsError('invalid_vector_store', 'knowledge.vectorStore: file | pgvector')
+      if (patch.knowledge.vectorStore === 'pgvector' && !vectorDbAvailable) throw new SettingsError('vector_db_unavailable', 'knowledge.vectorStore pgvector: the system passes no database and AGENT_VECTOR_DB_URL is not set')
+      next.knowledge.vectorStore = patch.knowledge.vectorStore
+    }
     if (patch.knowledge.mode !== undefined) { if (!MODES.includes(patch.knowledge.mode)) throw new SettingsError('invalid_mode', 'knowledge.mode: bm25f | rag | graph'); next.knowledge.mode = patch.knowledge.mode }
   }
   if (patch.sns !== undefined) {

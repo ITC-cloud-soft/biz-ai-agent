@@ -13,7 +13,7 @@
 | 4 | 「为什么到我这里」的问答在 e2e 里通过 | 通过（经理 / 申请人 / 其他员工三种情况，真实委托）；G-01…G-07 |
 | 5 | coding agent 按 skill 造出的系统 52/52 通过，evals 达标 | 另起一个只拿到 skill 和一段需求的 coding agent，从零造出 `examples/equipment-loans`：52/52、84 个测试、evals 每种语言 ≥ 83%，0 泄露 |
 
-测试：全仓库 208 个全部通过（knowledge 20、agent-settings 6、plugin-knowledge 5、graph 5、plugin-graph 2、试点 86、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
+测试：全仓库 213 个全部通过（knowledge 20、agent-settings 8、plugin-knowledge 5、graph 5、plugin-graph 2、试点 89、equipment-loans 84），两个示例都是一致性 52 / 52（无 skip，无 known gap）。**真实 DSH 上的 e2e：13 / 13**（见下）。
 
 ## 第 3 周：检索质量、PII、可选 embedding
 
@@ -73,7 +73,14 @@
   - staff 在 LINE 上提问时，新文档作为来源出现。
 - **画面**：在内置浏览器里看过三个标签页；375 px 宽时没有横向滚动。顺带修了一个问题：上传者自己的文档不再显示「批准 / 驳回」按钮。
 
-**向量数据库**：MVP（第 1–5 周）**没有向量数据库**，向量只存在内存里。v0.1 用**文件型向量库**（数据目录里的 `vectors.json`，用「模型 + 正文的 SHA-256」作键，不存正文），单进程。它是一个接口，以后可以换成 pgvector 等。
+**向量数据库**：MVP（第 1–5 周）没有向量数据库，向量只存在内存里；v0.1 是文件型。**v0.2（2026-11-16）：PostgreSQL + pgvector**（你定的）。
+- 表 `agent_vectors` 里只存模型名、正文的 SHA-256、维度和向量，不存正文。
+- 检索在 SQL 里做，只在提问者能看的块里搜（`WHERE digest = ANY(可见块)`）。
+- 重启以后，没改过的块不会重新做 embedding。
+- 连接方式二选一：业务系统传入自己的连接池（`vectorDb`），或者设置 `AGENT_VECTOR_DB_URL`。有数据库时默认就用 pgvector，没有时用文件型。
+- 测试用的是 **PGlite**（进程内运行的 PostgreSQL + pgvector 0.8.0，SQL 和真正的服务器相同）。
+- 权限有两层：数据库只拿到能看的块，服务又对结果再查一遍。只去掉其中一层时测试仍然通过（另一层拦住了）；两层都去掉，「管理职拿到了只给 admin 的块」这个测试就失败了。
+- **还没在真正的 PostgreSQL 服务器上跑过**：本机只有不带 pgvector 的 `postgres:16` 镜像，要跑需要先下载 `pgvector/pgvector` 镜像。
 
 ## 真实 DSH 上的 e2e（2026-11-15）
 
@@ -125,6 +132,6 @@
 3. 这些包最后是**并入 framework**，还是在这里单独发布。推荐并入：路由、manifest 的键、一致性检查本来就属于 Bridge v1。
 4. ~~在真正的 DSH 上跑 e2e~~：已跑，10 / 10；发现的 dsh-im bug 已在 framework `d8b3538` 修复。care 等产品重新安装 profile / 部署的时机由你决定。
 5. 是否把「通用 AI agent 框架」写进官网和 README（计划 §8.3 说等第 5 周有事实后再定，现在有了）。
-6. **正式环境的向量数据库**：v0.1 是文件型（单进程）。推荐 **PostgreSQL + pgvector**（server-kit 已有 PostgreSQL store，可以和业务数据放在同一个库里）；其他候选：TiDB Vector（官网 biz-ai-web 在用 TiDB）、Qdrant。
+6. ~~正式环境的向量数据库~~：**已定（2026-11-16）：PostgreSQL + pgvector**，v0.2 已实现。
 7. **把文档发给外部模型**：RAG 和知识图谱都会把文档正文（已经过个人信息检查）发给所选的模型。用哪个服务、哪个区域（比如 Azure OpenAI 日本东部），需要按公司的数据规则决定。
 8. **API key 的保存方式**：只用环境变量名（推荐），还是也允许在画面上保存（需要配置主密钥 `AGENT_SETTINGS_KEY` 并做好保管）。
