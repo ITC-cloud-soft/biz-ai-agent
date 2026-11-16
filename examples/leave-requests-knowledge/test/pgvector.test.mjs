@@ -1,13 +1,12 @@
-// RAG with the pgvector store on the running pilot: the vectors in PostgreSQL + pgvector (PGlite here — the same SQL as a real
-// server), the vector search in SQL among the asker's visible chunks only, nothing re-embedded after a restart.
+// RAG with the pgvector store on the running pilot: the vectors in PostgreSQL + pgvector (a real server with AGENT_TEST_PG_URL,
+// otherwise PGlite — the same SQL), the vector search in SQL among the asker's visible chunks only, nothing re-embedded after a restart.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { PGlite } from '@electric-sql/pglite'
-import { vector } from '@electric-sql/pglite/vector'
+import { DB_KIND, testDb } from '../../../packages/agent-settings/test/db.mjs'
 import { canSee, termsOf } from '@dsh-bridge/knowledge'
 import { startWithPeople } from './helpers.mjs'
 
@@ -33,6 +32,7 @@ const model = http.createServer((req, res) => {
 })
 
 let db
+let closeDb
 let modelUrl
 const dirs = []
 async function start() {
@@ -47,15 +47,15 @@ async function start() {
 before(async () => {
   await new Promise((r) => model.listen(0, '127.0.0.1', r))
   modelUrl = `http://127.0.0.1:${model.address().port}/v1`
-  db = await PGlite.create({ extensions: { vector } })
+  ;({ db, close: closeDb } = await testDb({ tables: ['agent_vectors'] }))
 })
 after(async () => {
   model.close()
-  await db.close()
+  await closeDb()
   for (const d of dirs) rmSync(d, { recursive: true, force: true })
 })
 
-test('with a database the default store is pgvector; RAG puts every chunk vector there (hashes, no text)', async () => {
+test(`with a database (${DB_KIND}) the default store is pgvector; RAG puts every chunk vector there (hashes, no text)`, async () => {
   const { e, r } = await start()
   try {
     assert.equal(r.status, 200)
@@ -109,6 +109,25 @@ test('without a database pgvector cannot be chosen', async () => {
     const r = await e.call('PUT', '/api/agent/settings', { headers: e.people.admin.web, body: { knowledge: { vectorStore: 'pgvector' } } })
     assert.equal(r.body.error, 'vector_db_unavailable')
     assert.equal((await e.call('GET', '/api/agent/settings', { headers: e.people.admin.web })).body.settings.knowledge.vectorStore, 'file')
+  } finally {
+    await e.srv.stop()
+  }
+})
+
+test('AGENT_VECTOR_DB_URL: the plugin opens its own pg pool (the URL stays in the environment, never in the settings)', { skip: DB_KIND !== 'postgresql' && 'needs AGENT_TEST_PG_URL (a real server)' }, async () => {
+  const url = process.env.AGENT_TEST_PG_URL
+  const dir = mkdtempSync(join(tmpdir(), 'leave-pgenv-'))
+  dirs.push(dir)
+  const e = await startWithPeople({ dataDir: dir, agentEnv: { AGENT_VECTOR_DB_URL: url, TEST_EMB_KEY: 'test-emb-key-not-real' } })
+  try {
+    const put = (body) => e.call('PUT', '/api/agent/settings', { headers: e.people.admin.web, body })
+    await put({ llm: { embedding: { enabled: true, baseUrl: modelUrl, model: 'mock-emb-env', apiKeyEnv: 'TEST_EMB_KEY' } } })
+    const r = await put({ knowledge: { mode: 'rag' } })
+    assert.deepEqual(r.body.settings.vectorDb, { available: true, source: 'env', table: 'agent_vectors' })
+    assert.equal(r.body.settings.knowledge.vectorStore, 'pgvector', 'the default with a database')
+    assert.equal(r.body.knowledge.stats.store, 'pgvector')
+    assert.ok(!JSON.stringify(r.body).includes(new URL(url).password), 'the password never appears')
+    assert.ok(!readFileSync(join(dir, 'agent-settings.json'), 'utf8').includes('postgres://'), 'nor in the settings file')
   } finally {
     await e.srv.stop()
   }

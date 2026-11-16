@@ -5,3 +5,4 @@ node_modules/
 *.tgz
 .dsh-home-e2e/
 e2e/.work/
+.data/

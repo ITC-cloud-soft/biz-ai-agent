@@ -1,14 +1,14 @@
-// The pgvector store on real pgvector SQL (PGlite: PostgreSQL in-process with the pgvector extension; no server, no Docker).
+// The pgvector store on real pgvector SQL: a PostgreSQL + pgvector server with AGENT_TEST_PG_URL, otherwise PGlite (db.mjs).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PGlite } from '@electric-sql/pglite'
-import { vector } from '@electric-sql/pglite/vector'
 import { createPgVectorStore, digestOf } from '../src/index.mjs'
+import { DB_KIND, testDb } from './db.mjs'
 
 const key = (text, embedder = 'emb:test') => `${embedder}\u0000${text}`
 
-test('pgvector store: vectors keyed by hash (no text), reloaded by a new store, stale ones dropped', async () => {
-  const db = await PGlite.create({ extensions: { vector } })
+test(`pgvector store (${DB_KIND}): vectors keyed by hash (no text), reloaded by a new store, stale ones dropped`, async (t) => {
+  const { db, close } = await testDb({ tables: ['agent_vectors'] })
+  t.after(close)
   const store = createPgVectorStore({ db })
   const cache = await store.cache([key('alpha text'), key('beta text')])
   assert.equal(cache.has(key('alpha text')), false)
@@ -27,8 +27,9 @@ test('pgvector store: vectors keyed by hash (no text), reloaded by a new store, 
   assert.throws(() => createPgVectorStore({ db, table: 'x; drop table y' }), /table must match/)
 })
 
-test('pgvector search: only among the given (visible) digests — the nearest hidden vector is never returned', async () => {
-  const db = await PGlite.create({ extensions: { vector } })
+test(`pgvector search (${DB_KIND}): only among the given (visible) digests — the nearest hidden vector is never returned`, async (t) => {
+  const { db, close } = await testDb({ tables: ['kv'] })
+  t.after(close)
   const store = createPgVectorStore({ db, table: 'kv' })
   const cache = await store.cache([])
   const texts = { public1: [1, 0.2, 0], public2: [0, 1, 0], hidden: [1, 0, 0] }

@@ -257,6 +257,17 @@ export async function createLeaveApp({
     return { status: 200, body: { ok: true, user: { id: u.id, role: u.role } }, headers: { 'set-cookie': sessionCookie(token, SESSION_TTL_MS / 1000) } }
   })
 
+  // A minimal sign-in page for trying the pilot in a browser (the business system's own login; the kit never sees passwords).
+  router.add('GET', '/login', POLICY.PUBLIC, async ({ res, query }) => {
+    const next = /^\/[A-Za-z0-9/_?=&.-]*$/.test(query.get('next') ?? '') ? query.get('next') : '/agent-settings'
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY' })
+    res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Leave Requests — sign in</title>
+<style>body{font:15px system-ui,sans-serif;max-width:360px;margin:60px auto;padding:0 16px}input,button{font:inherit;width:100%;padding:8px;margin:6px 0;box-sizing:border-box}</style>
+<h1>Leave Requests</h1><form id="f"><input name="loginId" placeholder="login id" autocomplete="username" required><input name="password" type="password" placeholder="password" autocomplete="current-password" required><button>Sign in</button></form><p id="m"></p>
+<script>document.getElementById('f').onsubmit=async(e)=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));const r=await fetch('/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)});if(r.ok)location.href=${JSON.stringify(next)};else document.getElementById('m').textContent='Sign-in failed ('+r.status+')'}</script>`)
+    return null
+  })
+
   router.add('POST', '/api/auth/logout', HUMAN, async ({ principal }) => {
     for (const s of data.sessions.values()) if (s.sessionId === principal.sessionId) s.revoked = true
     await store.revokeTicketsBySession(principal.sessionId)

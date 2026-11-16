@@ -26,7 +26,8 @@
   },
   "devDependencies": {
     "@dsh-bridge/server-kit": "^0.1.1",
-    "@electric-sql/pglite": "^0.3.16"
+    "@electric-sql/pglite": "^0.3.16",
+    "pg": "^8.23.1"
   },
   "peerDependenciesMeta": {
     "pg": {
