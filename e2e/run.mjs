@@ -45,6 +45,8 @@ const { createDshGateway, fromValue } = await fw('packages/gateway/src/index.mjs
 const { startServer } = await import(pathToFileURL(join(REPO, 'examples', 'leave-requests-knowledge', 'src', 'app.mjs')).href)
 
 const KEEP = process.argv.includes('--keep')
+// --serve: after the scenarios, keep the pilot (with the DSH gateway), DSH and the mocks running for a person to look at
+const SERVE = process.argv.includes('--serve')
 const WORK = join(here, '.work')
 const HOME = resolve(REPO, '.dsh-home-e2e')
 const PROFILE = 'biz-ai-agent-e2e'
@@ -271,7 +273,11 @@ async function main() {
 
   console.log('— setup')
   rmSync(join(WORK, 'agent-data'), { recursive: true, force: true })
-  const srv = await startServer({ port: PORTS.app, serviceToken: SECRETS.service, bffSecret: SECRETS.bff, webBase: WEB, dataDir: join(WORK, 'agent-data'), agentEnv: {} })
+  let dshToken = null // the DSH launch token, known once DSH runs (the pilot's DSH gateway asks for it per exchange)
+  const srv = await startServer({
+    port: PORTS.app, serviceToken: SECRETS.service, bffSecret: SECRETS.bff, webBase: WEB, dataDir: join(WORK, 'agent-data'), agentEnv: {},
+    dsh: { target: `http://127.0.0.1:${PORTS.dsh}`, launchToken: async () => { if (!dshToken) throw new Error('DSH not started'); return dshToken } },
+  })
   cleanups.push(() => srv.stop())
   const people = {}
   for (const [loginId, role] of [['manager', 'manager'], ['staff1', 'staff'], ['staff2', 'staff'], ['admin', 'admin'], ['admin2', 'admin']]) {
@@ -312,6 +318,7 @@ async function main() {
     },
   })
   cleanups.push(() => proc.stop())
+  dshToken = token
   const gateway = await startGateway(token)
   await waitFor(async () => (await gateway.rpc('/line', 'connection.status', {})).ok, { timeoutMs: 90_000, stepMs: 1000, label: 'dsh-im /line RPC' })
   const bound = await gateway.rpc('/line', 'bot.bind-credentials', { channelSecret: SECRETS.lineSecret, channelAccessToken: SECRETS.lineToken }, { timeoutMs: 60_000 })
@@ -350,6 +357,19 @@ async function main() {
   }
   record('setup', 'admin, admin2, manager, staff1, staff2 linked their LINE accounts with their own link codes', Object.values(linked).every((t) => /連携が完了/.test(t ?? '')), linked)
 
+  // the settings screen's SNS page: dsh-im through the pilot's own DSH gateway (administrators only)
+  {
+    const rpc = (cookie) => fetch(`${WEB}/dsh/api/dsh-im/line`, { method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: JSON.stringify({ type: 'client-request', rpcId: `e2e-${Date.now()}`, method: 'dsh-im/line', payload: { method: 'connection.status', payload: {} } }) }) // web-kit buildEnvelope
+    const admin = await rpc(people.admin.cookie)
+    const body = admin.ok ? await admin.json() : null
+    const staff = await rpc(people.staff1.cookie)
+    const anon = await rpc(null)
+    const shell = await fetch(`${WEB}/agent-settings`, { headers: { cookie: people.admin.cookie } })
+    const gatewayInShell = (await shell.text()).includes('"gateway":{"rpcBase":"/dsh/api/dsh-im"}')
+    record('sns', "the settings screen's SNS page reaches dsh-im through the pilot's DSH gateway: the admin sees the LINE bot connected; staff and anonymous are refused",
+      admin.ok && body?.result?.ok === true && (body.result.value?.bots ?? body.result.value?.snapshot?.bots ?? []).some((b) => b.connected) && [401, 403].includes(staff.status) && [401, 403].includes(anon.status) && gatewayInShell,
+      { admin: admin.status, connected: (body?.result?.value?.bots ?? body?.result?.value?.snapshot?.bots ?? []).filter((b) => b.connected).length, staff: staff.status, anonymous: anon.status, shell: shell.status, gatewayInShell })
+  }
   // k1: a rule question as staff1
   {
     const r = await say('staff1', 'Can I carry over unused leave?', /carry over|nothing/i)
@@ -412,6 +432,14 @@ async function main() {
       /found=false/.test(o.toolResult) && /could not find/.test(o.text ?? ''), { reply: o.text, toolResultExcerpt: o.toolResult.slice(0, 300) })
   }
   await sleep(300)
+  if (SERVE) {
+    console.log(`
+— serving: ${WEB}/login (admin / admin2 / manager / staff1 / staff2, password in e2e/.work/serve.txt) → ${WEB}/agent-settings ; Ctrl+C to stop`)
+    writeFileSync(join(WORK, 'serve.txt'), `${WEB}/login
+password: ${SECRETS.password}
+`, { mode: 0o600 })
+    await new Promise((r) => { process.once('SIGINT', r); process.once('SIGTERM', r) })
+  }
 }
 
 let failed = false

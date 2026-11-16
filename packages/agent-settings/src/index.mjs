@@ -21,7 +21,7 @@ import { masterKeyFrom, resolveKey } from './secrets.mjs'
 import { SettingsError, applySettingsPatch, defaultSettings, loadSettings, publicSettings, writeJson } from './settings.mjs'
 import { createDocumentStore, createFileVectorStore } from './stores.mjs'
 import { createPgVectorStore, digestOf } from './pgvector.mjs'
-import { settingsScreen } from './screen.mjs'
+import { CSP, asset, settingsShell } from './screen.mjs'
 
 export const SUBJECT_TYPE = 'knowledge_document'
 export const REPORT_EVENT = 'knowledge.updated'
@@ -243,7 +243,11 @@ export function createAgentSettings({
   const docJson = (d, viewer = null) => ({ ...d, link: d.status === 'published' ? `${linkPrefix}${d.id}` : null, canDecide: Boolean(viewer && d.status === 'pending' && d.approval?.status === 'pending' && mayDecide(approvalOf(d), viewer)) })
 
   // ── register: the knowledge service (first build), the routes, the screen ───────────────────────────────────────────────
-  async function register(bridge, { baseDocuments = [], buildIndex, webBase = '', knowledgeOptions = {}, screen = null } = {}) {
+  /**
+   * gateway: { rpcBase } when the system mounts a DSH gateway (@dsh-bridge/gateway, admins only) — the SNS page then shows the
+   * organisation's IM bots with dsh-im's own settings screens (web-kit ImBotsShell); rpcBase default '/dsh/api/dsh-im'.
+   */
+  async function register(bridge, { baseDocuments = [], buildIndex, webBase = '', knowledgeOptions = {}, screen = null, gateway = null } = {}) {
     if (!bridge?.kit || !bridge?.router) throw new TypeError('agent-settings: pass the result of createBridgeApp')
     if (typeof buildIndex !== 'function') throw new TypeError('agent-settings: buildIndex(documents, options) is required (the system\'s own roles, routes and screen)')
     kit = bridge.kit
@@ -254,11 +258,21 @@ export function createAgentSettings({
     const { router } = bridge
     const pub = () => ({ ...publicSettings(settings, { env, masterKey }), vectorDb: { available: Boolean(vectorDbSource), source: vectorDbSource, table: vectorTable } })
 
-    router.add('GET', '/agent-settings', ADMIN, async ({ req, res, query }) => {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'content-security-policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'" })
-      res.end(settingsScreen({ lang: query.get('lang'), acceptLanguage: req.headers['accept-language'], roles: kit.declaredRoles }))
+    const gw = gateway ? { rpcBase: String(gateway.rpcBase ?? '/dsh/api/dsh-im') } : null
+    router.add('GET', '/agent-settings', ADMIN, async ({ req, res, query, principal }) => {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin', 'content-security-policy': CSP })
+      res.end(settingsShell({ lang: query.get('lang'), acceptLanguage: req.headers['accept-language'], roles: kit.declaredRoles, system: kit.manifest.system ?? {}, user: principal.user, gateway: gw }))
       return null
     })
+    const serveAsset = async ({ res, params }) => {
+      const a = asset(params.sub ? `${params.dir}/${params.file}` : params.file)
+      if (!a) fail(404, 'not_found')
+      res.writeHead(200, { 'content-type': a.type, 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' })
+      res.end(a.body)
+      return null
+    }
+    router.add('GET', '/agent-settings/assets/:file', ADMIN, serveAsset, { patterns: { file: '[A-Za-z0-9._-]{1,120}' } })
+    router.add('GET', '/agent-settings/assets/:dir/:file', ADMIN, (c) => serveAsset({ ...c, params: { ...c.params, sub: true } }), { patterns: { dir: 'chunks|assets', file: '[A-Za-z0-9._-]{1,120}' } })
     router.add('GET', '/api/agent/settings', ADMIN, async () => ({ status: 200, body: { ok: true, settings: pub(), roles: kit.declaredRoles, knowledge: status } }))
     router.add('PUT', '/api/agent/settings', ADMIN, async ({ body }) => {
       let next

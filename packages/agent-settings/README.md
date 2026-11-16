@@ -1,7 +1,15 @@
-# @dsh-bridge/agent-settings (v0.2)
+# @dsh-bridge/agent-settings (v0.3)
 
 The settings of biz-ai-agent, as a plugin for any Bridge v1 business system built on server-kit. Design and rationale:
 [`docs/AGENT_SETTINGS.md`](../../docs/AGENT_SETTINGS.md) (Chinese).
+
+**The screen** (`GET /agent-settings`, admins only) is a React app (`web/`, built into `dist/` by `npm run build`) on the
+framework's **web-kit** (its design tokens and parts, the same look as the framework's business webs): overview, models, knowledge,
+SNS; Japanese / English / Chinese, light / dark, phone widths. The SNS page's organisation IM bots are web-kit's `ImBotsShell` with
+**dsh-im's own settings components** — the same screen as DSH and care-web: the 13 SNS an employee can link plus e-mail, each with
+its own connect flow (credentials, QR, manual). They reach dsh-im through the system's **DSH gateway** (`@dsh-bridge/gateway` at
+`/dsh`, admins only): pass `gateway: { rpcBase: '/dsh/api/dsh-im' }` to `register`. The build needs a framework checkout
+(`BIZ_AI_FRAMEWORK`, default `../framework`); `dist/` is committed, so a system serving it needs no bundler.
 
 | tab | settings |
 |---|---|

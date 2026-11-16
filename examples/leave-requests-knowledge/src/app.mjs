@@ -21,6 +21,7 @@ import {
   sha256, strictKeys, todayIn, UUID_RE, verifyPassword,
 } from '@dsh-bridge/server-kit'
 import { createAgentSettings } from '@dsh-bridge/agent-settings'
+import { createDshGateway } from '@dsh-bridge/gateway'
 import { registerGraph } from '@dsh-bridge/graph'
 import { bridgePiiScreen, buildKnowledgeIndex, canSee, readKnowledgeDir, registerKnowledge } from '@dsh-bridge/knowledge'
 
@@ -42,11 +43,14 @@ const MANAGERS = ['admin', 'manager']
  * dataDir: the settings plugin's data (settings, uploaded documents, vector store, knowledge graph); default a new temp directory
  *   (like the memory store: nothing kept). agentEnv: where the plugin reads API keys, AGENT_SETTINGS_KEY and AGENT_VECTOR_DB_URL
  *   (default process.env). vectorDb: a database for the pgvector store (a pg Pool, PGlite …); a real system passes its own pool
+ * dsh: { target, launchToken } — a running DSH: the framework's DSH gateway is mounted at /dsh (administrators only), so the
+ *   settings screen's SNS page shows the organisation's IM bots with dsh-im's own settings screens. A real system mounts it in
+ *   the business web's BFF instead.
  */
 export async function createLeaveApp({
   serviceToken, bffSecret, orgId = 'example-org', now = () => new Date(), log = () => {},
   manifest = { file: MANIFEST_FILE }, webBase = '', knowledgeDir = KNOWLEDGE_DIR, knowledgeOptions = {},
-  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch, vectorDb = null,
+  dataDir = null, agentEnv = process.env, agentFetch = globalThis.fetch, vectorDb = null, dsh = null,
 }) {
   const store = createMemoryStore({ now })
   const data = { users: new Map(), sessions: new Map(), leave: new Map(), approvals: new Map() }
@@ -354,7 +358,16 @@ export async function createLeaveApp({
     roles: kit.declaredRoles, routes: kit.manifest.web?.routes ?? null, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }), ...options,
   })
   // the settings plugin builds the knowledge service (BM25F / RAG / knowledge graph, by its settings) and serves /agent-settings
-  await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }) })
+  // the DSH gateway (only with a DSH): /dsh/* for administrators, through the business system's own session
+  const gateway = dsh ? createDshGateway({
+    target: dsh.target,
+    mountPath: '/dsh',
+    getSessionUser: async (req) => (await hooks.authenticate(req))?.user ?? null,
+    isAllowed: (u) => u?.role === 'admin',
+    launchToken: dsh.launchToken,
+    logger: { info() {}, warn: (...m) => log('[dsh-gateway]', ...m), error: (...m) => log('[dsh-gateway]', ...m) },
+  }) : null
+  await agent.register(bridge, { baseDocuments, buildIndex, webBase, knowledgeOptions, screen: bridgePiiScreen({ hooks, ctx: () => kit.ctx() }), gateway: gateway ? { rpcBase: '/dsh/api/dsh-im' } : null })
   const knowledge = agent.knowledge
   registerKnowledge(bridge, knowledge)
   /** Rebuilds the index (documents added or changed; e.g. a document for one employee: visibility { users: [id] }). */
@@ -419,7 +432,8 @@ export async function createLeaveApp({
     return null
   }, { patterns: { docId: '[a-z0-9][a-z0-9-]{0,62}' } })
 
-  return { ...bridge, kit, router, store, data, createUser, requestLeave, scanUnanswered, knowledge, rebuildKnowledge, agent }
+  const handler = gateway ? async (req, res) => { if (await gateway.handleRequest(req, res)) return; return bridge.handler(req, res) } : bridge.handler
+  return { ...bridge, handler, kit, router, store, data, createUser, requestLeave, scanUnanswered, knowledge, rebuildKnowledge, agent, gateway }
 }
 
 /** A running instance (server.mjs, the tests). */

@@ -15,7 +15,8 @@
     "test": "node --test --test-concurrency=1 test/app.test.mjs test/conformance.test.mjs test/knowledge.test.mjs test/plugin.test.mjs test/evals.test.mjs test/graph.test.mjs test/agent-settings.test.mjs test/pgvector.test.mjs"
   },
   "dependencies": {
-    "@dsh-bridge/agent-settings": "0.2.0",
+    "@dsh-bridge/agent-settings": "0.3.0",
+    "@dsh-bridge/gateway": "^0.1.1",
     "@dsh-bridge/graph": "0.0.1",
     "@dsh-bridge/knowledge": "0.0.1",
     "@dsh-bridge/protocol": "^0.1.1",

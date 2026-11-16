@@ -9,7 +9,7 @@ import {
   applySettingsPatch, buildKnowledgeGraph, cleanExtraction, createChat, createDocumentStore, createFileVectorStore, defaultSettings, dshOverlay,
   endpointOf, keyStatus, masterKeyFrom, publicSettings, resolveKey, seal, testConnection, unseal,
 } from '../src/index.mjs'
-import { pickLang, settingsScreen } from '../src/screen.mjs'
+import { CSP, asset, pickLang, settingsShell } from '../src/screen.mjs'
 
 const ROLES = ['admin', 'manager', 'staff']
 const MASTER = 'ab'.repeat(32)
@@ -133,14 +133,19 @@ test('stores: the file vector store keeps hashes, not text; documents get ids an
   }
 })
 
-test('screen: three languages, every label escaped, no external resource', () => {
+test('screen: the app shell — language, config as JSON that cannot close its script, assets from dist only', () => {
   assert.equal(pickLang(null, 'zh-CN,zh;q=0.9'), 'zh')
   assert.equal(pickLang('en', 'ja'), 'en')
   assert.equal(pickLang(null, 'fr'), 'ja')
-  for (const lang of ['ja', 'en', 'zh']) {
-    const html = settingsScreen({ lang, roles: ['admin', 'staff<x>'] })
-    assert.match(html, new RegExp(`<html lang="${lang}">`))
-    assert.ok(html.includes('staff&lt;x&gt;') && !html.includes('staff<x>'))
-    assert.doesNotMatch(html, /<script src=|<link [^>]*href="http/)
-  }
+  const html = settingsShell({ lang: 'zh', roles: ['admin', '</script><script>alert(1)</script>'], system: { name: 'Leave Requests' }, user: { id: 'u1', role: 'admin' }, gateway: { rpcBase: '/dsh/api/dsh-im' } })
+  assert.match(html, /<html lang="zh-CN">[\s\S]*<title>AI 代理设置<\/title>/)
+  assert.ok(!html.includes('</script><script>alert(1)'), 'the config JSON is escaped')
+  const cfg = JSON.parse(/<script type="application\/json" id="agent-settings-config">([^<]*)<\/script>/.exec(html)[1])
+  assert.deepEqual([cfg.lang, cfg.gateway, cfg.user], ['zh', { rpcBase: '/dsh/api/dsh-im' }, { id: 'u1', role: 'admin' }])
+  assert.doesNotMatch(html, /src="http|href="http/, 'no external resource')
+  assert.match(CSP, /script-src 'self';/)
+  assert.ok(asset('app.js')?.body.length > 1000, 'built app (npm run build)')
+  assert.equal(asset('../src/index.mjs'), null)
+  assert.equal(asset('chunks/../../package.json'), null)
+  assert.equal(asset('nothing.js'), null)
 })

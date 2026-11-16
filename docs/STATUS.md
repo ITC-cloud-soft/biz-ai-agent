@@ -82,6 +82,13 @@
 - 权限有两层：数据库只拿到能看的块，服务又对结果再查一遍。只去掉其中一层时测试仍然通过（另一层拦住了）；两层都去掉，「管理职拿到了只给 admin 的块」这个测试就失败了。
 - **在真正的 PostgreSQL 服务器上验证过（2026-11-16）**：`pgvector/pgvector:pg17`（PostgreSQL 17.12），只绑定在本机的测试容器上。设置了 `AGENT_TEST_PG_URL` 后，全部 214 个测试都在这台服务器上通过，包括插件通过 `AGENT_VECTOR_DB_URL` 自己连接数据库的情况：连接串不会出现在回答里，也不会写进设置文件。
 
+## 设置画面重做（2026-11-16）
+
+原来的画面只是能用，没有经过设计，SNS 部分也没有照 framework 的做法。现在改成：
+- **React + framework 的 web-kit**，和 framework 的业务网页同一套设计：左侧导航（概要 / 模型 / 知识 / SNS）、卡片、开关、角色标签、拖放上传、文档表格、通知；日 / 英 / 中，浅色 / 深色，手机宽度（375 px 没有横向滚动）。
+- **SNS 页 = web-kit 的 `ImBotsShell` + dsh-im 自己的设置组件**，经业务系统的 DSH 网关（`/dsh`，只给管理员）调用，和 DSH、care-web 的画面完全一样。13 种 SNS 加邮箱，扫码接入、填凭据、手动设置都照原样。
+- 在真实 DSH 上看过：LINE「1/1 接続中」、「bridge test bot 接続済み」、钉钉的「QR コードをスキャン / 手動で設定」、Slack 的接入卡片；e2e 里也检查了：管理员能通过网关拿到 dsh-im 的状态，staff 得到 403，未登录得到 401。
+
 ## 本地试用（2026-11-16）
 
 1. 向量库：`docker run -d --name biz-ai-agent-pgvector-test -e POSTGRES_PASSWORD=<随机> -e POSTGRES_DB=agent_vectors_test -p 127.0.0.1:55433:5432 pgvector/pgvector:pg17`

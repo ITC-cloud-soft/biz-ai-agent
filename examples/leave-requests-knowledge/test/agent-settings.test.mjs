@@ -109,7 +109,11 @@ test('only administrators reach the settings; no delegation does; the screen is 
   assert.ok([401, 403].includes((await env.call('POST', '/api/agent/documents', { headers: ai, body: { title: 'x', roles: ['staff'], text: 'x' } })).status))
   const screen = await env.call('GET', '/agent-settings?lang=zh', { headers: admin() })
   assert.equal(screen.status, 200)
-  assert.match(screen.body, /<html lang="zh">[\s\S]*AI 代理设置/)
+  assert.match(screen.body, /<html lang="zh-CN">[\s\S]*AI 代理设置/)
+  assert.match(screen.body, /"gateway":null/, 'no DSH here: the SNS page says so')
+  const js = await env.call('GET', '/agent-settings/assets/app.js', { headers: admin() })
+  assert.equal(js.status, 200)
+  assert.equal((await env.call('GET', '/agent-settings/assets/app.js', { headers: env.people.staff1.web })).status, 403)
   assert.equal((await env.call('GET', '/api/agent/settings', { headers: admin() })).body.settings.knowledge.mode, 'bm25f')
 })
 

@@ -12,7 +12,12 @@ biz-ai-agent 的设置界面。和 knowledge、graph 一样，它是**挂到任�
 | 基础模型（AI 员工对话用） | **AI 面（DSH profile）** | 对话在 DSH 里跑。插件只**生成** DSH 的 overlay（`llm-pi-ai` provider，密钥只写环境变量名），由 install / 重启生效；v0.1 不直接改 DSH |
 | SNS：谁审批、谁收报告 | **业务系统**（这个插件），送达用 framework | 审批卡片和报告走 framework 原有的路径：`approval.requested` → bridge-approvals，`knowledge.updated` → bridge-notify。员工的 SNS 连携也是 framework 原有的（连携码） |
 
-画面：`GET /agent-settings`（只给管理员角色，默认 `admin`）。普通 HTML + JS，日文 / 英文 / 中文三种语言（跟随浏览器，`?lang=` 可以切换）。
+画面：`GET /agent-settings`（只给管理员角色，默认 `admin`）。日文 / 英文 / 中文三种语言（跟随浏览器，`?lang=` 可以切换），浅色 / 深色跟随系统，手机宽度可用。
+
+**画面的做法（2026-11-16 重做）**：React 应用（`packages/agent-settings/web/`），用 framework 的 **web-kit** 的设计令牌和组件，和 framework 的业务网页（care-web 等）是同一套外观。左侧导航分四页：概要、模型、知识、SNS。
+- **SNS 页的「组织的 IM 机器人」= web-kit 的 `ImBotsShell`**，里面是 **dsh-im 自己的设置组件**（framework 的 `vendor/dsh-im/plugin-src/client`），和 DSH 的 IM 机器人画面、care-web 的「IM ボット接続」完全一样。13 种可以连携的 SNS（Slack、LINE、Teams、Telegram、企业微信应用、企业微信、钉钉、飞书、QQ、Discord、Matrix、WhatsApp、iMessage）加邮箱，各自原有的接入方式都照样能用：填凭据、扫二维码、手动设置。
+- 这些组件通过业务系统的 **DSH 网关**（`@dsh-bridge/gateway`，挂在 `/dsh`，只给管理员）调用 dsh-im 的管理 RPC（`/dsh/api/dsh-im/<channel>`）。系统在 `register(bridge, { gateway: { rpcBase } })` 里告诉插件有网关；没有网关时，SNS 页会说明怎么接。
+- 构建：`npm run build -w @dsh-bridge/agent-settings`（esbuild；构建时需要 framework 的 checkout：web-kit 和 dsh-im 组件；日文用 dsh-lang-ja 语言包）。产物 `dist/` 会提交，使用这个插件的系统不需要构建工具。
 
 ## 2. 设置项（v0.1）
 
