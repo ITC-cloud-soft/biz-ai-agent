@@ -450,6 +450,29 @@ sectionSlide(S3, 3, '造一个 AI agent', '把 skill 交给 Claude Code、Codex 
 }
 
 {
+  const s = content(S3, '推荐的开发顺序：先开发，再设置，再接 SNS', '管理端 /agent-settings 是第 2 步造出来的业务系统的一部分（每个 agent 一份），所以放在开发之后。开发用的文档放进仓库的 knowledge/*.md；画面上传的文档存在 .data/，是上线后管理员追加用的。')
+  const steps = [
+    ['0', '先体验', '4.3 打开参考实现的管理画面，或 e2e --serve 看连 LINE 的完整流程', '可选 · 不需要模型'],
+    ['1', '准备业务材料', '需求、谁能看什么、谁审批、文档（虚构数据）；决定要不要做 SNS 测试', ''],
+    ['2', 'AI 开发和测试', 'skill + Claude Code / Codex：52 / 52、业务测试、评测；要 SNS 测试就让 AI 把 DSH 网关和 profile 也做好', '假模型、假 LINE'],
+    ['3', '管理端设置', '/agent-settings：模型（只有 RAG / 图谱需要）、知识状态、审批人和报告接收人', '测试用模型 key'],
+    ['4', '接 DSH 和 SNS', '安装 profile、启动 DSH；SNS 页建测试机器人；/me/sns 连携；在聊天里试提问、审批、通知', '测试 SNS 账号'],
+    ['5', '发布', '像普通网站一样', '正式密钥'],
+  ]
+  const cw = (W - 2 * M - 5 * 0.2) / 6
+  steps.forEach(([k, t, d, need], i) => {
+    const x = M + i * (cw + 0.2)
+    card(s, x, 1.5, cw, 4.6, { fill: i === 2 ? 'EEF2FF' : C.background2 })
+    numDot(s, k, x + 0.25, 1.75, 0.5, { size: 16, bg: i === 0 ? C.accent4 : i === 2 ? C.accent2 : C.accent1 })
+    txt(s, t, x + 0.25, 2.45, cw - 0.45, 0.75, { size: 16, bold: true, lsm: 1.1 })
+    txt(s, d, x + 0.25, 3.25, cw - 0.45, 2.1, { size: 12, color: C.text2, lsm: 1.25 })
+    if (need) txt(s, need, x + 0.25, 5.5, cw - 0.45, 0.45, { size: 11, color: C.accent1, bold: true })
+    if (i < steps.length - 1) arrow(s, x + cw + 0.01, 3.8, x + cw + 0.19, 3.8, '818CF8')
+  })
+  txt(s, '模型也不在开发前选：默认的 BM25F 不用模型。SNS 测试只用测试账号和虚构数据。', M, 6.35, W - 2 * M, 0.4, { size: 14, color: C.text2 })
+}
+
+{
   const s = content(S3, 'AI 造出来的文件：一个普通的 Node.js 项目', '都在 examples/<system-id>/，全部进 git。后面"开发流程"的每一步讲每个文件里写什么。')
   const files = [
     ['AGENT_PLAN.md', '决定和证据：谁决定了什么、哪些待确认、数字'],

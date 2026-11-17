@@ -47,6 +47,21 @@ Everything is in this repository:
 of the repository, describe the business you need, and the AI builds the agent with this framework and verifies it.
 [`examples/equipment-loans`](examples/equipment-loans) was built from scratch by an AI that followed only this skill.
 
+**The recommended order**
+
+| step | what | needs |
+|---|---|---|
+| 0 (optional) | see the finished thing: the reference's screens ([Quick start](#quick-start)) or `npm run e2e -- --serve` with LINE | no model, no chat account |
+| 1 | prepare the business: who uses it, who may read what, who approves, the documents (fictional data for tests); decide whether you will test on a chat platform | — |
+| 2 | let the AI coding tool build and test it (below). If you will test on chat, ask it to wire the DSH gateway and the profile too | mocks only, no keys |
+| 3 | start the agent you built and set it up on `/agent-settings`: models (only for RAG / knowledge graph), the knowledge status, approvers and report readers | a test model key for RAG / graph |
+| 4 | connect DSH and a chat platform: install the profile, start DSH with the conversation model's key, create a test bot on the SNS page, link your account on `/me/sns`, then try questions, approval cards and notifications | a test chat account, fictional data |
+| 5 | deploy it like a website | production keys and bots |
+
+The settings screen `/agent-settings` is part of the system built in step 2 (one per agent), so it comes after development. Documents
+for development go in `knowledge/*.md` in git (the evals and permission tests depend on them); uploading on the screen is for
+administrators after go-live.
+
 ### 1. The skill is already in the repository
 
 Clone the repository, install it ([Quick start](#quick-start)), then open your tool at the repository root:

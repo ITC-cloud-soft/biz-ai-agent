@@ -13,7 +13,8 @@ Baseline before this work: `npm test` → <tests> tests, <fail> fail.
 | 4 | models (base / embedding) | none (BM25F) / a model the owner names | none until decided | |
 | 5 | SNS: events that notify and their recipients; document approver roles; report roles | | admin roles; managers too when there is one admin | |
 | 6 | languages served | | | |
-| 7 | outbound settings opened (opt-in) and why | none / … | none | |
+| 7 | interaction testing on SNS after the build (real DSH + a test chat account) → wire the DSH gateway from the environment, write an installable profile | yes / no | yes | |
+| 8 | outbound settings opened (opt-in) and why | none / … | none | |
 
 ## Parts
 
@@ -28,6 +29,7 @@ Baseline before this work: `npm test` → <tests> tests, <fail> fail.
 | evals (first run → final; leaks) | | |
 | settings plugin (/agent-settings, /me/sns, /login, approvals, reports) | | |
 | AI plane profile (dsh-profile/, check.mjs) | | |
+| DSH gateway from the environment (server.mjs; with and without the variables) | | |
 | whole repository (`npm test`) | | |
 
 ## Not verified / remaining

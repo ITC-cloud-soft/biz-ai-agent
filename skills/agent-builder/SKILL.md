@@ -91,6 +91,14 @@ asked (an unattended run), take the recommended default, mark it **"to confirm"*
    With ONE administrator, the uploader can never approve: managers must become approvers on that page or nobody can publish —
    a "to confirm" decision.
 6. **Languages** served (one document per language, ≥ 20 eval questions per language).
+7. **Interaction testing on SNS**: will the owner test the agent on a real DSH and a test chat account after you finish? If yes,
+   step 6.3 wires the DSH gateway from environment variables and step 7 writes a profile that installs — say so in the plan.
+   Default when nobody can be asked: yes, marked "to confirm" (it costs little and the alternative is a second development round).
+
+The owner's usual order is: decide (this step) → you build and test with mocks only → they start the agent and set models,
+approvers and report readers on `/agent-settings` → they install the profile, start DSH with the conversation model's key, create
+test bots on the SNS page and link their own accounts on `/me/sns` → interaction tests → deploy. Documents for development go in
+`knowledge/*.md` in git (evals and permission tests depend on them); uploads on the screen are for administrators after go-live.
 
 ## 2. Build the IT system and its manifest — together
 
@@ -263,6 +271,13 @@ Copy the wiring of the pilot (`src/app.mjs`: search `createAgentSettings`, `crea
    `gatewayOptionsFromEnv(env)` for the whole option set (`packages/gateway/README.md`); `fromValue(token)` is for tests only (the
    e2e uses it). IM webhooks (LINE, Teams …) reach DSH through the gateway's `publicPaths`. Without DSH the SNS page shows
    "DSH is not connected"; everything else works.
+   **The pilot's `src/server.mjs` never passes `dsh`** (only the e2e does), so a copy of it can never reach DSH. When step 1.7
+   says the owner will test on SNS, make `src/server.mjs` read the gateway from the environment and pass it on:
+   `const gw = gatewayOptionsFromEnv(process.env)` (`@dsh-bridge/gateway`; null when no `DSH_URL` / `DSH_LAUNCH_TOKEN` /
+   `DSH_LAUNCH_LOG` / `DSH_SUPERVISE=1` is set) → `dsh: gw && { target: gw.target, launchToken: gw.launchToken, publicPaths:
+   gw.publicPaths }`, and give `publicPaths` to `createDshGateway` in `src/app.mjs`. Test both: without those variables the app
+   starts as before (no `/dsh`); with `DSH_URL` + `DSH_LAUNCH_TOKEN` set, `/dsh/` refuses everyone who is not an administrator. Document
+   the variables in the example's README.
 4. **Sign-in**: no sign-in screen of your own yet → serve `signInPage(...)` at `GET /login`. It posts `{ loginId, password }` as
    JSON to `endpoint` (default `/api/auth/login`): your login API must accept exactly that (or pass `endpoint`). The handler order
    is `redirectToSignIn(req, res, { authenticate, paths })` → `gateway.handleRequest` → `bridge.handler` (copy the pilot's
