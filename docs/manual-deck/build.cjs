@@ -163,7 +163,7 @@ pres.addSection({ title: '封面' })
   const parts = [
     ['layers', '01 认识框架', '是什么、核心原则、五层、整体结构、仓库'],
     ['play', '02 上手运行', '安装测试、本地试用、画面怎么用'],
-    ['code', '03 造 agent', '决策、IT 系统、manifest、知识、图谱、评测、AI 面'],
+    ['code', '03 造 agent', '把 skill 交给 Claude Code、Codex，AI 帮你开发；程序文件；像网站一样发布'],
     ['rocket', '04 部署与运维', '配置、安全规则、完成条件、同步、排查'],
   ]
   const cw = (W - 2 * M - 3 * 0.3) / 4
@@ -419,10 +419,79 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
 
 // ── section 3 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 const S3 = '造一个 agent'
-sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-builder/SKILL.md')
+sectionSlide(S3, 3, '造一个 AI agent', '把 skill 交给 Claude Code、Codex 等 AI 编程工具，说出需求，AI 帮你开发')
 
 {
-  const s = content(S3, '全流程：九步', '每一步都有参考实现可以复制：examples/leave-requests-knowledge。')
+  const s = content(S3, '最快的方法：让 AI 编程工具按 skill 开发', 'skill 的正文是 skills/agent-builder/SKILL.md（英文，写给 AI 看）。它要复制仓库里的参考实现、跑仓库里的测试，所以在本仓库里用。examples/equipment-loans 就是 AI 只按这个 skill 从零造出来的。')
+  const tools = [
+    ['terminal', 'Claude Code', '在仓库根目录启动 claude', '.claude/skills/agent-builder 自动加载；/agent-builder 直接调用'],
+    ['code', 'Codex', '在仓库根目录启动 codex', '.agents/skills/agent-builder 自动发现；$agent-builder 直接调用'],
+    ['sparkle', '其他 AI 编程工具', '在仓库根目录打开', '说"先完整读 skills/agent-builder/SKILL.md，按它做"'],
+  ]
+  const cw = (W - 2 * M - 2 * 0.3) / 3
+  tools.forEach(([ic, t, a, b], i) => {
+    const x = M + i * (cw + 0.3)
+    card(s, x, 1.45, cw, 1.75, { fill: i < 2 ? 'EEF2FF' : C.background2 })
+    tile(s, ic, x + 0.3, 1.7, 0.56, { bg: [C.accent1, C.accent2, C.accent4][i] })
+    txt(s, t, x + 1.05, 1.68, cw - 1.25, 0.4, { size: 18, bold: true })
+    txt(s, a, x + 1.05, 2.08, cw - 1.25, 0.35, { size: 13, color: C.text2 })
+    txt(s, b, x + 0.3, 2.5, cw - 0.6, 0.6, { size: 12, color: C.accent1, lsm: 1.15 })
+  })
+  code(s, ['# 用平常的话说业务，例如：', '用 agent-builder skill 帮我造一个"出差报销"的 AI agent：', '- 员工在 LINE 上问报销规定、查自己的申请进度', '- 经理审批本部门的申请，超过 10 万日元的还要财务批准', '- 财务每月收到件数报告', '- 规定文档在 <你的文档路径>（日文、中文各一份）'], M, 3.45, 6.55, 2.55, 13)
+  const steps = ['先问你决定，写进 AGENT_PLAN.md（不在时用默认值并标"待确认"）', '写业务系统和 manifest，跑到 conformance 52 / 52', '接知识、图谱、评测、设置画面、SNS 审批、DSH profile', '每步用命令验证，报告结果、没验证的和待确认的']
+  txt(s, 'AI 怎么做', 7.45, 3.45, 5, 0.4, { size: 17, bold: true })
+  steps.forEach((t, i) => {
+    const y = 3.9 + i * 0.55
+    numDot(s, i + 1, 7.45, y, 0.4, { size: 13 })
+    txt(s, t, 8.0, y - 0.03, W - M - 8.0, 0.55, { size: 13, lsm: 1.1, valign: 'middle' })
+  })
+  card(s, M, 6.2, W - 2 * M, 0.55, { fill: 'FDF2F8' })
+  txt(s, '你要做的：回答决定 · 提供文档（测试只用虚构数据）· 看计划和报告 · 在本机打开画面试用 · 确认后发布', M + 0.25, 6.2, W - 2 * M - 0.5, 0.55, { size: 14, bold: true, valign: 'middle' })
+}
+
+{
+  const s = content(S3, 'AI 造出来的文件：一个普通的 Node.js 项目', '都在 examples/<system-id>/，全部进 git。后面"开发流程"的每一步讲每个文件里写什么。')
+  const files = [
+    ['AGENT_PLAN.md', '决定和证据：谁决定了什么、哪些待确认、数字'],
+    ['package.json', '包名、依赖、脚本（test、evals、start）'],
+    ['bridge.manifest.yaml', '本体：角色、实体、事件、AI 的工具、画面路由'],
+    ['src/app.mjs', '业务系统：数据、登录、规则（hooks）、API、设置插件、知识、图谱、网关'],
+    ['src/server.mjs', '启动入口：从环境变量读端口、密钥、数据目录'],
+    ['knowledge/*.md', '知识文档，可见范围写在里面'],
+    ['evals/', '评测题（knowledge.evals.json）和 run.mjs'],
+    ['test/*.test.mjs', '业务规则、conformance、权限、图谱、评测下限、设置插件'],
+    ['dsh-profile/', 'AI 面（DSH）的产品 profile'],
+    ['README.md', '说明、启动方法、评测和测试的数字'],
+  ]
+  const cw = (W - 2 * M - 0.3) / 2
+  files.forEach(([k, v], i) => {
+    const x = M + (i % 2) * (cw + 0.3), y = 1.45 + Math.floor(i / 2) * 0.98
+    card(s, x, y, cw, 0.84, { fill: C.background2 })
+    txt(s, k, x + 0.2, y, 2.4, 0.84, { size: 13, bold: true, color: C.accent1, valign: 'middle', font: 'Consolas' })
+    txt(s, v, x + 2.6, y, cw - 2.75, 0.84, { size: 13, valign: 'middle', lsm: 1.15 })
+  })
+}
+
+{
+  const s = content(S3, '发布：和普通网站一样', '详细见 docs/MANUAL.md 6.4 和第 10 章。')
+  const boxes = [
+    [M, 'globe', '浏览器 · IM 平台', ['员工打开画面', 'LINE 等的 webhook'], C.accent4],
+    [M + 3.2, 'shield', 'HTTPS 反向代理', ['nginx、Caddy 等', '你的域名'], C.accent3],
+    [M + 6.4, 'database', '业务系统（Node.js 网站）', ['node src/server.mjs', '含 DSH 网关 /dsh'], C.accent1],
+    [M + 9.6, 'sparkle', 'AI 面（DSH）', ['同一台机器的另一个进程', '只监听 127.0.0.1'], C.accent2],
+  ]
+  boxes.forEach(([x, ic, t, items, col]) => {
+    card(s, x, 1.55, 2.53, 2.35, { fill: C.background2 })
+    tile(s, ic, x + 0.25, 1.8, 0.52, { bg: col })
+    txt(s, t, x + 0.25, 2.45, 2.1, 0.6, { size: 15, bold: true, lsm: 1.1 })
+    txt(s, bullets(items, { after: 4 }), x + 0.25, 3.05, 2.15, 0.8, { size: 12, color: C.text2, lsm: 1.15 })
+  })
+  ;[M + 2.57, M + 5.77, M + 8.97].forEach((x) => arrow(s, x, 2.72, x + 0.58, 2.72, '818CF8'))
+  txt(s, bullets(['业务系统就是普通的 Node.js 网站：npm install，NODE_ENV=production node src/server.mjs，用 systemd / pm2 / Docker 常驻', '密钥只用环境变量给；数据目录放在持久的磁盘上', 'DSH 只由网站里的网关访问；IM 的 webhook 填网站的公开路径（例：https://<你的网站>/dsh-hooks/line）', '另外只需要模型的 API；数据库只在用 pgvector 时才需要'], { after: 8 }), M, 4.25, W - 2 * M, 2.4, { size: 15, lsm: 1.2 })
+}
+
+{
+  const s = content(S3, '开发流程：九步（AI 按这个做）', '每一步都有参考实现可以复制：examples/leave-requests-knowledge。skill 的步骤和这里相同。')
   const steps = [
     ['0', '决策', '写进计划'], ['1', 'IT 系统', 'server-kit'], ['2', 'manifest', '本体'], ['3', '知识', '文档 + 检索'], ['4', '图谱', '为什么发给我'],
     ['5', '评测', '先于调参'], ['6', '设置插件', '画面 · SNS'], ['7', 'AI 面', 'DSH profile'], ['8', '验证', '完成条件'],
@@ -670,7 +739,7 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
 {
   const s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: S4 })
   s.addText('下一步：造你的第一个 agent', { placeholder: 'title' })
-  s.addText('让编码 agent 读 skills/agent-builder/SKILL.md，从一项业务开始', { placeholder: 'body' })
+  s.addText('在仓库里打开 Claude Code 或 Codex，说出你的业务需求，从一项业务开始', { placeholder: 'body' })
   tile(s, 'rocket', M, 1.3, 0.85, { bg: C.accent3 })
   const refs = [['docs/MANUAL.md', '本手册的完整版'], ['skills/agent-builder', '造 agent 的步骤'], ['docs/GUIDELINE.zh-CN.md', 'framework 开发指南'], ['docs/ARCHITECTURE.md', '架构与安全承诺']]
   refs.forEach(([k, v], i) => {

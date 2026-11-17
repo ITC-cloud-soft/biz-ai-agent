@@ -13,7 +13,7 @@
 3. [仓库里有什么](#3-仓库里有什么)
 4. [第一次运行：安装、测试、本地试用](#4-第一次运行安装测试本地试用)
 5. [画面怎么用：管理员、员工、审批人](#5-画面怎么用管理员员工审批人)
-6. [造一个新的 AI agent：全流程](#6-造一个新的-ai-agent全流程)
+6. [造一个新的 AI agent：交给 AI 编程工具](#6-造一个新的-ai-agent交给-ai-编程工具)
 7. [接入一个已有的业务系统](#7-接入一个已有的业务系统)
 8. [AI 面：DSH、profile 和插件](#8-ai-面dshprofile-和插件)
 9. [知识层：文档、检索方式、图谱、评测](#9-知识层文档检索方式图谱评测)
@@ -29,6 +29,8 @@
 ## 1. 这是什么
 
 **biz-ai-agent 是一个完整的 AI agent 框架：把任何 IT 系统变成 AI 员工（AI agent / AI 助手）。**
+
+> **造 agent 不用自己从零写代码。** 仓库里带着造 agent 的 skill：在仓库里打开 Claude Code、Codex 等 AI 编程工具，说出你的业务需求，AI 就按这个框架把 agent 开发出来、测试好（第 6 章）。做好的 agent 像普通网站一样发布（6.4）。
 
 这个仓库的形态是**一个业务一个 DSH**：一个业务系统（system of record）配一个 DSH（AI 面），两者合起来是一个 AI agent。多个 agent 的统一管理（Agent Hub）还在设计中，见 [`docs/MULTI_AGENT_PLATFORM.md`](MULTI_AGENT_PLATFORM.md)（草案）。
 
@@ -136,8 +138,10 @@ biz-ai-agent/
 │   ├─ equipment-loans            用 agent-builder skill 从零造出来的示例
 │   ├─ leave-requests  equipment-inspection   ★ framework 的参考系统（equipment-inspection 的测试要 PostgreSQL）
 │   └─ care-billing               ★ 只有 manifest、注册表和对照表；业务代码在非公开的仓库里
+├─ .claude/skills/agent-builder/   Claude Code 自动加载的 skill 入口（指向 skills/agent-builder）
+├─ .agents/skills/agent-builder/   Codex 自动加载的 skill 入口（同上）
 ├─ skills/
-│   ├─ agent-builder              造 AI agent 的 skill（本仓库的主 skill，英文）
+│   ├─ agent-builder              造 AI agent 的 skill 正文（本仓库的主 skill，英文）
 │   └─ biz-assistant-integration  ★ 把 framework 接入业务系统的 skill（英文）
 ├─ docs/                手册、设计、API；★ GUIDELINE（日 / 英 / 中）、ARCHITECTURE 等
 ├─ e2e/run.mjs          真实 DSH 上的端到端测试
@@ -265,9 +269,72 @@ npm run e2e -- --serve      # 跑完不退出，可以在浏览器里看（Ctrl+
 
 ---
 
-## 6. 造一个新的 AI agent：全流程
+## 6. 造一个新的 AI agent：交给 AI 编程工具
 
-> 用编码 agent（Claude Code 等）来做时，让它读 [`skills/agent-builder/SKILL.md`](../skills/agent-builder/SKILL.md)。下面是同一流程的人类版。每一步都可以照参考实现 `examples/leave-requests-knowledge` 做。
+**最快的方法：用仓库带的 skill，让 AI 编程工具（Claude Code、Codex 等）按你的需求把 agent 开发出来。** 你负责说清楚业务、回答它提出的决定、提供文档、确认结果；写代码、写测试、跑验证由 AI 来做。`examples/equipment-loans` 就是 AI 只按这个 skill 从零造出来的。
+
+### 6.1 准备：skill 已经在仓库里
+
+clone 本仓库、做完 4.2 的安装后，在**仓库根目录**打开你的 AI 编程工具：
+
+| 工具 | 做法 |
+|---|---|
+| Claude Code | 在仓库根目录启动 `claude`。skill 已放在 `.claude/skills/agent-builder/`，自动加载；也可以输入 `/agent-builder` 直接调用 |
+| Codex | 在仓库根目录启动 `codex`。skill 已放在 `.agents/skills/agent-builder/`，自动发现；也可以用 `$agent-builder` 直接调用 |
+| 其他 AI 编程工具 | 在对话里说"先完整读 `skills/agent-builder/SKILL.md`，按它的步骤做" |
+
+skill 的正文是 [`skills/agent-builder/SKILL.md`](../skills/agent-builder/SKILL.md)（英文，写给 AI 看的）。它要复制仓库里的参考实现、运行仓库里的测试，所以要在本仓库里用，不要只把这个文件拷到别处。
+
+### 6.2 告诉 AI 你要什么
+
+用平常的话说业务就行，例如：
+
+```text
+用 agent-builder skill 帮我造一个"出差报销"的 AI agent：
+- 员工在 LINE 上问报销规定、查自己的申请进度；
+- 经理审批本部门的申请，超过 10 万日元的还要财务批准；
+- 财务每月收到件数报告；
+- 报销规定的文档在 <你的文档路径>（日文和中文各一份）。
+```
+
+AI 会按 skill 这样做：
+
+1. **先问你决定**（谁用、能读什么、谁审批、文档给谁看、评测的正确答案、用哪个 SNS），写进 `examples/<system-id>/AGENT_PLAN.md`，等你回答。你不在时，它用推荐的默认值并标上"待确认"。
+2. 复制参考实现，写业务系统和 manifest，跑到 conformance 52 / 52。
+3. 接知识和图谱，**在调参之前**写评测，再接设置画面、SNS 审批和报告，写 DSH profile。
+4. 每一步都用命令验证；最后报告做了什么、跑了哪些命令和结果、哪些没验证、哪些决定还待确认。
+
+你要做的：回答决定；提供文档（测试只用虚构数据）；看 `AGENT_PLAN.md` 和报告；照 4.3 的方法在本机打开画面试用；确认后发布（6.4）。
+
+### 6.3 AI 造出来的是哪些文件
+
+都在 `examples/<system-id>/` 里，是一个普通的 Node.js 项目，全部进 git：
+
+| 文件 | 是什么 |
+|---|---|
+| `AGENT_PLAN.md` | 决定和证据：谁决定了什么、哪些待确认、测试和评测的数字 |
+| `package.json` | 包名、依赖、脚本（`test`、`evals`、`start`） |
+| `bridge.manifest.yaml` | 系统的自我介绍（本体）：角色、实体、事件、AI 能用的工具、画面路由 |
+| `src/app.mjs` | 业务系统本身：数据、登录、业务规则（hooks）、业务 API、设置插件、知识和图谱、DSH 网关的接线 |
+| `src/server.mjs` | 启动入口：从环境变量读端口、密钥、数据目录 |
+| `knowledge/*.md` | 知识文档（可见范围写在文档里，第 9 章） |
+| `evals/knowledge.evals.json`、`evals/run.mjs` | 评测题和运行脚本 |
+| `test/*.test.mjs` | 业务规则、conformance、知识权限、图谱、评测下限、设置插件的测试 |
+| `dsh-profile/` | AI 面（DSH）的产品 profile（第 8 章） |
+| `README.md` | 这个 agent 的说明、怎么启动、评测和测试的数字 |
+
+下面 6.5 是每个文件里写什么的细节：AI 按它做，你自己写或审查时也用它。
+
+### 6.4 发布：和普通网站一样
+
+- **业务系统就是一个普通的 Node.js 网站。** 放到服务器上 `npm install`，用 `NODE_ENV=production node src/server.mjs` 启动（用 systemd、pm2、Docker 等常驻），前面放 HTTPS 反向代理（nginx、Caddy 等），域名指向它。
+- 密钥只用环境变量给（10.1）；数据目录放在持久的磁盘上。
+- **AI 面（DSH）是同一台机器上再起的一个进程**：只监听 127.0.0.1，由网站里的 DSH 网关访问（第 8 章）。LINE 等 IM 的 webhook 地址填网站的公开路径（例：`https://<你的网站>/dsh-hooks/line`）。
+- 另外只需要模型的 API（AI 员工对话用，在 DSH 里设置；RAG 和知识图谱用的模型在设置画面里设）。不需要别的 AI 平台；数据库只在用 pgvector 时才需要。详细见第 10 章。
+
+### 6.5 开发流程的细节
+
+每一步都可以照参考实现 `examples/leave-requests-knowledge` 做。
 
 ```mermaid
 flowchart LR
@@ -281,7 +348,7 @@ flowchart LR
   P --> V[8 验证<br/>完成条件]
 ```
 
-### 6.0 先决定（人来决定，不要猜）
+#### 步骤 0：先决定（人来决定，不要猜）
 
 把选项和建议写进 `examples/<system-id>/AGENT_PLAN.md`（模板：`skills/agent-builder/templates/agent-plan.md`，实例：`examples/equipment-loans/AGENT_PLAN.md`），等负责人决定：
 
@@ -291,7 +358,7 @@ flowchart LR
 4. 模型：默认 BM25F（不用模型）。模型和端点由负责人选。
 5. 用哪个 SNS、组织机器人还是个人机器人、哪些事件要通知。
 
-### 6.1 IT 系统（server-kit）
+#### 步骤 1：IT 系统（server-kit）
 
 从参考实现复制：`examples/leave-requests-knowledge` → `examples/<system-id>/`（改 `package.json` 的 `name`）。替换业务：
 
@@ -300,7 +367,7 @@ flowchart LR
 - 业务 API `/api/*`：AI 能读的 GET 用 `kit.readToolPolicy('GET /api/…', roles)`，第一个参数必须和 manifest 里 `tools[].http` 完全一致；所有写入只给人（`{ allow: ['user'] }`，委托会得到 403）。
 - 审批规则 `mayDecide` 只写一个函数，网页和聊天卡片都用它；申请人不能批自己的申请。
 
-### 6.2 manifest（本体）
+#### 步骤 2：manifest（本体）
 
 `bridge.manifest.yaml`：`bridge: 1`、`system`（`id`、`timezone` 等）、`web.routes`（每个可被链接的画面）、`roles`（委托上限 `delegation: none | read | propose`）、`entities`（`pii`、画面 `link`）、`events`（三个框架事件 `approval.requested` / `approval.decided` / `sns_identity.unlinked` + 业务事件；payload 只能是 ID、数值、日期、状态）、`tools`（读工具 + `<ns>_knowledge_search` + `<ns>_graph_neighbors` + 提案工具）、`playbooks`（默认关）、`reports`、`templates`、`glossary`。
 
@@ -310,11 +377,11 @@ flowchart LR
 npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须输出 ok
 ```
 
-### 6.3–6.5 知识、图谱、评测
+#### 步骤 3–5：知识、图谱、评测
 
 见第 9 章。
 
-### 6.6 设置插件（画面、SNS、审批、报告）
+#### 步骤 6：设置插件（画面、SNS、审批、报告）
 
 参照参考实现的 `src/app.mjs`（搜 `createAgentSettings`）：
 
@@ -325,11 +392,11 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须输出 ok
 5. 请求处理的顺序：`redirectToSignIn`（要登录的画面：`/agent-settings`、`/me/sns`、`/handbook/…`）→ `gateway.handleRequest` → `bridge.handler`。
 6. 没有登录页时：`/login` 用 `signInPage({ lang, acceptLanguage, system, next })`，返回的 `html` 和 `headers`（含 CSP）都要发出去；业务系统要有 `POST /api/auth/login`（`{ loginId, password }` → 2xx + cookie）。
 
-### 6.7 AI 面（DSH profile）
+#### 步骤 7：AI 面（DSH profile）
 
 见第 8 章：复制 profile 模板；在 `bridge-apps` 注册应用（`generateTools: false`）；`bridge-tools` 的 `toolModules` 加上知识检索和"为什么发给我"；加出处守卫的 bundle；写链接守卫的 URL；用 `install.mjs` 安装，`check.mjs` 检查。
 
-### 6.8 验证
+#### 步骤 8：验证
 
 见第 12 章。全部用命令确认，没跑的写"未验证"。
 
@@ -347,7 +414,7 @@ npx bridge-validate manifest bridge.manifest.yaml --strict    # 必须输出 ok
 步骤：评估（13 项检查清单）→ 计划 → manifest → hooks 和事件 → conformance 52 / 52 → DSH profile → 业务网页和 BFF → 自动任务。详细见 [`skills/biz-assistant-integration`](../skills/biz-assistant-integration/SKILL.md) 和 [`docs/GUIDELINE.zh-CN.md`](GUIDELINE.zh-CN.md) 开头的检查清单。
 
 - 那个 skill 的 §0（`git clone` framework、`pnpm install`）在本仓库里不用做：framework 已经拷入，用 npm。
-- Bridge 部分接好后，再按第 6 章的 6.3 起加知识、图谱、评测和设置插件。
+- Bridge 部分接好后，再按 6.5 的步骤 3 起加知识、图谱、评测和设置插件（AI 编程工具里的 agent-builder skill 也会接着做）。
 
 > 不要说"不改任何东西就能接上"：计划里要写清楚给已有系统加了什么。
 
@@ -616,7 +683,7 @@ keywords: [loan, borrow, return]
 
 | 文档 | 内容 |
 |---|---|
-| [`skills/agent-builder/SKILL.md`](../skills/agent-builder/SKILL.md) | 给编码 agent 的"造 AI agent"步骤（英文） |
+| [`skills/agent-builder/SKILL.md`](../skills/agent-builder/SKILL.md) | 给 AI 编程工具的"造 AI agent"步骤（英文；Claude Code、Codex 通过 `.claude/skills/`、`.agents/skills/` 的入口自动加载） |
 | [`skills/biz-assistant-integration/`](../skills/biz-assistant-integration/SKILL.md) | 把 framework 接入业务系统的步骤（英文；§0 的 clone 和 pnpm 在本仓库不用做） |
 | [`docs/GUIDELINE.zh-CN.md`](GUIDELINE.zh-CN.md)（[日](GUIDELINE.md) / [英](GUIDELINE.en.md)） | framework 开发指南：快速开始、接入步骤、扩展点、规则、测试、FAQ（快速开始里的 pnpm 命令是 framework 仓库的，本仓库用第 4 章的 npm 命令） |
 | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | 架构：分层、事件流、身份和委托、接收人保证、安全承诺（日文） |

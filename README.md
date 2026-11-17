@@ -20,7 +20,7 @@ things stand is in [`docs/STATUS.md`](docs/STATUS.md).
 An agent is first an IT system: no drag-and-drop flow editor. Flows are code, written with coding agents, guarded by the manifest, the
 conformance suite, tests, evals and traces.
 
-**Start here: the manual [`docs/MANUAL.md`](docs/MANUAL.md)** (Chinese; slides: [`docs/MANUAL.pptx`](docs/MANUAL.pptx)). To build an agent with a coding agent: [`skills/agent-builder`](skills/agent-builder/SKILL.md).
+**Start here: the manual [`docs/MANUAL.md`](docs/MANUAL.md)** (Chinese; slides: [`docs/MANUAL.pptx`](docs/MANUAL.pptx)). **To build an agent, let an AI coding tool do it:** open Claude Code or Codex at the root of this repository and describe the business you need. The `agent-builder` skill ([`skills/agent-builder`](skills/agent-builder/SKILL.md)) is already wired in (`.claude/skills/` for Claude Code, `.agents/skills/` for Codex); other tools: ask them to read `skills/agent-builder/SKILL.md` first. The result is an ordinary Node.js web app (plus one DSH process), deployed like any website.
 
 ## What is here (MVP, weeks 1–5)
 

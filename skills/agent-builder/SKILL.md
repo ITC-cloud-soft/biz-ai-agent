@@ -1,16 +1,12 @@
 ---
 name: agent-builder
 description: >-
-  Builds a complete AI agent (an "AI employee" that works in SNS such as LINE, Slack and Teams) from a business need with the
-  biz-ai-agent framework, which contains the whole Biz Assistant Framework (@dsh-bridge/*: Bridge v1, server-kit, DSH core and
-  plugins, dsh-im for 13 SNS, web-kit, profile) plus the agent layer (permission-aware knowledge, the "why did this reach me?"
-  graph, the agent-settings plugin with its screens). The result is an ordinary IT system first (manifest, hooks, outbox,
-  approvals, conformance 52 / 52), then its knowledge, graph, evals, settings screens, SNS approvals and reports, and the DSH
-  profile of its AI plane — all in git, all verified by commands. Use it for requests such as "build an agent for X", "make an
-  AI assistant for our <business>", "an agent that answers from our documents with each employee's rights", "add knowledge /
-  RAG to a Bridge system", "add a graph / why-explanations", "write evals for an agent", "make a new example system with
-  knowledge", "set up the agent's SNS approvals / settings screen". For connecting an EXISTING system's Bridge part it uses
-  the biz-assistant-integration skill in this repository and comes back here for everything after it.
+  Builds a complete AI agent (an AI employee on LINE, Slack, Teams and other SNS) with the biz-ai-agent framework: the business
+  system and its manifest (Bridge v1, conformance 52 / 52), permission-aware knowledge, the "why did this reach me?" graph,
+  evals, the settings screens and SNS approvals, and the DSH profile, all in git and verified by commands. Use it for "build
+  an agent for X", "make an AI assistant for our <business>", "an agent that answers from our documents with each employee's
+  rights", "add knowledge / RAG / a graph / evals to a Bridge system". For an EXISTING system's Bridge part it uses the
+  biz-assistant-integration skill in this repository and comes back here after it.
 ---
 
 # Building an AI agent with biz-ai-agent
