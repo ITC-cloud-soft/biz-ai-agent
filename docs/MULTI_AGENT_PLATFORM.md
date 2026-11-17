@@ -3,7 +3,7 @@
 > 2026-11-16 草案，等你 review。尚未实现。本文中的路径都指本仓库 biz-ai-agent。
 > v0.1 → v0.2：按独立审查的 15 条意见修改，记录在 §18。
 > v0.2 → v0.3（2026-11-16，你的决定）：**管理界面统一到 Hub**。模型、知识、IM bot 的设置页也放进 Hub，数据仍然存在各 agent 里（§5.5）。
-> 管理端的 HTML mock：[`mock/hub-console.html`](mock/hub-console.html)（单文件，浏览器直接打开；数据全部虚构）。
+> HTML mock（单文件，浏览器直接打开；数据全部虚构）：管理者一侧 [`mock/hub-console.html`](mock/hub-console.html)，使用者一侧 [`mock/my-agents.html`](mock/my-agents.html)。
 
 **English summary.** Today biz-ai-agent builds and runs one agent: one business system, which is the SoR and has its own login, roles and knowledge, plus one DSH, the AI plane, with its IM bots.
 
@@ -558,6 +558,19 @@ stateDiagram-v2
   - 「打开网页」。
 - 连携只能本人做（现有规则），所以使用者至少要登录一次网页。
 
+**使用者看到的全部画面**（mock：`mock/my-agents.html`）：
+
+| 在哪里 | 画面 | 内容 |
+|---|---|---|
+| Hub | 我的 agent | 上面这些；运行中却一个 SNS 都没连携的 agent 在顶部提醒；停止中的 agent 显示「暂停」，不能去连携 |
+| Hub | 我的账号 | 名字、登录 ID、类型（使用者）、改密码；登录中的会话：在 Hub「全部退出」时，各 agent 的会话一起作废（`hub_session_links`）；「切换账号」去用管理者账号（§17 决定 2） |
+| Hub | 登录、邀请 | 同一个登录页，按账号的 `kind` 进「我的 agent」或管理控制台；邀请链接只能用一次，设密码后自动加入 |
+| agent 的网站 | 经 Hub 登录 | 每个 agent 第一次打开时走一遍 §5.3 的 SSO；已登录 Hub 时不用再输密码 |
+| agent 的网站 | SNS 连携（`/me/sns`） | 现有的 `SnsLinkPage`：只有本人的连携；发行连携码（6 位，10 分钟，一次）；我的连携和解除；通知种类和免打扰（`NotifyPrefsCard`） |
+| agent 的网站 | 业务画面 | 由各 agent 自己做。mock 里是报销：审批（发起人以外都能批，先决定的算，后来的得到 `already_decided`）、我的申请、已发布的规定 |
+| agent 的网站 | 已停止 | agent 停止时网页只显示「已停止」（§7.3） |
+| SNS | bot 的对话 | 审批卡片、结果通知、报告、提问；签名「— 报销（AI 秘书）」；没连携的账号只收到固定回复，提示去 `/me/sns` |
+
 **链接：** AI 的回答里可能要带「我的 agent」的链接，所以每个 agent 的 link-guard 都要把 Hub 的地址加进 `allowHosts`。`hub-client` 会自动加上。
 
 **反向代理：** 前置代理必须原样传 `Host` 头，并且把 `PUBLIC_ORIGIN` 设成这个 agent 的子域名。否则 link-guard 和 DSH 的 `--public-url` 都会出错。这一项由启动前检查确认。
@@ -836,6 +849,8 @@ flowchart LR
 - §6.3、§8、§9、§14、§15、§16 的第 3 周。
 
 这些改动没有再请独立审查。新增的风险是 Hub 能改所有 agent 的设置，§5.5 写了对策。
+
+2026-11-17：加了使用者一侧的 mock `mock/my-agents.html`，§9 补了「使用者看到的全部画面」一表。只是把已有的设计画出来，没有新增规则。
 
 ### 18.4 还没验证的前提、要你确认的取舍
 
