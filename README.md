@@ -1,68 +1,194 @@
 # biz-ai-agent
 
-A complete **AI agent framework**: the whole **Biz Assistant Framework** (`@dsh-bridge/*`: DSH core, the dsh-im fork for 13 SNS,
-memory, approvals, notify, identity, tools, events, assistant, persona, reader, the gateway, server-kit, web-kit, the DSH profile)
-is in this repository, plus the agent layer on top of it (knowledge, graph, settings). Upstream is the private `assistanted-it`
-repository (public snapshot [ITC-cloud-soft/biz-ai](https://github.com/ITC-cloud-soft/biz-ai)); `npm run sync-framework` copies
-it in again (see below).
+**Official website: [biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/)**
 
-The Biz Assistant Framework already gives an agent four of its five layers: the manifest is the schema (ontology), the business
-system is the data (system of record), proposals and approvals are the governed actions, and DSH runs the agents, with bridge-memory
-as their memory. What is missing is a **knowledge layer** (RAG and a semantic graph) that keeps the framework's rules:
+[![Website biz-ai.myaiportal.net](https://img.shields.io/badge/website-biz--ai.myaiportal.net-0A66C2.svg)](https://biz-ai.myaiportal.net/)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Built on DeepSeek Harness](https://img.shields.io/badge/built%20on-DeepSeek%20Harness-4D6BFE.svg)](https://github.com/deepseek-ai/deepseek-harness)
+[![Bridge v1 conformance 52/52](https://img.shields.io/badge/Bridge%20v1%20conformance-52%2F52-2ea44f.svg)](packages/protocol)
+[![Node 24.9+](https://img.shields.io/badge/node-24.9%2B-339933.svg)](#quick-start)
 
-- retrieval with the employee's **own rights** (delegation × role);
-- sources that are **business screens**;
-- **no personal data** in the indexes.
+**English** · [日本語](README.ja.md) · [简体中文](README.zh-CN.md)
 
-The plan is [`docs/GENERAL_AGENT_FRAMEWORK.md`](docs/GENERAL_AGENT_FRAMEWORK.md): §5 is the design, §7 the roadmap by week. Next (draft, under review): [`docs/MULTI_AGENT_PLATFORM.md`](docs/MULTI_AGENT_PLATFORM.md), Agent Hub, a control plane that manages every agent of the company (manager / user accounts, start and stop, per-agent knowledge, sandbox, debugging). Where
-things stand is in [`docs/STATUS.md`](docs/STATUS.md).
+**Turn any IT system into an AI agent — one business system + one DSH = one AI employee.**
 
-An agent is first an IT system: no drag-and-drop flow editor. Flows are code, written with coding agents, guarded by the manifest, the
-conformance suite, tests, evals and traces.
+[Build an agent with an AI coding tool](#build-an-agent-with-an-ai-coding-tool) ·
+[Quick start](#quick-start) ·
+[Manual (Chinese)](docs/MANUAL.md) · [Slides](docs/MANUAL.pptx) ·
+[Framework: biz-ai](https://github.com/ITC-cloud-soft/biz-ai)
 
-**Start here: the manual [`docs/MANUAL.md`](docs/MANUAL.md)** (Chinese; slides: [`docs/MANUAL.pptx`](docs/MANUAL.pptx)). **To build an agent, let an AI coding tool do it:** open Claude Code or Codex at the root of this repository and describe the business you need. The `agent-builder` skill ([`skills/agent-builder`](skills/agent-builder/SKILL.md)) is already wired in (`.claude/skills/` for Claude Code, `.agents/skills/` for Codex); other tools: ask them to read `skills/agent-builder/SKILL.md` first. The result is an ordinary Node.js web app (plus one DSH process), deployed like any website.
+biz-ai-agent is a complete AI agent framework. An agent is an AI employee that works in your staff's own chat (LINE, Slack,
+Teams, WeCom, DingTalk, Feishu and more — 13 SNS): it answers from company documents **with each employee's own rights**, sends
+approval cards to the right person, explains *"why did this reach me?"*, and reports — while **your business system stays the
+system of record and people decide**.
 
-## What is here (MVP, weeks 1–5)
+Everything is in this repository:
 
-| path | what |
+| part | what |
 |---|---|
-| [`packages/knowledge`](packages/knowledge) | `@dsh-bridge/knowledge`, the business side of the knowledge layer: documents with per-chunk visibility (roles / employees), the /pii-scan screen before indexing, search with the asker's rights (BM25F; an optional embedder fused by RRF and an optional reranker, both on the asker's visible chunks only), `GET /bridge/v1/knowledge/search`, conformance K-01…K-08, and the evals runner. |
-| [`plugins/knowledge`](plugins/knowledge) | `@dsh-bridge/plugin-knowledge` (`bridge-knowledge`): the search as the AI employee's tool (a bridge-tools tool module, run as the asking employee; answers cite `[n]` with the source screens), and `/guard`, the citation guard as a dsh-im answer filter next to the link guard. No index on the AI side. |
-| [`packages/graph`](packages/graph) | `@dsh-bridge/graph`: the semantic graph's skeleton generated from the manifest (no model), `GET /bridge/v1/graph/neighbors` (IDs and types only, the asker's rights), `explainReach` ("why did this reach me?"), conformance G-01…G-07. |
-| [`plugins/graph`](plugins/graph) | `@dsh-bridge/plugin-graph` (`bridge-graph`): `<namespace>_graph_why`, run with the employee's own delegation. |
-| [`packages/agent-settings`](packages/agent-settings) | `@dsh-bridge/agent-settings` v0.1: the settings plugin and its screen `/agent-settings` (ja / en / zh): models (base / embedding), knowledge documents and the search method (BM25F / RAG with a vector store / a semantic knowledge graph as JSON), SNS approvals and reports through the framework. Design: [`docs/AGENT_SETTINGS.md`](docs/AGENT_SETTINGS.md). |
-| [`skills/agent-builder`](skills/agent-builder) | The `agent-builder` skill (English): an IT system first (Bridge v1, 52 / 52), then knowledge, graph, evals and the plugin configuration. |
-| [`examples/leave-requests-knowledge`](examples/leave-requests-knowledge) | The pilot (a copy of `framework/examples/leave-requests`): six fictional documents in English, Japanese and Chinese, the handbook screen, the graph hooks, 60 eval questions. |
-| [`examples/equipment-loans`](examples/equipment-loans) | A new example built from scratch by a coding agent that followed only the skill (week 5). |
-| [`docs/KNOWLEDGE_API.md`](docs/KNOWLEDGE_API.md), [`docs/GRAPH_API.md`](docs/GRAPH_API.md) | The two capabilities: routes, rules, conformance checks, and the framework changes better made upstream. |
+| **Biz Assistant Framework** (copied in from [biz-ai](https://github.com/ITC-cloud-soft/biz-ai); packages `@dsh-bridge/*`, forks `@care/*`) | Bridge v1 and server-kit for the business system; the AI plane on DSH (DeepSeek Harness): SNS identity and link codes, business tools, events, notifications, approvals, long-term memory, the AI employee's profile, document reading, the web assistant; dsh-im, the IM gateway for 13 SNS; web-kit; the DSH gateway; the product profile; the test harness |
+| **agent layer** (this repository's own) | permission-aware **knowledge** (search with the asker's rights, sources on the business screens), the **graph** ("why did this reach me?"), the **settings plugin** `/agent-settings` (models, documents, search method BM25F / RAG / knowledge graph, SNS approvals and reports), the employee's SNS link page `/me/sns`, the sign-in page, two example systems and the **agent-builder skill** |
 
-Needs Node.js 24.9 or later (the pinned DSH CLI's requirement; `npm test` alone runs on 22.19) and, for the e2e, pnpm on PATH.
+## Core ideas
 
-```sh
-npm install
-npm run vendor:install   # once: the vendor forks' own dependencies
-npm test                 # every package, plugin and example (about 900 tests)
-cd examples/leave-requests-knowledge && npm run evals    # the retrieval evals as a Markdown table
-npm run e2e     # the pilot on a REAL DSH (pinned CLI in .dsh-cli, mock model and LINE; no database; needs npm run vendor:install once)
+- **An agent is first an ordinary IT system.** The business system owns the data, the roles, who sees what and who decides. No
+  drag-and-drop flow editor: flows are code, written with AI coding tools and guarded by the manifest, the conformance suite,
+  tests, evals and logs.
+- **The AI employee reads and proposes; people decide.** It reads with the asking employee's own delegation; its only "write"
+  is a proposal that a person accepts on the web or in chat. Amounts are decided by people.
+- **The business system decides who is told**, with the same rule as its web screens.
+- **No personal data in events and notifications** — IDs, numbers, dates and states only; names, reasons and amounts are shown on
+  the web after a permission check.
+- **Permissions first** — every search and every graph answer is filtered by the asker's rights before it is ranked.
+
+## Build an agent with an AI coding tool
+
+**You do not write the agent from scratch.** This repository ships the `agent-builder` skill: open an AI coding tool at the root
+of the repository, describe the business you need, and the AI builds the agent with this framework and verifies it.
+[`examples/equipment-loans`](examples/equipment-loans) was built from scratch by an AI that followed only this skill.
+
+### 1. The skill is already in the repository
+
+Clone the repository, install it ([Quick start](#quick-start)), then open your tool at the repository root:
+
+| tool | how |
+|---|---|
+| [Claude Code](https://claude.com/claude-code) | run `claude` at the root. The skill is in `.claude/skills/agent-builder/` and loads automatically; `/agent-builder` calls it directly |
+| [Codex](https://developers.openai.com/codex) | run `codex` at the root. The skill is in `.agents/skills/agent-builder/` and is discovered automatically; `$agent-builder` calls it directly |
+| any other AI coding tool | ask it to "read `skills/agent-builder/SKILL.md` completely first and follow its steps" |
+
+The skill itself is [`skills/agent-builder/SKILL.md`](skills/agent-builder/SKILL.md) (English, written for the AI). It copies the
+reference examples and runs the tests of this repository, so use it here — not as a lone file elsewhere.
+
+### 2. Ask for it in your own words
+
+```text
+Use the agent-builder skill to build a "travel expenses" AI agent:
+- employees ask about the expense rules and check their own claims on LINE;
+- managers approve their team's claims; above 100,000 yen finance approves too;
+- finance gets a monthly count report;
+- the rules are in <your documents> (Japanese and Chinese).
 ```
 
-## The framework in this repository
+Requests in other languages work the same way. What the AI does:
+
+1. **Asks you first** — who uses the agent, what it may read, who approves, who may read which document, what a correct answer
+   is, which SNS — and writes it into `examples/<system-id>/AGENT_PLAN.md`. When nobody can answer, it takes the recommended
+   default and marks it "to confirm".
+2. Copies the reference implementation and writes the business system and its manifest, up to conformance **52 / 52**.
+3. Adds knowledge and the graph, writes the evals **before tuning**, adds the settings screens, SNS approvals and reports, and
+   writes the DSH profile.
+4. Verifies every step with commands and reports what was built, the commands and their results, what is "not verified" and what
+   is still "to confirm".
+
+What stays with you: answering the decisions, the documents (tests use fictional data only), reviewing the plan and the report,
+trying the screens on your machine, and deploying.
+
+### 3. What the AI produces
+
+An ordinary Node.js project in `examples/<system-id>/`, all in git:
+
+| file | what |
+|---|---|
+| `AGENT_PLAN.md` | the decisions and their evidence: who decided what, what is still to confirm, the numbers |
+| `bridge.manifest.yaml` | the system's self-description (its ontology): roles, entities, events, the AI's tools, screen routes |
+| `src/app.mjs` | the business system: data, sign-in, business rules (hooks), business API, the settings plugin, knowledge, graph, DSH gateway |
+| `src/server.mjs` | the entry point: port, secrets and data directory from environment variables |
+| `knowledge/*.md` | the documents, with their visibility written inside |
+| `evals/` | the eval questions (`knowledge.evals.json`) and `run.mjs` |
+| `test/*.test.mjs` | business rules, conformance, knowledge permissions, graph, eval floor, settings plugin |
+| `dsh-profile/` | the product profile of the AI plane (DSH) |
+| `README.md` | what it does, how to start it, the eval and test numbers |
+
+### 4. Deploy it like an ordinary website
+
+- **The business system is an ordinary Node.js web app**: `npm install`, `NODE_ENV=production node src/server.mjs` (kept running by
+  systemd, pm2, Docker …) behind an HTTPS reverse proxy (nginx, Caddy …) on your domain.
+- Secrets come only from environment variables; the data directory goes on persistent storage.
+- **The AI plane (DSH) is one more process on the same machine**: it listens on 127.0.0.1 only and is reached through the DSH
+  gateway inside your web app. IM webhooks point at the web app's public paths (e.g. `https://<your site>/dsh-hooks/line`).
+- Besides that you need only a model API (for the AI employee's conversation). A database is needed only for pgvector.
+
+## Quick start
+
+Needs **Node.js 24.9+** (the pinned DSH CLI requires it; `npm install` / `npm test` alone run on 22.19+), npm, and **pnpm** on
+PATH for the end-to-end run. No database, no API key, no chat account.
+
+```sh
+git clone https://github.com/ITC-cloud-soft/biz-ai-agent.git && cd biz-ai-agent
+npm install
+npm run vendor:install      # once: the vendor forks' own dependencies
+npm test                    # every package, plugin and example: about 900 tests, 0 fail (a few skip without PostgreSQL / MySQL)
+npm run e2e                 # the pilot on a REAL DSH with a mock model and a mock LINE: 15 / 15 PASS
+```
+
+The first `npm run e2e` installs the pinned DSH CLI into `.dsh-cli/` (about 900 MB from the public npm registry, git-ignored); a
+DSH you installed globally is not touched. `npm run e2e -- --serve` keeps everything running afterwards: open
+`http://127.0.0.1:19751/login` (the password is in `e2e/.work/serve.txt`).
+
+**Try the screens without DSH** (two terminals; fictional employees `admin`, `admin2`, `manager`, `staff1`, `staff2`, password `leave-dev`):
+
+```sh
+echo MOCK_MODEL_KEY=anything > examples/leave-requests-knowledge/.env.local
+node examples/leave-requests-knowledge/dev/mock-model.mjs    # a fake model on port 19760 (not an AI)
+node examples/leave-requests-knowledge/src/server.mjs        # the pilot on http://127.0.0.1:19750/login
+```
+
+Sign in as `admin` → `/agent-settings`: switch the search method (BM25F / RAG / knowledge graph), upload a document, approve it as
+`admin2`. The SNS page says "DSH is not connected" here — that is expected without DSH. Details: [manual §4](docs/MANUAL.md#4-第一次运行安装测试本地试用).
+
+## How it works
+
+```mermaid
+flowchart LR
+  SNS["13 SNS<br/>LINE · Slack · Teams · WeCom …"] <--> AI["AI plane (DSH)<br/>dsh-im · identity · tools · events<br/>notify · approvals · memory · knowledge · graph"]
+  AI <-->|service token + the employee's delegation| BIZ["business system (system of record)<br/>server-kit /bridge/v1 · manifest<br/>knowledge · graph · agent-settings"]
+  WEB["business web<br/>/agent-settings · /me/sns · DSH gateway /dsh"] --> BIZ
+```
+
+- **A question** — an employee asks on LINE → the knowledge tool searches **with that employee's delegation** → the business system
+  returns only the sections they may read, with their sources (business screens) → the citation guard and the link guard check the
+  answer → the answer with its sources goes back to LINE. What you cannot see, the AI cannot see.
+- **An approval** — an administrator uploads a document → the business system writes `approval.requested` → the approval card
+  reaches another administrator (never the uploader) → "Approve" on LINE → the same `mayDecide` rule as the web → published → a
+  count-only report.
+
+## What's in this repository
 
 | path | what |
 |---|---|
-| `packages/` dsh-core, gateway, help, protocol, server-kit, telemetry, testing, web-kit | the protocol (Bridge v1 + conformance), the business-side kit, the DSH core, the DSH gateway, the screens' kit, the test harness |
-| `plugins/` approvals, assistant, events, identity, memory, notify, persona, reader, tools | the DSH plugins: approvals on IM, the web assistant, business events, SNS identity and link codes, memory, notifications, persona, document reader, the business tools |
-| `profile/` | the DSH product profile template and its installer |
-| `vendor/` dsh-im, dsh-auto-tasks, dsh-proactive | the forks (MIT; own npm setup each: `npm run vendor:install` once) — dsh-im is the IM gateway for the 13 SNS |
-| `examples/` care-billing, equipment-inspection, leave-requests | the framework's reference business systems |
+| `packages/` | ★ protocol (Bridge v1, manifest validation, conformance 52), server-kit, dsh-core, gateway, web-kit, help, telemetry, testing · knowledge, graph, agent-settings |
+| `plugins/` | ★ identity, tools, events, notify, approvals, assistant, memory, persona, reader · knowledge (tool module + citation guard), graph (tool module) |
+| `profile/` | ★ the DSH product profile template, installer and checker |
+| `vendor/` | ★ dsh-im (13 SNS), dsh-auto-tasks, dsh-proactive (MIT forks; `npm run vendor:install` once) |
+| `examples/` | leave-requests-knowledge (the reference implementation), equipment-loans (built by an AI with the skill) · ★ leave-requests, equipment-inspection (its tests need PostgreSQL), care-billing (manifest and mapping only) |
+| `skills/` | agent-builder (the skill for building agents) · ★ biz-assistant-integration (bringing the framework into an existing system) |
+| `.claude/skills/`, `.agents/skills/` | entry points so Claude Code and Codex load agent-builder |
+| `docs/` | the manual, designs and APIs · ★ GUIDELINE (ja / en / zh), ARCHITECTURE … |
+| `e2e/run.mjs` | the end-to-end run on a real DSH |
 
-These are **copies** of the framework's committed files at the commit in [`framework.sync.json`](framework.sync.json), made by
-[`scripts/sync-framework.mjs`](scripts/sync-framework.mjs) (`npm run sync-framework`, from `../framework` or `--from <checkout>`;
-pnpm's `workspace:` ranges become plain versions for npm workspaces). Fix framework code in the framework and sync again: a
-local edit to a copied file is overwritten by the next sync. Everything links inside this repository (no `@dsh-bridge/*` from
-npm). The DSH CLI the e2e pins goes to `.dsh-cli/` (git-ignored; about 900 MB on first use).
+★ = copied from the Biz Assistant Framework at the commit in [`framework.sync.json`](framework.sync.json) by
+[`scripts/sync-framework.mjs`](scripts/sync-framework.mjs). Do not edit those copies here: fix the framework
+([biz-ai](https://github.com/ITC-cloud-soft/biz-ai)) and sync again (`npm run sync-framework -- --from <framework checkout>`; manual §13).
 
-All data in the documents, tests and evals is fictional. No embedding model is chosen (BM25F by default; the embedder interface
-takes any OpenAI-compatible endpoint once the owner picks one).
+## Docs
 
-Licence: Apache-2.0 (like the framework).
+| document | what |
+|---|---|
+| [`docs/MANUAL.md`](docs/MANUAL.md) ([slides](docs/MANUAL.pptx)) | **the manual** (Chinese): structure, first run, the screens, building an agent with an AI coding tool, connecting an existing system, the AI plane, knowledge, deployment, rules, tests, troubleshooting |
+| [`skills/agent-builder/SKILL.md`](skills/agent-builder/SKILL.md) | the agent-builder skill (English, for AI coding tools) |
+| [`docs/GUIDELINE.en.md`](docs/GUIDELINE.en.md) ([ja](docs/GUIDELINE.md) / [zh](docs/GUIDELINE.zh-CN.md)) | the framework's development guideline: integration steps, extension points, MUST / SHOULD rules, testing, FAQ |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | architecture, event flow, identity and delegation, recipient guarantees, safety promises (Japanese) |
+| [`docs/KNOWLEDGE_API.md`](docs/KNOWLEDGE_API.md), [`docs/GRAPH_API.md`](docs/GRAPH_API.md) | the knowledge search and the graph: routes, rules, conformance K-01…K-08 and G-01…G-07 |
+| [`packages/agent-settings/README.md`](packages/agent-settings/README.md) | the settings plugin's interface |
+| [`docs/MULTI_AGENT_PLATFORM.md`](docs/MULTI_AGENT_PLATFORM.md) | draft: Agent Hub, one place to manage every agent of a company |
+| [`docs/STATUS.md`](docs/STATUS.md) | where things stand (Chinese) |
+
+All data in the documents, tests and evals is fictional. No model is chosen for you: BM25F works without one, and the model
+interfaces take any OpenAI-compatible or Azure OpenAI endpoint that the owner picks.
+
+## License
+
+[Apache License 2.0](LICENSE) — see also [`NOTICE`](NOTICE). The forks in `vendor/` keep their upstream licenses (MIT).
+
+Official website: https://biz-ai.myaiportal.net/
