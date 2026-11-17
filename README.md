@@ -36,6 +36,8 @@ conformance suite, tests, evals and traces.
 | [`examples/equipment-loans`](examples/equipment-loans) | A new example built from scratch by a coding agent that followed only the skill (week 5). |
 | [`docs/KNOWLEDGE_API.md`](docs/KNOWLEDGE_API.md), [`docs/GRAPH_API.md`](docs/GRAPH_API.md) | The two capabilities: routes, rules, conformance checks, and the framework changes better made upstream. |
 
+Needs Node.js 24.9 or later (the pinned DSH CLI's requirement; `npm test` alone runs on 22.19) and, for the e2e, pnpm on PATH.
+
 ```sh
 npm install
 npm run vendor:install   # once: the vendor forks' own dependencies

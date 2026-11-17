@@ -151,9 +151,9 @@ pres.addSection({ title: '封面' })
 {
   const s = pres.addSlide({ masterName: 'TITLE_DARK', sectionTitle: '封面' })
   s.addText('biz-ai-agent 使用手册', { placeholder: 'title' })
-  s.addText('把任何 IT 系统变成 AI 员工 —— 一个完整的 AI agent 框架', { placeholder: 'body' })
+  s.addText('把任何 IT 系统变成 AI 员工 —— 一个业务系统 + 一个 DSH = 一个 AI agent', { placeholder: 'body' })
   tile(s, 'sparkle', M, 1.3, 0.85, { bg: C.accent1 })
-  txt(s, '2026-11-16 · framework 同步自 9a86b0f · docs/MANUAL.md 的幻灯片版', M, 6.45, 9, 0.35, { size: 12, color: '94A3B8' })
+  txt(s, '2026-11-17 · 拷入的 framework：9a86b0f · docs/MANUAL.md 的幻灯片版', M, 6.45, 9, 0.35, { size: 12, color: '94A3B8' })
   s.addNotes('这份幻灯片是 docs/MANUAL.md 的摘要版。详细内容、命令和文件路径以 Markdown 手册为准。')
 }
 
@@ -181,29 +181,29 @@ const S1 = '认识框架'
 sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整体结构 · 仓库')
 
 {
-  const s = content(S1, '两部分，全部在一个仓库里', '左边是整套拷入的 Biz Assistant Framework，右边是 biz-ai-agent 自己的 agent 层。')
+  const s = content(S1, '两部分，全部在一个仓库里', '左边是由 scripts/sync-framework.mjs 拷入的 Biz Assistant Framework，右边是 biz-ai-agent 自己的 agent 层。')
   const cw = 5.55
   card(s, M, 1.45, cw, 5.25, { fill: C.background2 })
   tile(s, 'layers', M + 0.35, 1.75, 0.62)
   txt(s, 'Biz Assistant Framework', M + 1.15, 1.78, cw - 1.4, 0.4, { size: 20, bold: true })
-  txt(s, '@dsh-bridge/* · 整套拷入', M + 1.15, 2.18, cw - 1.4, 0.3, { size: 13, color: C.text2 })
-  txt(s, bullets(['Bridge v1 协议、server-kit（业务系统一侧）', 'DSH 核心 + 插件：身份连携、工具、事件、通知、审批、长期记忆、AI 员工资料、文档读取、Web 助手', 'dsh-im：13 种 SNS 的 IM 网关', 'web-kit 组件、DSH 网关、测试工具、profile 模板']), M + 0.4, 2.75, cw - 0.75, 3.8, { size: 15, lsm: 1.2 })
+  txt(s, '拷入 · @dsh-bridge/* · @care/*', M + 1.15, 2.18, cw - 1.4, 0.3, { size: 13, color: C.text2 })
+  txt(s, bullets(['Bridge v1 协议、server-kit（业务系统一侧）', 'DSH 核心 + 插件：身份连携、工具、事件、通知、审批、长期记忆、AI 员工资料、文档读取、Web 助手', 'dsh-im：13 种 SNS 的 IM 网关', '自动任务和主动投递的守卫、web-kit 组件、DSH 网关、profile 模板、测试工具']), M + 0.4, 2.75, cw - 0.75, 3.8, { size: 15, lsm: 1.2 })
   txt(s, '+', M + cw + 0.05, 3.7, 0.5, 0.6, { size: 36, bold: true, color: C.accent1, align: 'center' })
   const x2 = M + cw + 0.6
   card(s, x2, 1.45, cw, 5.25, { fill: 'EEF2FF' })
   tile(s, 'sparkle', x2 + 0.35, 1.75, 0.62, { bg: C.accent2 })
   txt(s, 'agent 层', x2 + 1.15, 1.78, cw - 1.4, 0.4, { size: 20, bold: true })
   txt(s, 'biz-ai-agent 自己的', x2 + 1.15, 2.18, cw - 1.4, 0.3, { size: 13, color: C.text2 })
-  txt(s, bullets(['knowledge：按权限检索文档，带出处', 'graph："这件事为什么发给我？"', 'agent-settings：模型、知识文档、BM25F / RAG(pgvector) / 知识图谱、SNS 审批与报告、员工的 SNS 页、登录页', 'agent-builder skill：让编码 agent 造 agent']), x2 + 0.4, 2.75, cw - 0.75, 3.8, { size: 15, lsm: 1.2 })
+  txt(s, bullets(['knowledge：按权限检索文档，带出处', 'graph："这件事为什么发给我？"', 'agent-settings：模型、知识文档、BM25F / RAG（pgvector 或文件）/ 知识图谱、SNS 审批与报告、员工的 SNS 页、登录页', 'agent-builder skill：让编码 agent 造 agent']), x2 + 0.4, 2.75, cw - 0.75, 3.8, { size: 15, lsm: 1.2 })
 }
 
 {
   const s = content(S1, '五条核心原则')
   const rules = [
     ['cpu', 'agent 首先是一个普通的 IT 系统', '业务系统是唯一的数据正本；流程是代码，不是拖拽出来的图'],
-    ['eye', 'AI 只读和提案，人来决定', '以提问员工本人的权限读取；提案要人采纳才执行；金额由人决定'],
-    ['bell', '业务系统决定通知谁', 'recipientsFor 决定接收人，和网页权限用同一个规则'],
-    ['lock', '不带个人信息', '事件和消息里只有 ID、日期、件数、状态；内容在网页上确认权限后看'],
+    ['eye', 'AI 员工只读和提案，人来决定', '以提问员工本人的权限读取；提案要人采纳才执行；金额由人决定'],
+    ['bell', '业务系统决定通知谁', 'recipientsFor、approvals.approvers 决定接收人，和网页权限用同一个规则'],
+    ['lock', '事件和通知不带个人信息', 'payload 和文案参数里只有 ID、数值、日期、状态；内容在网页上确认权限后看'],
     ['shield', '权限优先', '每次检索、每个图谱回答都先按提问者的权限过滤，再排序'],
   ]
   rules.forEach(([ic, t, d], i) => {
@@ -221,7 +221,7 @@ sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整�
     ['Schema 语义层', 'bridge.manifest.yaml：角色、实体、事件、工具、playbook、报告；图谱骨架由它生成', C.accent1],
     ['Data 数据层', '业务系统本身（server-kit 应用，或已有系统 + Bridge v1）', C.accent2],
     ['Action 操作层', '提案（proposal）和审批（approval），由业务系统的规则决定', C.accent3],
-    ['Agent 智能体层', 'DSH 上的 AI 员工；bridge-tools / knowledge / graph 给它工具', C.accent4],
+    ['Agent 智能体层', 'DSH 上的 AI 员工；bridge-tools 给它工具（知识检索、为什么发给我是它的模块）', C.accent4],
     ['Memory 记忆层', 'bridge-memory（存之前做个人信息检查）、知识层的文档', C.accent5],
   ]
   rows.forEach(([k, v, col], i) => {
@@ -234,10 +234,10 @@ sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整�
 }
 
 {
-  const s = content(S1, '整体结构', 'SNS ⇄ AI 面（DSH）⇄ 业务系统；业务网页通过 DSH 网关管理 IM 机器人（只给管理员）。')
+  const s = content(S1, '整体结构', 'SNS ⇄ AI 面（DSH）⇄ 业务系统；业务网页通过 DSH 网关管理 IM 机器人（isAllowed 决定谁能进，示例只给管理员），IM 的 webhook 也经网关的公开路径进 DSH。')
   const col = [
     { x: M, t: '13 种 SNS', ic: 'chat', items: ['LINE · Slack · Teams', '企业微信 · 钉钉 · 飞书', 'Telegram · QQ · Discord', 'Matrix · WhatsApp · iMessage'] },
-    { x: M + 3.15, t: 'AI 面（DSH）', ic: 'sparkle', items: ['dsh-im：IM 网关', 'dsh-core：应用注册・委托', '插件：identity・tools・events', 'notify・approvals・memory …', 'knowledge・graph'] },
+    { x: M + 3.15, t: 'AI 面（DSH）', ic: 'sparkle', items: ['dsh-im：IM 网关', 'dsh-core：应用注册・委托', '插件：identity・tools・events', 'notify・approvals・memory …', '知识检索・为什么发给我'] },
     { x: M + 6.3, t: '业务系统', ic: 'database', items: ['server-kit：/bridge/v1/*', 'manifest（本体）', '业务数据・规则・hooks', 'knowledge・graph', 'agent-settings'] },
     { x: M + 9.45, t: '业务网页', ic: 'globe', items: ['/agent-settings（管理员）', '/me/sns（每个员工）', '审批・Web 助手', 'DSH 网关 /dsh'] },
   ]
@@ -259,7 +259,7 @@ sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整�
     ['chat', '发消息', 'dsh-im 收到；bridge-identity 查出是哪个员工（必须先连携）'],
     ['plug', '调用工具', 'leave_knowledge_search，用这个员工的委托'],
     ['shield', '按权限检索', '业务系统只返回他能看的段落和出处'],
-    ['check', '守卫', '出处守卫加来源；链接守卫删掉外部链接'],
+    ['check', '守卫', '出处守卫补上出处；链接守卫删掉外部链接'],
     ['sparkle', '回答', '带出处（业务网页的画面链接）发回 LINE'],
   ]
   const cw = (W - 2 * M - 4 * 0.25) / 5
@@ -278,10 +278,10 @@ sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整�
 {
   const s = content(S1, '一次审批：上传一份知识文档')
   const steps = [
-    ['upload', '管理员 A 上传', '文档和事件 approval.requested 在同一个事务里写入'],
-    ['bell', '卡片发给 B', 'bridge-approvals 问业务系统谁来批 → 卡片到管理员 B 的 LINE'],
-    ['check', 'B 按「承認」', '业务系统用同一个 mayDecide 判断 → 发布'],
-    ['file', '报告', 'knowledge.updated（只有件数）发给报告角色'],
+    ['upload', '管理员 A 上传', '先查个人信息 → 事务里写入 approval.requested，再保存文档'],
+    ['bell', '卡片发给 B', 'bridge-approvals 请业务系统发卡片，approvals.approvers 决定发给谁 → 管理员 B 的 LINE'],
+    ['check', 'B 按「承認」', '业务系统用同一个 mayDecide 判断 → approval.decided，发布'],
+    ['file', '报告', '重建索引后 knowledge.updated（只有件数）发给报告角色'],
   ]
   steps.forEach(([ic, t, d], i) => {
     const y = 1.5 + i * 1.12
@@ -293,17 +293,17 @@ sectionSlide(S1, 1, '认识框架', '是什么 · 核心原则 · 五层 · 整�
   card(s, 9.1, 1.5, W - M - 9.1, 4.3, { fill: 'FDF2F8' })
   tile(s, 'shield', 9.4, 1.8, 0.6, { bg: C.accent3 })
   txt(s, '上传者自己收不到卡片，也不能批', 9.4, 2.6, W - M - 9.7, 0.9, { size: 18, bold: true, lsm: 1.2 })
-  txt(s, '一个审批只能决定一次，别人决定后其他卡片失效。只有一个管理员时，要把经理加进审批角色', 9.4, 3.6, W - M - 9.7, 2, { size: 14, color: C.text2, lsm: 1.3 })
+  txt(s, '一个审批只能决定一次，决定后相关卡片都更新为结果。只有一个管理员时，要把经理加进审批角色', 9.4, 3.6, W - M - 9.7, 2, { size: 14, color: C.text2, lsm: 1.3 })
 }
 
 {
   const s = content(S1, '仓库里有什么', '★ 是从 Biz Assistant Framework 拷入的部分，不要在这里直接改，改 framework 后再同步。')
   const tiles = [
     ['folder', 'packages/', '★ protocol · server-kit · dsh-core · gateway · web-kit · help · testing · telemetry', 'knowledge · graph · agent-settings'],
-    ['plug', 'plugins/', '★ identity · tools · events · notify · approvals · assistant · memory · persona · reader', 'knowledge · graph'],
-    ['settings', 'profile/', '★ DSH 产品 profile 模板和安装脚本', ''],
+    ['plug', 'plugins/', '★ identity · tools · events · notify · approvals · assistant · memory · persona · reader', 'knowledge · graph（bridge-tools 的模块）'],
+    ['settings', 'profile/', '★ DSH 产品 profile 模板、安装和检查脚本', ''],
     ['chat', 'vendor/', '★ dsh-im（13 种 SNS）· dsh-auto-tasks · dsh-proactive', ''],
-    ['play', 'examples/', 'leave-requests-knowledge（参考实现）· equipment-loans', '★ care-billing · equipment-inspection · leave-requests'],
+    ['play', 'examples/', 'leave-requests-knowledge（参考实现）· equipment-loans', '★ leave-requests · equipment-inspection · care-billing（只有 manifest）'],
     ['book', 'skills/ · docs/', 'agent-builder skill · 本手册 · 设计和 API', '★ biz-assistant-integration · GUIDELINE · ARCHITECTURE'],
   ]
   const cw = (W - 2 * M - 2 * 0.3) / 3, ch = 2.4
@@ -321,10 +321,10 @@ const S2 = '上手运行'
 sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎么用')
 
 {
-  const s = content(S2, '第一次运行：四条命令', 'Node 22.19 以上。e2e 第一次会下载固定版本的 DSH CLI（约 900 MB，放在 .dsh-cli/）。')
+  const s = content(S2, '第一次运行：四条命令', 'npm test 在 Node 22.19 以上就能跑；e2e 的 DSH CLI 要 Node 24.9 以上，还要 pnpm。e2e 第一次会从 npm 下载固定版本的 DSH CLI（约 900 MB，放在 .dsh-cli/）。')
   code(s, ['npm install', 'npm run vendor:install   # 第一次：vendor 的依赖', 'npm test                 # 全部包、插件、示例', 'npm run e2e              # 真实 DSH + 假模型 + 假 LINE'], M, 1.5, 7.3, 2.3, 15)
-  txt(s, bullets(['期望 0 失败；少量 skip 是没给数据库 URL 的 PostgreSQL / MySQL 测试', '各示例输出 # conformance: 52 / 52 checks passed', 'node e2e/run.mjs --serve：跑完不退出，打开 http://127.0.0.1:19751/login']), M, 4.15, 7.3, 2.5, { size: 15, color: C.text2, lsm: 1.25 })
-  const stats = [['899', '个测试，0 失败'], ['52 / 52', 'conformance（每个示例）'], ['15 / 15', '真实 DSH 上的 e2e']]
+  txt(s, bullets(['准备：Node.js 24.9 以上、npm；e2e 还要 pnpm', '期望 0 失败；7 个 skip 是没给数据库等 URL 的测试', '三个示例输出 # conformance: 52 / 52（equipment-inspection 要 PostgreSQL）', 'npm run e2e -- --serve：跑完不退出，打开 http://127.0.0.1:19751/login']), M, 4.05, 7.3, 2.7, { size: 15, color: C.text2, lsm: 1.25 })
+  const stats = [['899', '个测试，0 失败'], ['52 / 52', 'conformance（每个示例系统）'], ['15 / 15', '真实 DSH 上的 e2e']]
   stats.forEach(([v, l], i) => {
     const y = 1.5 + i * 1.75
     card(s, 8.4, y, W - M - 8.4, 1.5, { fill: i === 0 ? 'EEF2FF' : C.background2 })
@@ -335,10 +335,10 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
 
 {
   const s = content(S2, '本地试用参考实现（不需要 DSH）')
-  code(s, ['# 假模型（不是 AI，只让 RAG / 图谱流程能跑）', 'node examples/leave-requests-knowledge/dev/mock-model.mjs', '# 试点（端口 19750）', 'node examples/leave-requests-knowledge/src/server.mjs'], M, 1.45, 6.4, 1.95, 13)
-  const steps = ['打开 /login：admin / admin2 / manager / staff1 / staff2（开发密码 leave-dev）', '模型页：Base URL 填 http://127.0.0.1:19760/v1，key 的变量名填 MOCK_MODEL_KEY', '知识页：切换检索方式，上传文档，用 admin2 批准', 'RAG 用 pgvector：Docker 镜像 pgvector/pgvector:pg17 + AGENT_VECTOR_DB_URL']
+  code(s, ['# 先在示例目录的 .env.local 写 MOCK_MODEL_KEY=anything', '# 终端 1：假模型（端口 19760，只让 RAG / 图谱流程能跑）', 'node examples/leave-requests-knowledge/dev/mock-model.mjs', '# 终端 2：试点（端口 19750）', 'node examples/leave-requests-knowledge/src/server.mjs'], M, 1.45, 6.4, 2.25, 12)
+  const steps = ['打开 /login：admin / admin2 / manager / staff1 / staff2（开发密码 leave-dev）', '模型页：Base URL http://127.0.0.1:19760/v1、模型名任意、变量名 MOCK_MODEL_KEY → 先保存再连接测试', '知识页：切换检索方式，上传文档，用 admin2 批准', 'SNS 页显示「未连接 DSH」是正常的；看 SNS 部分用 npm run e2e -- --serve']
   steps.forEach((t, i) => {
-    const y = 3.65 + i * 0.75
+    const y = 3.9 + i * 0.7
     numDot(s, i + 1, M, y + 0.02, 0.4, { size: 13 })
     txt(s, t, M + 0.6, y, 5.8, 0.7, { size: 14, lsm: 1.15 })
   })
@@ -347,11 +347,11 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
 }
 
 {
-  const s = content(S2, '管理员：AI agent 设置 /agent-settings', '只给管理员角色。四页：概要、模型、知识、SNS。')
+  const s = content(S2, '管理员：AI agent 设置 /agent-settings', '只给 adminRoles（默认 admin）。四页：概要、模型、知识、SNS。')
   shot(s, 'overview.png', M, 1.45, 7.4, 475 / 800)
   const pages = [
     ['sparkle', '概要', '状态一览、设置进度、自己的 SNS 连携'],
-    ['cpu', '模型', '基础模型、embedding 模型、连接测试'],
+    ['cpu', '模型', '基础模型、Embedding 模型、给 DSH 的 YAML'],
     ['book', '知识', '检索方式、上传文档、审批、重建索引'],
     ['chat', 'SNS', '组织的 IM 机器人（13 种）、审批与报告'],
   ]
@@ -369,8 +369,8 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
   const w = (W - 2 * M - 0.4) / 2
   shot(s, 'models.png', M, 1.45, w, 475 / 800)
   shot(s, 'knowledge.png', M + w + 0.4, 1.45, w, 475 / 800)
-  txt(s, bullets(['API key 推荐只填环境变量名', '直接填 key 要先设主密钥 AGENT_SETTINGS_KEY（加密保存，只显示末尾 4 位）', '「DSH 用的 overlay」生成 AI 面的模型配置']), M, 5.35, w, 1.5, { size: 13, color: C.text2, lsm: 1.15 })
-  txt(s, bullets(['BM25F（默认，不用模型）/ RAG（pgvector）/ 知识图谱（JSON）', '上传的文档要另一个管理员批准才进索引', '用 RAG 或图谱时，文档正文会发给所选模型']), M + w + 0.4, 5.35, w, 1.5, { size: 13, color: C.text2, lsm: 1.15 })
+  txt(s, bullets(['基础模型用来抽取知识图谱；API key 推荐只填环境变量名', '直接保存 key 要先设主密钥 AGENT_SETTINGS_KEY（只显示末尾 4 位）', '「AI 员工的对话模型（DSH）」→「显示 YAML」：给 DSH 的 overlay']), M, 5.35, w, 1.5, { size: 13, color: C.text2, lsm: 1.15 })
+  txt(s, bullets(['BM25F（默认）/ RAG（pgvector 或文件）/ 语义知识图谱（JSON）', '上传的文档要另一个管理员批准才发布（7 天过期）', '用 RAG 或图谱时，文档正文会发给所选模型']), M + w + 0.4, 5.35, w, 1.5, { size: 13, color: C.text2, lsm: 1.15 })
 }
 
 {
@@ -383,13 +383,13 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
     s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w: 1.35, h: 0.42, rectRadius: 0.21, fill: { color: 'EEF2FF' }, line: { type: 'none' }, objectName: id('chip') })
     txt(s, t, x, y, 1.35, 0.42, { size: 12, color: C.accent1, align: 'center', valign: 'middle', bold: true })
   })
-  txt(s, bullets(['填凭据、扫二维码、手动设置：各自原有的接入方式都能用', '没挂 DSH 网关时，页面说明怎么接，其余功能照常']), 8.35, 5.0, W - M - 8.35, 1.6, { size: 13, color: C.text2, lsm: 1.2 })
+  txt(s, bullets(['填凭据、扫二维码、手动设置：各自原有的接入方式都能用', '没挂 DSH 网关时显示「未连接 DSH」和接法，其余功能照常']), 8.35, 5.0, W - M - 8.35, 1.6, { size: 13, color: C.text2, lsm: 1.2 })
 }
 
 {
   const s = content(S2, '员工：三步连携自己的 SNS（/me/sns）')
   shot(s, 'me-sns.png', 5.6, 1.45, W - M - 5.6, 481 / 800)
-  const steps = [['点「发行连携码」', '出现 6 位数字，10 分钟内有效'], ['单独聊天发送「連携 123456」', '在 LINE / Slack / Teams 等，和组织的机器人'], ['机器人回复"已连携"', '之后就能提问、收审批卡片和通知']]
+  const steps = [['点「发行连携码」', '出现 6 位数字，10 分钟内有效'], ['单独聊天发送「連携 123456」', '和组织的机器人单独聊（关键词默认「連携」）'], ['机器人回复「連携が完了しました」', '之后就能提问、收审批卡片和通知']]
   steps.forEach(([t, d], i) => {
     const y = 1.55 + i * 1.3
     numDot(s, i + 1, M, y, 0.55, { size: 18 })
@@ -401,10 +401,10 @@ sectionSlide(S2, 2, '上手运行', '安装测试 · 本地试用 · 画面怎�
 }
 
 {
-  const s = content(S2, '在 SNS 上用 AI 员工')
+  const s = content(S2, '在 SNS 上用 AI 员工', '机器人的回复和卡片默认是日文，可在 profile 里改（messages、replyWords 等）。')
   const cards = [
     ['search', '提问', ['直接问："年假怎么申请？"', '"这个审批为什么发给我？"', 'AI 用你的权限查，回答附出处']],
-    ['clipboard', '审批卡片', ['【承認のお願い】卡片', '按「承認」/「差戻」按钮', '或回复审批码：差戻 <code> 理由']],
+    ['clipboard', '审批卡片', ['【承認のお願い】卡片', '按「承認」/「差戻」按钮', '或回复：差戻 123456 理由']],
     ['bell', '报告与通知', ['【ご報告】只有件数和链接', '详细内容在网页确认权限后看', '群聊里不回答业务内容']],
   ]
   const cw = (W - 2 * M - 2 * 0.35) / 3
@@ -449,12 +449,12 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
   card(s, x2, 1.45, w, 4.4, { fill: C.background2 })
   tile(s, 'database', x2 + 0.35, 1.75, 0.6)
   txt(s, 'IT 系统（server-kit）', x2 + 1.15, 1.78, w - 1.4, 0.55, { size: 19, bold: true, valign: 'middle' })
-  txt(s, bullets(['状态变化：kit.tx + kit.emitEvent 同一个事务', 'hooks：employees · authenticate · isSessionLive · recipientsFor · approvals · proposalKinds · reports · piiScan', 'AI 读：kit.readToolPolicy；写只给人', 'mayDecide 一个函数，网页和聊天都用；申请人不能批自己的'], { after: 8 }), x2 + 0.35, 2.6, w - 0.7, 3.9, { size: 15, lsm: 1.2 })
+  txt(s, bullets(['状态变化：kit.tx + kit.emitEvent 同一个事务', 'hooks：employees · authenticate · isSessionLive · recipientsFor · approvals · proposalKinds · reports · piiScan', 'AI 读：kit.readToolPolicy（参数和 manifest 的 tools[].http 一致）；写只给人', 'mayDecide 一个函数，网页和聊天都用；申请人不能批自己的'], { after: 8 }), x2 + 0.35, 2.6, w - 0.7, 3.9, { size: 15, lsm: 1.2 })
 }
 
 {
   const s = content(S3, '2 manifest：系统的自我介绍，也是本体')
-  const parts = [['system · web.routes', '每个可被链接的画面'], ['roles', '委托上限 none / read / propose'], ['entities', 'pii、画面 link'], ['events', '框架的 3 个事件 + 业务事件；只有 ID、日期、件数、状态'], ['tools', '读工具 + knowledge_search + graph_neighbors + 提案'], ['playbooks · reports', 'playbook 默认关；报告只有件数']]
+  const parts = [['bridge · system · web.routes', 'bridge: 1；每个可被链接的画面'], ['roles', '委托上限 none / read / propose'], ['entities', 'pii、画面 link'], ['events', '框架的 3 个事件 + 业务事件；只有 ID、数值、日期、状态'], ['tools', '读工具 + knowledge_search + graph_neighbors + 提案（graph_why 由插件提供）'], ['playbooks · reports', 'playbook 默认关；报告只有件数']]
   const cw = (W - 2 * M - 0.3) / 2
   parts.forEach(([k, v], i) => {
     const x = M + (i % 2) * (cw + 0.3), y = 1.45 + Math.floor(i / 2) * 1.12
@@ -469,8 +469,8 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
 {
   const s = content(S3, '3 知识层：三种检索方式，都是权限优先')
   const cols = [
-    ['search', 'BM25F', '默认', ['不需要模型', '标题、关键词、正文加权', '同义词、虚词可调']],
-    ['vector', 'RAG', '需要 embedding 模型', ['BM25F + 向量（RRF 融合）', 'pgvector 只存哈希和向量，不存正文', '没改过的块不重做 embedding']],
+    ['search', 'BM25F', '默认', ['不需要模型', '标题、关键词、节标题、正文加权', '同义词、虚词可调']],
+    ['vector', 'RAG', '需要 embedding 模型', ['BM25F + 向量（RRF 融合）', 'pgvector 或文件：只存摘要和向量，不存正文', '没改过的块不重做 embedding']],
     ['graph', '知识图谱', '需要基础模型', ['模型把文档抽成实体和关系', '存 JSON：只有名字、类型、块 ID', '检索：BM25F + 图谱']],
   ]
   const cw = (W - 2 * M - 2 * 0.35) / 3
@@ -484,13 +484,13 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
   })
   card(s, M, 5.8, W - 2 * M, 0.85, { fill: 'ECFDF3' })
   tile(s, 'shield', M + 0.2, 5.93, 0.6, { bg: C.accent5 })
-  txt(s, '向量和图谱只在提问者能看的块里比较；模型出错时退回 BM25F，并在状态和报告里写明。', M + 1.0, 5.8, W - 2 * M - 1.2, 0.85, { size: 15, valign: 'middle' })
+  txt(s, '向量和图谱只在提问者能看的块里比较；重建时模型出错就退回 BM25F，错误码显示在画面上。', M + 1.0, 5.8, W - 2 * M - 1.2, 0.85, { size: 15, valign: 'middle' })
 }
 
 {
   const s = content(S3, '知识文档：一份 Markdown，可见范围写在里面')
   code(s, ['---', 'id: lending-rules', 'title: Lending rules', 'link: /handbook/lending-rules', 'roles: [admin, manager, staff]', 'keywords: [loan, borrow, return]', '---', '## Returning equipment {#returning}', '...', '## Approval limits {#approval-limits roles=admin,manager}'], M, 1.45, 7.2, 4.1, 14)
-  txt(s, bullets(['行尾和 {…} 后面不能写注释（会被当成值）', '节只能把可见范围收窄，不能放宽', '每种服务的语言各写一份', '建索引时做个人信息检查：联系方式、长号码、名册里的姓名；查出来就拒绝，要改文档，不能关检查', '管理员也可以在设置画面上传（要另一个管理员批准）'], { after: 10 }), 8.15, 1.6, W - M - 8.15, 5, { size: 15, lsm: 1.25 })
+  txt(s, bullets(['不要写行尾注释：front matter 会报错，标题 {…} 后面的注释会让收窄悄悄失效', '节只能把可见范围收窄，不能放宽', '每种服务的语言各写一份', '建索引时做个人信息检查：邮箱、电话、长号码、名册里的姓名；查出来的块被排除，要改文档，不能关检查', '管理员也可以在设置画面上传（默认要另一个管理员批准）'], { after: 10 }), 8.15, 1.6, W - M - 8.15, 5, { size: 15, lsm: 1.25 })
 }
 
 {
@@ -499,7 +499,7 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
   card(s, M, 1.45, w, 4.4, { fill: C.background2 })
   tile(s, 'graph', M + 0.35, 1.75, 0.6, { bg: C.accent2 })
   txt(s, '"这件事为什么发给我？"', M + 1.15, 1.78, w - 1.4, 0.55, { size: 18, bold: true, valign: 'middle' })
-  txt(s, bullets(['业务系统提供 canRead（和画面同一个规则）和 neighbors（直接关系）', '关系名用 requested_by · assigned_to · required_role，才能给出理由', '工具 <ns>_graph_why：你提的、分配给你、等你的角色决定、接收规则…', '看不到的对象一律"找不到"'], { after: 8 }), M + 0.35, 2.6, w - 0.7, 3.9, { size: 14, lsm: 1.2 })
+  txt(s, bullets(['业务系统用 registerGraph 提供 canRead（和画面同一个规则）和 neighbors（直接关系）', '关系名用 requested_by · assigned_to · required_role，才能给出理由', '工具 <ns>_graph_why（plugin-graph）：你提的、分配给你、等你的角色决定、接收规则…', '看不到的对象一律"找不到"'], { after: 8 }), M + 0.35, 2.6, w - 0.7, 3.9, { size: 14, lsm: 1.2 })
   const x2 = M + w + 0.4
   card(s, x2, 1.45, w, 4.4, { fill: 'EEF2FF' })
   tile(s, 'flask', x2 + 0.35, 1.75, 0.6)
@@ -510,16 +510,16 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
     txt(s, v, x, 2.65, 1.85, 0.7, { size: 30, bold: true, color: C.accent1 })
     txt(s, l, x, 3.35, 1.85, 0.4, { size: 13, color: C.text2 })
   })
-  txt(s, bullets(['包括受限节被无权角色提问（forbid）和范围外的问题', '先记录第一次的数字；test/evals.test.mjs 固定下限', '同一个 knowledgeOptions 对象给应用和评测'], { after: 8 }), x2 + 0.35, 4.0, w - 0.7, 2.5, { size: 14, lsm: 1.2 })
+  txt(s, bullets(['包括受限节被无权角色提问（forbid）和范围外的问题', '先记录第一次的数字；test/evals.test.mjs 固定题数和下限', '同一个 knowledgeOptions 对象给应用和评测'], { after: 8 }), x2 + 0.35, 4.0, w - 0.7, 2.5, { size: 14, lsm: 1.2 })
 }
 
 {
   const s = content(S3, '6 设置插件：四步接上')
   const steps = [
     ['createAgentSettings', '在 createBridgeApp 之前创建，包住 hooks.approvals 和 hooks.recipientsFor'],
-    ['agent.register', '注册画面和 API；registerKnowledge(bridge, agent.knowledge)'],
-    ['manifest', '实体 knowledge_document、事件和模板 knowledge.updated、路由 /agent-settings 和 /me/sns'],
-    ['DSH 网关 + 登录', 'createDshGateway（/dsh，只给管理员）；redirectToSignIn → gateway → bridge；没有登录页就用 signInPage'],
+    ['agent.register', '注册画面和 API（挂了网关时 gateway: { rpcBase }）；registerKnowledge(bridge, agent.knowledge)'],
+    ['manifest', '实体 knowledge_document、事件和模板 knowledge.updated、路由 /agent-settings、/me/sns、/handbook/:docId'],
+    ['DSH 网关 + 登录', 'createDshGateway（/dsh，isAllowed 决定谁能进；launchToken 生产用 fromEnv / supervise）；redirectToSignIn → gateway → bridge；没有登录页就用 signInPage'],
   ]
   steps.forEach(([k, v], i) => {
     const y = 1.5 + i * 1.18
@@ -532,17 +532,17 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
 }
 
 {
-  const s = content(S3, '7 AI 面：DSH 上的插件', '模板的 bundle 里已经包含 memory、persona、reader。knowledge 和 graph 通过 bridge-tools 的 toolModules 加进来。')
+  const s = content(S3, '7 AI 面：DSH 上的插件', '模板的 bundle 里已经包含 memory、persona、reader。知识检索和为什么发给我是 bridge-tools 的 toolModules；plugin-knowledge 的 bundle 另外插入出处守卫 bridge-knowledge-guard。')
   const ps = [
     ['bridge-apps', '应用注册、委托'], ['dsh-im', '13 种 SNS 的 IM 网关'], ['bridge-identity', '连携码、链接守卫'], ['bridge-tools', '业务工具、提案'],
     ['bridge-events', '拉取业务事件'], ['bridge-notify', '事件通知'], ['bridge-approvals', '审批卡片'], ['bridge-assistant', '网页的 AI 助手'],
-    ['bridge-memory', '长期记忆（PII 检查）'], ['bridge-persona', 'AI 员工资料'], ['bridge-reader', '读扫描文档'], ['bridge-knowledge', '知识检索 + 出处守卫'],
-    ['bridge-graph', '为什么发给我'], ['auto-tasks', '自动任务'], ['dsh-proactive', '主动投递的守卫'],
+    ['bridge-memory', '长期记忆（PII 检查）'], ['bridge-persona', 'AI 员工资料'], ['bridge-reader', '读扫描文档'], ['plugin-knowledge', '知识检索（tools 模块）+ 出处守卫'],
+    ['plugin-graph', '为什么发给我（tools 模块）'], ['auto-tasks', '自动任务'], ['dsh-proactive', '主动投递的守卫'],
   ]
   const cw = (W - 2 * M - 4 * 0.2) / 5, ch = 1.45
   ps.forEach(([k, v], i) => {
     const x = M + (i % 5) * (cw + 0.2), y = 1.45 + Math.floor(i / 5) * (ch + 0.2)
-    const agent = k === 'bridge-knowledge' || k === 'bridge-graph'
+    const agent = k === 'plugin-knowledge' || k === 'plugin-graph'
     card(s, x, y, cw, ch, { fill: agent ? 'EEF2FF' : C.background2 })
     txt(s, k, x + 0.22, y + 0.22, cw - 0.44, 0.45, { size: 14, bold: true, color: agent ? C.accent1 : C.text1, font: 'Consolas' })
     txt(s, v, x + 0.22, y + 0.72, cw - 0.44, 0.6, { size: 13, color: C.text2 })
@@ -552,15 +552,15 @@ sectionSlide(S3, 3, '造一个 AI agent', '用编码 agent 时：skills/agent-bu
 
 {
   const s = content(S3, '7 安装 profile：发送设置保持关闭')
-  const steps = ['复制 profile/template/，填好所有 <placeholder>', '在 dsh-im 里为应用创建机器人，记下 botId', 'bridge-apps：变量名 + generateTools: false', 'toolModules 加 knowledge 和 graph；出处守卫的 bundle', '每个应用都写 linkGuard 的 URL', 'install.mjs 安装，check.mjs 检查，在隔离的 home 启动 DSH']
+  const steps = ['复制 profile/template/，填好所有 <placeholder>', '在 dsh-im 里为应用创建机器人，记下 botId', 'bridge-apps：变量名 + generateTools: false（模板是 true）', 'toolModules 加知识和图谱（knowledge 用装进 profile 的那份）；bundles 加 plugin-knowledge', '打开 linkGuard（模板里是注释）并写业务网页 URL', 'check.mjs 检查，install.mjs 安装，在隔离的 home 启动 DSH']
   steps.forEach((t, i) => {
     const y = 1.5 + i * 0.83
     numDot(s, i + 1, M, y + 0.05, 0.45, { size: 14 })
     txt(s, t, M + 0.7, y, 5.6, 0.6, { size: 15, valign: 'middle', lsm: 1.1 })
   })
-  code(s, ['- id: bridge-tools', "  name: '@dsh-bridge/plugin-tools'", '  config:', '    groupChat: deny', '    toolModules:', "      - { module: '@dsh-bridge/plugin-knowledge',", '          application: <system-id> }', "      - { module: '<plugins/graph 的 file URL>',", '          application: <system-id> }'], 7.0, 1.45, W - M - 7.0, 3.75, 13)
+  code(s, ['- id: bridge-tools', "  name: '@dsh-bridge/plugin-tools'", '  config:', '    groupChat: deny', '    toolModules:', "      - { module: '<plugin-knowledge 的 file URL>',", '          application: <system-id> }', "      - { module: '<plugins/graph 的 file URL>',", '          application: <system-id> }'], 7.0, 1.45, W - M - 7.0, 3.75, 13)
   card(s, 7.0, 5.45, W - M - 7.0, 1.2, { fill: 'FFF7E6' })
-  txt(s, 'forwardPluginSources: [] · deliveryGuard: required · restrictDelivery: true · groupChat: deny · audienceText: template —— 要打开只能显式改那一行并写理由', 7.25, 5.5, W - M - 7.5, 1.1, { size: 12, valign: 'middle', lsm: 1.2 })
+  txt(s, 'forwardPluginSources: [] · deliveryGuard: required · restrictDelivery: true · groupChat: deny · audienceText: template 等 12 项由 check.mjs 检查 —— 要打开只能显式改那一行并写理由', 7.25, 5.5, W - M - 7.5, 1.1, { size: 12, valign: 'middle', lsm: 1.2 })
 }
 
 // ── section 4 ────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -570,10 +570,11 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
 {
   const s = content(S4, '部署与配置：只写变量名，值放在环境里')
   const rows = [
-    ['<APP>_SERVICE_TOKEN · <APP>_BFF_SECRET', '服务令牌、BFF 密钥（生产必须设）'],
+    ['<APP>_SERVICE_TOKEN', 'DSH 调业务 API 的服务令牌（生产必须设）'],
+    ['<APP>_BFF_SECRET', '业务网页 BFF 的密钥（生产必须设）'],
     ['<APP>_WEB_URL', '业务网页的公开 URL（出处链接）'],
     ['<APP>_DATA_DIR', '设置插件的数据目录（git 忽略）'],
-    ['AGENT_SETTINGS_KEY', '主密钥：允许画面直接输入 key 时加密'],
+    ['AGENT_SETTINGS_KEY', '主密钥（32 字节）：画面直接保存 key 时加密'],
     ['AGENT_VECTOR_DB_URL', 'pgvector 连接（或传入自己的连接池）'],
     ['模型 key 的变量（名字自定）', '画面和 overlay 里只填变量名'],
     ['DSH_HOME', 'DSH 的隔离 home（不用个人的 ~/.dsh）'],
@@ -582,11 +583,11 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
   s.addTable([[{ text: '变量', options: hdr }, { text: '用途', options: hdr }], ...rows.map(([a, b], i) => [
     { text: a, options: { fontFace: 'Consolas', fontSize: 13, color: HEX.dk1, fill: { color: i % 2 ? 'FFFFFF' : HEX.lt2 } } },
     { text: b, options: { fontSize: 14, color: HEX.dk1, fill: { color: i % 2 ? 'FFFFFF' : HEX.lt2 } } },
-  ])], { x: M, y: 1.45, w: 8.2, colW: [3.9, 4.3], rowH: 0.56, border: { type: 'solid', color: 'E3E8EF', pt: 0.75 }, margin: [0.06, 0.12, 0.06, 0.12], valign: 'middle', objectName: id('table') })
+  ])], { x: M, y: 1.45, w: 8.2, colW: [3.9, 4.3], rowH: 0.52, border: { type: 'solid', color: 'E3E8EF', pt: 0.75 }, margin: [0.06, 0.12, 0.06, 0.12], valign: 'middle', objectName: id('table') })
   card(s, 9.15, 1.45, W - M - 9.15, 4.5, { fill: C.background2 })
   tile(s, 'rocket', 9.45, 1.75, 0.6)
   txt(s, '部署的形', 10.25, 1.78, 2.5, 0.55, { size: 18, bold: true, valign: 'middle' })
-  txt(s, bullets(['业务系统 + 业务网页 / BFF（含 DSH 网关）同源', 'DSH 单独进程，只在内网被网关访问', 'pgvector：业务的 PostgreSQL 加 vector 扩展', '.data、.env.local、.dsh-home*、.dsh-cli 不进 git'], { after: 8 }), 9.45, 2.6, W - M - 9.75, 3.3, { size: 13, lsm: 1.2 })
+  txt(s, bullets(['业务系统 + 业务网页 / BFF（含 DSH 网关）同源', 'DSH 单独进程，只在内网被网关访问；IM webhook 经网关的公开路径', 'pgvector：业务的 PostgreSQL 加 vector 扩展', '.data、.env.local、.dsh-home*、.dsh-cli 不进 git'], { after: 8 }), 9.45, 2.6, W - M - 9.75, 3.3, { size: 13, lsm: 1.2 })
 }
 
 {
@@ -617,11 +618,11 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
     ['conformance', 'test/conformance.test.mjs', '52 / 52，无 skip、无 known gap'],
     ['业务规则', 'test/app.test.mjs', '破坏一条规则时有测试失败'],
     ['知识的权限 · 无侧信道', 'test/knowledge.test.mjs', '结果都是提问者能看的；分数不变'],
-    ['K-01…K-08 · G-01…G-07', 'runKnowledgeChecks · runGraphChecks', '全部通过'],
+    ['K-01…K-08 · G-01…G-07', 'knowledge / graph.test.mjs', '全部通过'],
     ['评测', 'npm run evals', 'hit@3 ≥ 80 %，泄漏 0'],
     ['设置插件', 'test/agent-settings.test.mjs', '只给管理员；上传者不能批'],
     ['DSH profile', 'profile/scripts/check.mjs', '无错误'],
-    ['端到端 · 全仓库', 'npm run e2e · npm test', '全部 PASS · 0 失败'],
+    ['端到端 · 全仓库', 'npm run e2e · npm test', '15 项 PASS · 0 失败'],
   ]
   const hdr = { bold: true, color: 'FFFFFF', fill: { color: HEX.accent1 }, fontSize: 14 }
   s.addTable([[{ text: '检查', options: hdr }, { text: '命令 / 方法', options: hdr }, { text: '标准', options: hdr }], ...rows.map(([a, b, c], i) => {
@@ -632,7 +633,7 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
 
 {
   const s = content(S4, '维护：framework 在 framework 里改，再同步')
-  const flow = [['code', '在 framework 仓库改', '提交（工作区要干净）'], ['refresh', 'npm run sync-framework', '只拷已提交的文件，记下 commit'], ['terminal', 'npm install · vendor:install', '所有 @dsh-bridge/* 链接到仓库内'], ['check', 'npm test · npm run e2e', '0 失败，15 / 15']]
+  const flow = [['code', '在 framework 仓库改', '提交（拷贝范围要干净）'], ['refresh', 'npm run sync-framework', '只拷已提交的文件，记下 commit'], ['terminal', 'npm install · vendor:install', '所有 @dsh-bridge/* 链接到仓库内'], ['check', 'npm test · npm run e2e', '0 失败，15 / 15']]
   const cw = (W - 2 * M - 3 * 0.45) / 4
   flow.forEach(([ic, t, d], i) => {
     const x = M + i * (cw + 0.45)
@@ -642,18 +643,18 @@ sectionSlide(S4, 4, '部署与运维', '配置 · 安全规则 · 完成条件 �
     txt(s, d, x + 0.3, 3.3, cw - 0.6, 0.7, { size: 13, color: C.text2, lsm: 1.15 })
     if (i < 3) arrow(s, x + cw + 0.05, 2.85, x + cw + 0.4, 2.85, '818CF8')
   })
-  txt(s, bullets(['来源 commit 记在 framework.sync.json（当前 9a86b0f）；pnpm 的 workspace: 写法换成普通版本号', '在这边直接改拷贝过来的文件，下次同步会被覆盖', 'biz-ai-agent 自己的部分（knowledge、graph、agent-settings、示例、agent-builder、本手册）同步时不碰', '改了设置画面的源码：npm run build -w @dsh-bridge/agent-settings（dist/ 提交）'], { after: 8 }), M, 4.5, W - 2 * M, 2.2, { size: 15, lsm: 1.2 })
+  txt(s, bullets(['来源 commit 记在 framework.sync.json（当前 9a86b0f）；framework 公开版：ITC-cloud-soft/biz-ai', '在这边直接改拷贝过来的文件，下次同步会被覆盖', 'biz-ai-agent 自己的部分（knowledge、graph、agent-settings、示例、agent-builder、本手册）同步时不碰', '改了设置画面的源码：npm run build -w @dsh-bridge/agent-settings（dist/ 提交；日文包用 DSH_IM_JA 指定）'], { after: 8 }), M, 4.5, W - 2 * M, 2.2, { size: 15, lsm: 1.2 })
 }
 
 {
   const s = content(S4, '故障排查：最常见的六种')
   const rows = [
-    ['在 SNS 上只回"请先连携"', '在 /me/sns 发行连携码，单独聊天发「連携 123456」'],
-    ['审批卡片没到', '审批人没连携；审批人就是上传者；只有一个管理员 → 把经理加进审批角色'],
+    ['在 SNS 上只回连携的引导', '在 /me/sns 发行连携码，单独聊天发「連携 123456」（10 分钟有效）'],
+    ['审批卡片没到', '没有 DSH；审批人没连携；审批人就是上传者；只有一个管理员 → 把经理加进审批角色'],
     ['检索不到某个文档', '角色看不到（正常）；被个人信息检查拒绝；还没批准；看评测分数'],
     ['AI 回答里的链接不见了', '链接守卫删了：检查 linkGuard.webUrls 和 manifest 的 web.routes'],
-    ['RAG 退回了 BM25F', 'embedding 连接失败或 pgvector 连不上（AGENT_VECTOR_DB_URL）'],
-    ['e2e：DSH 启动超时', '残留的 DSH 进程或端口被占；内存不足时重跑'],
+    ['RAG 退回了 BM25F', 'embedding 连接失败、pgvector 连不上（AGENT_VECTOR_DB_URL）或应用里没装 pg'],
+    ['e2e 起不来', 'port … in use：结束上次的 e2e；DSH 启动超时：看 e2e/.work/dsh.log；Node 24.9+、pnpm'],
   ]
   rows.forEach(([a, b], i) => {
     const y = 1.45 + i * 0.86
