@@ -1,6 +1,6 @@
 # biz-ai-agent
 
-**公式サイト: [biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/)**
+**公式サイト: [biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/) · このプロジェクトのページ: [Biz AI Agent](https://biz-ai.myaiportal.net/biz-ai-agent.html)**
 
 [![Website biz-ai.myaiportal.net](https://img.shields.io/badge/website-biz--ai.myaiportal.net-0A66C2.svg)](https://biz-ai.myaiportal.net/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -45,7 +45,7 @@ WeCom、DingTalk、Feishu など 13 種類の SNS）で働く AI 社員のこと
 ルートで AI コーディングツールを開き、必要な業務を伝えれば、AI がこのフレームワークでエージェントを開発し、検証します。
 [`examples/equipment-loans`](examples/equipment-loans) は、AI がこのスキルだけに従ってゼロから作ったものです。
 
-**おすすめの進め方**
+**おすすめの進め方：先に開発、次に設定、最後にチャットで試す**（[公式サイトの同じ節](https://biz-ai.myaiportal.net/biz-ai-agent.html#order)）
 
 | 段階 | すること | 必要なもの |
 |---|---|---|
@@ -58,7 +58,7 @@ WeCom、DingTalk、Feishu など 13 種類の SNS）で働く AI 社員のこと
 
 設定画面 `/agent-settings` は段階 2 で作られる業務システムの一部（エージェントごとに 1 つ）なので、開発のあとに使います。開発用の
 文書はリポジトリの `knowledge/*.md` に置きます（評価と権限のテストがこれを使います）。画面からのアップロードは、公開後に管理者が
-追加するためのものです。
+追加するためのものです。モデルは開発の前には選びません（既定の検索 BM25F はモデル不要）。
 
 ### 1. スキルはリポジトリに入っています
 

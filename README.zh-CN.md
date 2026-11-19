@@ -1,6 +1,6 @@
 # biz-ai-agent
 
-**官方网站：[biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/)**
+**官方网站：[biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/) · 本项目介绍页：[Biz AI Agent](https://biz-ai.myaiportal.net/zh/biz-ai-agent.html)**
 
 [![Website biz-ai.myaiportal.net](https://img.shields.io/badge/website-biz--ai.myaiportal.net-0A66C2.svg)](https://biz-ai.myaiportal.net/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -43,7 +43,7 @@ SNS）里工作的 AI 员工：**以员工本人的权限**根据公司文档回
 **不用自己从零写 agent。** 仓库里带着 `agent-builder` skill：在仓库根目录打开 AI 编程工具，说出你需要的业务，AI 就用这个框架
 把 agent 开发出来并验证好。[`examples/equipment-loans`](examples/equipment-loans) 就是 AI 只按这个 skill 从零造出来的。
 
-**推荐的顺序**
+**推荐的顺序：先开发，再设置，最后在聊天里试**（[官网上的同一节](https://biz-ai.myaiportal.net/zh/biz-ai-agent.html#order)）
 
 | 步骤 | 做什么 | 需要什么 |
 |---|---|---|
@@ -55,7 +55,7 @@ SNS）里工作的 AI 员工：**以员工本人的权限**根据公司文档回
 | 5 | 像普通网站一样发布 | 正式的密钥和机器人 |
 
 管理端 `/agent-settings` 是第 2 步造出来的业务系统的一部分（每个 agent 一份），所以放在开发之后。开发用的文档放进仓库的
-`knowledge/*.md`（评测和权限测试都靠它们）；画面上传是上线后管理员追加文档用的。
+`knowledge/*.md`（评测和权限测试都靠它们）；画面上传是上线后管理员追加文档用的。开发前也不用选模型（默认的检索 BM25F 不需要模型）。
 
 ### 1. skill 已经在仓库里
 

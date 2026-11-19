@@ -1,6 +1,6 @@
 # biz-ai-agent
 
-**Official website: [biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/)**
+**Official website: [biz-ai.myaiportal.net](https://biz-ai.myaiportal.net/) · this project's page: [Biz AI Agent](https://biz-ai.myaiportal.net/en/biz-ai-agent.html)**
 
 [![Website biz-ai.myaiportal.net](https://img.shields.io/badge/website-biz--ai.myaiportal.net-0A66C2.svg)](https://biz-ai.myaiportal.net/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -47,7 +47,7 @@ Everything is in this repository:
 of the repository, describe the business you need, and the AI builds the agent with this framework and verifies it.
 [`examples/equipment-loans`](examples/equipment-loans) was built from scratch by an AI that followed only this skill.
 
-**The recommended order**
+**The recommended order: build first, then set it up, then try it on chat** ([on the website](https://biz-ai.myaiportal.net/en/biz-ai-agent.html#order))
 
 | step | what | needs |
 |---|---|---|
@@ -60,7 +60,7 @@ of the repository, describe the business you need, and the AI builds the agent w
 
 The settings screen `/agent-settings` is part of the system built in step 2 (one per agent), so it comes after development. Documents
 for development go in `knowledge/*.md` in git (the evals and permission tests depend on them); uploading on the screen is for
-administrators after go-live.
+administrators after go-live. No model is chosen before development: the default search, BM25F, needs none.
 
 ### 1. The skill is already in the repository
 
