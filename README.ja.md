@@ -44,6 +44,7 @@ WeCom、DingTalk、Feishu など 13 種類の SNS）で働く AI 社員のこと
 **エージェントをゼロから書く必要はありません。** このリポジトリには `agent-builder` スキルが入っています。リポジトリの
 ルートで AI コーディングツールを開き、必要な業務を伝えれば、AI がこのフレームワークでエージェントを開発し、検証します。
 [`examples/equipment-loans`](examples/equipment-loans) は、AI がこのスキルだけに従ってゼロから作ったものです。
+[`examples/expense-claims`](examples/expense-claims) も同じく AI が、誰も質問に答えない無人の条件で作りました。スキルが間違っていた・足りなかった・順番が悪かった 20 か所を [`SKILL_REPORT.md`](examples/expense-claims/SKILL_REPORT.md) にまとめています。
 
 **おすすめの進め方：先に開発、次に設定、最後にチャットで試す**（[公式サイトの同じ節](https://biz-ai.myaiportal.net/biz-ai-agent.html#order)）
 
@@ -172,7 +173,7 @@ flowchart LR
 | `plugins/` | ★ identity、tools、events、notify、approvals、assistant、memory、persona、reader · knowledge（ツールモジュール + 出典ガード）、graph（ツールモジュール） |
 | `profile/` | ★ DSH 製品プロファイルのテンプレート、インストーラ、チェッカー |
 | `vendor/` | ★ dsh-im（13 種類の SNS）、dsh-auto-tasks、dsh-proactive（MIT のフォーク。初回に `npm run vendor:install`） |
-| `examples/` | leave-requests-knowledge（参考実装）、equipment-loans（AI がスキルで作ったもの）· ★ leave-requests、equipment-inspection（テストに PostgreSQL が必要）、care-billing（manifest と対応表のみ） |
+| `examples/` | leave-requests-knowledge（参考実装）、equipment-loans（AI がスキルで作ったもの）、expense-claims（AI が無人で作ったもの。スキルの報告つき）· ★ leave-requests、equipment-inspection（テストに PostgreSQL が必要）、care-billing（manifest と対応表のみ） |
 | `skills/` | agent-builder（エージェントを作るスキル）· ★ biz-assistant-integration（既存システムにフレームワークを入れるスキル） |
 | `.claude/skills/`、`.agents/skills/` | Claude Code と Codex が agent-builder を読み込むための入口 |
 | `docs/` | マニュアル、設計、API · ★ GUIDELINE（日 / 英 / 中）、ARCHITECTURE など |

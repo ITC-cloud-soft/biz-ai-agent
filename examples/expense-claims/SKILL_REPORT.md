@@ -1,5 +1,8 @@
 # Skill report: building examples/expense-claims with skills/agent-builder
 
+> **Follow-up (2026-11-16):** the skill was corrected from this report in commit `d6a666e` ("agent-builder: what a fresh agent hit
+> building an agent from the skill"). The report below is kept as it was written, against biz-ai-agent `a569a34`.
+
 An unattended trial: an agent built a new AI agent system (expense claims, 経費精算) from `skills/agent-builder/SKILL.md` alone, on
 branch `trial/expense-claims` of biz-ai-agent a569a34 (Windows 11, Node 24.19.0, npm 11.17.0, Git for Windows with
 `core.autocrlf=true`). Nobody could be asked: every "ask" took the skill's default and is marked "to confirm" in `AGENT_PLAN.md`.

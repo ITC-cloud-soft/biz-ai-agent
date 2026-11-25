@@ -42,6 +42,7 @@ SNS）里工作的 AI 员工：**以员工本人的权限**根据公司文档回
 
 **不用自己从零写 agent。** 仓库里带着 `agent-builder` skill：在仓库根目录打开 AI 编程工具，说出你需要的业务，AI 就用这个框架
 把 agent 开发出来并验证好。[`examples/equipment-loans`](examples/equipment-loans) 就是 AI 只按这个 skill 从零造出来的。
+[`examples/expense-claims`](examples/expense-claims) 也是 AI 造的，而且是在没人回答它提问的无人条件下完成的；skill 说错、漏写、顺序不对的 20 处都写在 [`SKILL_REPORT.md`](examples/expense-claims/SKILL_REPORT.md) 里。
 
 **推荐的顺序：先开发，再设置，最后在聊天里试**（[官网上的同一节](https://biz-ai.myaiportal.net/zh/biz-ai-agent.html#order)）
 
@@ -164,7 +165,7 @@ flowchart LR
 | `plugins/` | ★ identity、tools、events、notify、approvals、assistant、memory、persona、reader · knowledge（工具模块 + 出处守卫）、graph（工具模块） |
 | `profile/` | ★ DSH 产品 profile 模板、安装和检查脚本 |
 | `vendor/` | ★ dsh-im（13 种 SNS）、dsh-auto-tasks、dsh-proactive（MIT 的 fork；第一次 `npm run vendor:install`） |
-| `examples/` | leave-requests-knowledge（参考实现）、equipment-loans（AI 用 skill 造的）· ★ leave-requests、equipment-inspection（测试要 PostgreSQL）、care-billing（只有 manifest 和对照表） |
+| `examples/` | leave-requests-knowledge（参考实现）、equipment-loans（AI 用 skill 造的）、expense-claims（AI 无人值守造的，附 skill 报告）· ★ leave-requests、equipment-inspection（测试要 PostgreSQL）、care-billing（只有 manifest 和对照表） |
 | `skills/` | agent-builder（造 agent 的 skill）· ★ biz-assistant-integration（把框架接入已有系统的 skill） |
 | `.claude/skills/`、`.agents/skills/` | 让 Claude Code 和 Codex 加载 agent-builder 的入口 |
 | `docs/` | 手册、设计、API · ★ GUIDELINE（日 / 英 / 中）、ARCHITECTURE 等 |

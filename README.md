@@ -45,7 +45,9 @@ Everything is in this repository:
 
 **You do not write the agent from scratch.** This repository ships the `agent-builder` skill: open an AI coding tool at the root
 of the repository, describe the business you need, and the AI builds the agent with this framework and verifies it.
-[`examples/equipment-loans`](examples/equipment-loans) was built from scratch by an AI that followed only this skill.
+[`examples/equipment-loans`](examples/equipment-loans) was built from scratch by an AI that followed only this skill, and so was
+[`examples/expense-claims`](examples/expense-claims) — in an unattended trial where nobody answered its questions. Its
+[`SKILL_REPORT.md`](examples/expense-claims/SKILL_REPORT.md) lists the 20 places where the skill was wrong, missing or out of order.
 
 **The recommended order: build first, then set it up, then try it on chat** ([on the website](https://biz-ai.myaiportal.net/en/biz-ai-agent.html#order))
 
@@ -176,7 +178,7 @@ flowchart LR
 | `plugins/` | ★ identity, tools, events, notify, approvals, assistant, memory, persona, reader · knowledge (tool module + citation guard), graph (tool module) |
 | `profile/` | ★ the DSH product profile template, installer and checker |
 | `vendor/` | ★ dsh-im (13 SNS), dsh-auto-tasks, dsh-proactive (MIT forks; `npm run vendor:install` once) |
-| `examples/` | leave-requests-knowledge (the reference implementation), equipment-loans (built by an AI with the skill) · ★ leave-requests, equipment-inspection (its tests need PostgreSQL), care-billing (manifest and mapping only) |
+| `examples/` | leave-requests-knowledge (the reference implementation), equipment-loans (built by an AI with the skill), expense-claims (built by an AI unattended, with its skill report) · ★ leave-requests, equipment-inspection (its tests need PostgreSQL), care-billing (manifest and mapping only) |
 | `skills/` | agent-builder (the skill for building agents) · ★ biz-assistant-integration (bringing the framework into an existing system) |
 | `.claude/skills/`, `.agents/skills/` | entry points so Claude Code and Codex load agent-builder |
 | `docs/` | the manual, designs and APIs · ★ GUIDELINE (ja / en / zh), ARCHITECTURE … |
