@@ -209,3 +209,5 @@ interfaces take any OpenAI-compatible or Azure OpenAI endpoint that the owner pi
 [Apache License 2.0](LICENSE) — see also [`NOTICE`](NOTICE). The forks in `vendor/` keep their upstream licenses (MIT).
 
 Official website: https://biz-ai.myaiportal.net/
+
+Want help connecting your own business system? We offer a free 30-minute AI-readiness assessment: https://biz-ai.myaiportal.net/en/diagnosis.html?utm_source=github&utm_medium=referral&utm_campaign=readme&utm_content=biz-ai-agent

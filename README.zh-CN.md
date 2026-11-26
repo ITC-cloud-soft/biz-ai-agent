@@ -196,3 +196,5 @@ Azure OpenAI 端点。
 [Apache License 2.0](LICENSE) —— 另见 [`NOTICE`](NOTICE)。`vendor/` 里的 fork 保留上游的许可证（MIT）。
 
 官方网站：https://biz-ai.myaiportal.net/
+
+想把你们自己的业务系统接上 AI？我们提供 30 分钟的免费 AI 化诊断：https://biz-ai.myaiportal.net/zh/diagnosis.html?utm_source=github&utm_medium=referral&utm_campaign=readme&utm_content=biz-ai-agent

@@ -204,3 +204,5 @@ flowchart LR
 [Apache License 2.0](LICENSE) — [`NOTICE`](NOTICE) も参照。`vendor/` のフォークは上流のライセンス（MIT）のままです。
 
 公式サイト: https://biz-ai.myaiportal.net/
+
+自社の業務システムに AI をつなぐ支援もしています。30 分の無料「既存システム AI 化診断」：https://biz-ai.myaiportal.net/diagnosis.html?utm_source=github&utm_medium=referral&utm_campaign=readme&utm_content=biz-ai-agent
