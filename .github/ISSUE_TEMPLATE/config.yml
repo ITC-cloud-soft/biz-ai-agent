@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas / 質問・アイデア
+    url: https://github.com/ITC-cloud-soft/biz-ai-agent/discussions
+    about: How do I…? Is this a good fit? Show what you built. / 使い方の質問、向いているかの相談、作ったものの紹介はこちら
+  - name: Security vulnerability / 脆弱性の報告
+    url: https://github.com/ITC-cloud-soft/biz-ai-agent/security/advisories/new
+    about: Report privately, never in a public issue. / 公開の issue ではなく、非公開で報告してください

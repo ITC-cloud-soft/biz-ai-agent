@@ -28,6 +28,8 @@ WeCom、DingTalk、Feishu など 13 種類の SNS）で働く AI 社員のこと
 | **Biz Assistant Framework**（[biz-ai](https://github.com/ITC-cloud-soft/biz-ai) から取り込み。パッケージ `@dsh-bridge/*`、フォーク `@care/*`） | 業務システム側の Bridge v1 と server-kit。DSH（DeepSeek Harness）上の AI 面：SNS の本人連携と連携コード、業務ツール、イベント、通知、承認、長期記憶、AI 社員のプロフィール、文書読み取り、Web アシスタント。13 種類の SNS の IM ゲートウェイ dsh-im。web-kit。DSH ゲートウェイ。製品プロファイル。テストツール |
 | **エージェント層**（このリポジトリ独自） | 権限を守る**ナレッジ**（質問者の権限で検索し、出典は業務画面）、**グラフ**（「なぜ自分に届いたのか」）、**設定プラグイン** `/agent-settings`（モデル、文書、検索方式 BM25F / RAG / ナレッジグラフ、SNS の承認と報告）、社員本人の SNS 連携ページ `/me/sns`、サインイン画面、2 つのサンプルシステム、**agent-builder スキル** |
 
+**モデルは選べます。** DeepSeek は既定値にすぎません。会話のモデルは DSH の Models 画面で、OpenAI・Azure OpenAI・Anthropic・DeepSeek・OpenAI 互換のゲートウェイ・自社で動かすサーバー（vLLM など）から選べます（DSH に同梱の `dsh-llm-pi-ai` アダプター）。既定の検索（BM25F）はモデルを使いません。RAG とナレッジグラフは、OpenAI 互換または Azure OpenAI のエンドポイントを使えます。
+
 ## 基本の考え方
 
 - **エージェントはまず普通の IT システム。** データ、ロール、誰が何を見られるか、誰が決めるかは業務システムが持ちます。
@@ -133,6 +135,8 @@ npm run vendor:install      # 初回のみ：vendor のフォークの依存
 npm test                    # すべてのパッケージ、プラグイン、サンプル：約 900 テスト、失敗 0（PostgreSQL / MySQL がないと少し skip）
 npm run e2e                 # 本物の DSH + 模擬モデル + 模擬 LINE でパイロットを実行：15 / 15 PASS
 ```
+
+**手元の準備なしで：** [GitHub Codespaces で開く](https://codespaces.new/ITC-cloud-soft/biz-ai-agent)と、dev container が Node 24 と pnpm を用意し、`npm install` と `npm run vendor:install` まで済ませます。あとは `npm test` と `npm run e2e` です。
 
 最初の `npm run e2e` は固定版の DSH CLI を `.dsh-cli/` に入れます（公開 npm レジストリから約 900 MB、git 対象外）。グローバルに
 入れた DSH には触れません。`npm run e2e -- --serve` は終わった後も動かし続けます：`http://127.0.0.1:19751/login` を開きます

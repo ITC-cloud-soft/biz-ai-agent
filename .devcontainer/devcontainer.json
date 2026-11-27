@@ -1,0 +1,12 @@
+{
+  // GitHub Codespaces / VS Code Dev Containers: Node 24 (the pinned DSH CLI needs 24.9+) and pnpm for the end-to-end run.
+  // No database and no API key are needed: `npm test` and `npm run e2e` use mocks.
+  "name": "biz-ai-agent",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
+  "postCreateCommand": "sudo corepack enable pnpm && npm install && npm run vendor:install",
+  "postAttachCommand": "echo 'Ready: run  npm test  then  npm run e2e  (the first e2e installs the DSH CLI, about 900 MB)'",
+  "forwardPorts": [19750, 19751],
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] }
+  }
+}

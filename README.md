@@ -29,6 +29,8 @@ Everything is in this repository:
 | **Biz Assistant Framework** (copied in from [biz-ai](https://github.com/ITC-cloud-soft/biz-ai); packages `@dsh-bridge/*`, forks `@care/*`) | Bridge v1 and server-kit for the business system; the AI plane on DSH (DeepSeek Harness): SNS identity and link codes, business tools, events, notifications, approvals, long-term memory, the AI employee's profile, document reading, the web assistant; dsh-im, the IM gateway for 13 SNS; web-kit; the DSH gateway; the product profile; the test harness |
 | **agent layer** (this repository's own) | permission-aware **knowledge** (search with the asker's rights, sources on the business screens), the **graph** ("why did this reach me?"), the **settings plugin** `/agent-settings` (models, documents, search method BM25F / RAG / knowledge graph, SNS approvals and reports), the employee's SNS link page `/me/sns`, the sign-in page, two example systems and the **agent-builder skill** |
 
+**Models: your choice.** DeepSeek is only the default. The conversation model is set on DSH's Models page: OpenAI, Azure OpenAI, Anthropic, DeepSeek, any OpenAI-compatible gateway or a self-hosted server (vLLM and the like), through the `dsh-llm-pi-ai` adapter that ships with DSH. The default search (BM25F) needs no model; RAG and the knowledge graph take any OpenAI-compatible or Azure OpenAI endpoint.
+
 ## Core ideas
 
 - **An agent is first an ordinary IT system.** The business system owns the data, the roles, who sees what and who decides. No
@@ -138,6 +140,8 @@ npm run vendor:install      # once: the vendor forks' own dependencies
 npm test                    # every package, plugin and example: about 900 tests, 0 fail (a few skip without PostgreSQL / MySQL)
 npm run e2e                 # the pilot on a REAL DSH with a mock model and a mock LINE: 15 / 15 PASS
 ```
+
+**No local setup:** [open it in GitHub Codespaces](https://codespaces.new/ITC-cloud-soft/biz-ai-agent) — the dev container brings Node 24 and pnpm and runs `npm install` and `npm run vendor:install`; then `npm test` and `npm run e2e`.
 
 The first `npm run e2e` installs the pinned DSH CLI into `.dsh-cli/` (about 900 MB from the public npm registry, git-ignored); a
 DSH you installed globally is not touched. `npm run e2e -- --serve` keeps everything running afterwards: open

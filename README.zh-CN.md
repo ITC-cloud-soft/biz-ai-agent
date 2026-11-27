@@ -28,6 +28,8 @@ SNS）里工作的 AI 员工：**以员工本人的权限**根据公司文档回
 | **Biz Assistant Framework**（从 [biz-ai](https://github.com/ITC-cloud-soft/biz-ai) 拷入；包名 `@dsh-bridge/*`，fork 为 `@care/*`） | 业务系统一侧的 Bridge v1 和 server-kit；DSH（DeepSeek Harness）上的 AI 面：SNS 身份连携和连携码、业务工具、事件、通知、审批、长期记忆、AI 员工资料、文档读取、Web 助手；13 种 SNS 的 IM 网关 dsh-im；web-kit；DSH 网关；产品 profile；测试工具 |
 | **agent 层**（本仓库自己的） | 按权限的**知识**（以提问者的权限检索，出处是业务画面）、**图谱**（"这件事为什么发给我？"）、**设置插件** `/agent-settings`（模型、文档、检索方式 BM25F / RAG / 知识图谱、SNS 审批和报告）、员工本人的 SNS 连携页 `/me/sns`、登录页、两个示例系统和 **agent-builder skill** |
 
+**模型可以自己选。** DeepSeek 只是默认值。对话模型在 DSH 的 Models 页面设置，可选 OpenAI、Azure OpenAI、Anthropic、DeepSeek、OpenAI 兼容网关或自建服务器（vLLM 等），由 DSH 自带的 `dsh-llm-pi-ai` 适配器连接。默认的检索（BM25F）不用模型；RAG 和知识图谱可以接任何 OpenAI 兼容或 Azure OpenAI 端点。
+
 ## 核心思想
 
 - **agent 首先是一个普通的 IT 系统。** 数据、角色、谁能看什么、谁来决定，都在业务系统里。没有拖拽式的流程编辑器：流程是代码，
@@ -128,6 +130,8 @@ npm run vendor:install      # 第一次：vendor 里 fork 的依赖
 npm test                    # 全部包、插件、示例：约 900 个测试，0 失败（没有 PostgreSQL / MySQL 时有几个 skip）
 npm run e2e                 # 在真实 DSH + 假模型 + 假 LINE 上跑试点：15 / 15 PASS
 ```
+
+**不想在本机准备环境：** [在 GitHub Codespaces 里打开](https://codespaces.new/ITC-cloud-soft/biz-ai-agent)，dev container 会装好 Node 24 和 pnpm，并执行 `npm install` 和 `npm run vendor:install`；之后运行 `npm test` 和 `npm run e2e`。
 
 第一次 `npm run e2e` 会把固定版本的 DSH CLI 装进 `.dsh-cli/`（从公共 npm 仓库下载，约 900 MB，git 忽略），不会碰你全局安装的 DSH。
 `npm run e2e -- --serve` 跑完后不退出：打开 `http://127.0.0.1:19751/login`（密码在 `e2e/.work/serve.txt`）。

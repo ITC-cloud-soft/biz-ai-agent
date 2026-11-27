@@ -1,0 +1,41 @@
+name: agent-builder skill report / skill の報告
+description: The agent-builder skill was wrong, missing or out of order while you built an agent. / agent-builder skill の間違い・抜け・順番の問題
+labels: [skill]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful feedback we can get. See examples/expense-claims/SKILL_REPORT.md for the format we use ourselves.
+        いちばん役に立つフィードバックです。私たち自身の書き方は examples/expense-claims/SKILL_REPORT.md を見てください。
+  - type: input
+    id: business
+    attributes:
+      label: What you asked the AI to build / AI に作らせたもの
+      placeholder: "e.g. equipment loans for a 30-person office / 例：30 人の事務所の備品貸出"
+    validations:
+      required: true
+  - type: dropdown
+    id: tool
+    attributes:
+      label: AI coding tool / AI コーディングツール
+      options:
+        - Claude Code
+        - Codex
+        - Other / その他
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where the skill was wrong, missing or out of order / skill のどこが問題だったか
+      description: The file and step (e.g. references/03, step 4), what the AI did, and what it should have done. / ファイルと手順、AI がしたこと、本来どうすべきだったか
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Did the agent work in the end? / 最終的に動きましたか
+      options:
+        - "Yes, tests and e2e pass / はい、テストと e2e が通った"
+        - "Partly / 一部"
+        - "No / いいえ"

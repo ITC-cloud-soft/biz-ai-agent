@@ -1,0 +1,38 @@
+name: Bug report / バグ報告
+description: Something does not work as documented. / ドキュメントどおりに動かない
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please use fictional data only — no real names, customer data, keys or tokens.
+        報告ありがとうございます。実在の氏名・顧客データ・キー・トークンは書かず、架空のデータで書いてください。
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / 起きたこと
+      description: What you did, what you expected, what happened instead. / 何をして、何を期待し、実際どうなったか
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce / 再現手順
+      placeholder: |
+        1. npm install
+        2. npm run e2e
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or logs / 出力・ログ
+      render: text
+  - type: input
+    id: env
+    attributes:
+      label: Environment / 環境
+      placeholder: "OS, Node version, npm version, commit or release (e.g. Windows 11, Node 24.9, npm 11, v0.1.0)"
+    validations:
+      required: true
